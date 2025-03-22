@@ -1,0 +1,512 @@
+{% extends 'base.html' %}
+
+{% block title %}爬虫管理 - 财经新闻爬虫系统{% endblock %}
+
+{% block content %}
+<div class="crawler-container">
+    <h1 class="page-title">爬虫管理</h1>
+    
+    <!-- 爬虫状态卡片 -->
+    <div class="status-cards">
+        <div class="status-card">
+            <div class="status-icon running">
+                <i class="fas fa-sync-alt fa-spin"></i>
+            </div>
+            <div class="status-info">
+                <h3>运行中的爬虫</h3>
+                <div class="status-value">2</div>
+            </div>
+        </div>
+        
+        <div class="status-card">
+            <div class="status-icon idle">
+                <i class="fas fa-pause"></i>
+            </div>
+            <div class="status-info">
+                <h3>空闲爬虫</h3>
+                <div class="status-value">3</div>
+            </div>
+        </div>
+        
+        <div class="status-card">
+            <div class="status-icon total">
+                <i class="fas fa-spider"></i>
+            </div>
+            <div class="status-info">
+                <h3>总爬虫数</h3>
+                <div class="status-value">5</div>
+            </div>
+        </div>
+        
+        <div class="status-card">
+            <div class="status-icon articles">
+                <i class="fas fa-newspaper"></i>
+            </div>
+            <div class="status-info">
+                <h3>今日爬取文章</h3>
+                <div class="status-value">127</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 爬虫列表 -->
+    <div class="crawler-list-container">
+        <div class="crawler-header">
+            <h2>爬虫列表</h2>
+            <button class="add-crawler-btn">
+                <i class="fas fa-plus"></i> 添加爬虫
+            </button>
+        </div>
+        
+        <div class="crawler-list">
+            <div class="crawler-item">
+                <div class="crawler-info">
+                    <div class="crawler-name">新浪财经爬虫</div>
+                    <div class="crawler-url">https://finance.sina.com.cn</div>
+                    <div class="crawler-schedule">每30分钟运行一次</div>
+                </div>
+                <div class="crawler-status running">运行中</div>
+                <div class="crawler-actions">
+                    <button class="action-btn stop-btn" title="停止爬虫">
+                        <i class="fas fa-stop"></i>
+                    </button>
+                    <button class="action-btn edit-btn" title="编辑爬虫">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete-btn" title="删除爬虫">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="crawler-item">
+                <div class="crawler-info">
+                    <div class="crawler-name">东方财富爬虫</div>
+                    <div class="crawler-url">https://www.eastmoney.com</div>
+                    <div class="crawler-schedule">每小时运行一次</div>
+                </div>
+                <div class="crawler-status running">运行中</div>
+                <div class="crawler-actions">
+                    <button class="action-btn stop-btn" title="停止爬虫">
+                        <i class="fas fa-stop"></i>
+                    </button>
+                    <button class="action-btn edit-btn" title="编辑爬虫">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete-btn" title="删除爬虫">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="crawler-item">
+                <div class="crawler-info">
+                    <div class="crawler-name">腾讯财经爬虫</div>
+                    <div class="crawler-url">https://finance.qq.com</div>
+                    <div class="crawler-schedule">每2小时运行一次</div>
+                </div>
+                <div class="crawler-status idle">空闲</div>
+                <div class="crawler-actions">
+                    <button class="action-btn start-btn" title="启动爬虫">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="action-btn edit-btn" title="编辑爬虫">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete-btn" title="删除爬虫">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="crawler-item">
+                <div class="crawler-info">
+                    <div class="crawler-name">网易财经爬虫</div>
+                    <div class="crawler-url">https://money.163.com</div>
+                    <div class="crawler-schedule">每天运行一次</div>
+                </div>
+                <div class="crawler-status idle">空闲</div>
+                <div class="crawler-actions">
+                    <button class="action-btn start-btn" title="启动爬虫">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="action-btn edit-btn" title="编辑爬虫">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete-btn" title="删除爬虫">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="crawler-item">
+                <div class="crawler-info">
+                    <div class="crawler-name">凤凰财经爬虫</div>
+                    <div class="crawler-url">https://finance.ifeng.com</div>
+                    <div class="crawler-schedule">每3小时运行一次</div>
+                </div>
+                <div class="crawler-status idle">空闲</div>
+                <div class="crawler-actions">
+                    <button class="action-btn start-btn" title="启动爬虫">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="action-btn edit-btn" title="编辑爬虫">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete-btn" title="删除爬虫">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 爬虫日志 -->
+    <div class="crawler-logs">
+        <h2>爬虫日志</h2>
+        <div class="log-container">
+            <div class="log-entry">
+                <span class="log-time">2023-06-15 14:30:12</span>
+                <span class="log-level info">INFO</span>
+                <span class="log-message">新浪财经爬虫开始运行</span>
+            </div>
+            <div class="log-entry">
+                <span class="log-time">2023-06-15 14:32:45</span>
+                <span class="log-level success">SUCCESS</span>
+                <span class="log-message">新浪财经爬虫成功爬取了32篇文章</span>
+            </div>
+            <div class="log-entry">
+                <span class="log-time">2023-06-15 15:00:00</span>
+                <span class="log-level info">INFO</span>
+                <span class="log-message">东方财富爬虫开始运行</span>
+            </div>
+            <div class="log-entry">
+                <span class="log-time">2023-06-15 15:05:23</span>
+                <span class="log-level error">ERROR</span>
+                <span class="log-message">东方财富爬虫遇到网络错误，正在重试</span>
+            </div>
+            <div class="log-entry">
+                <span class="log-time">2023-06-15 15:06:12</span>
+                <span class="log-level success">SUCCESS</span>
+                <span class="log-message">东方财富爬虫成功爬取了45篇文章</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .crawler-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: var(--spacing-md);
+    }
+    
+    .page-title {
+        font-size: var(--font-size-xl);
+        margin-bottom: var(--spacing-lg);
+        color: var(--text-primary);
+    }
+    
+    /* 状态卡片 */
+    .status-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+    }
+    
+    .status-card {
+        background-color: white;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        padding: var(--spacing-md);
+        display: flex;
+        align-items: center;
+    }
+    
+    .status-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: var(--spacing-md);
+        font-size: 24px;
+        color: white;
+    }
+    
+    .status-icon.running { background-color: var(--primary-500); }
+    .status-icon.idle { background-color: var(--neutral-400); }
+    .status-icon.total { background-color: var(--info); }
+    .status-icon.articles { background-color: var(--success); }
+    
+    .status-info h3 {
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .status-value {
+        font-size: var(--font-size-xl);
+        font-weight: bold;
+        color: var(--text-primary);
+    }
+    
+    /* 爬虫列表 */
+    .crawler-list-container {
+        background-color: white;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        padding: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+    }
+    
+    .crawler-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--spacing-md);
+        padding-bottom: var(--spacing-md);
+        border-bottom: 1px solid var(--neutral-100);
+    }
+    
+    .crawler-header h2 {
+        font-size: var(--font-size-lg);
+        color: var(--text-primary);
+    }
+    
+    .add-crawler-btn {
+        background-color: var(--primary-500);
+        color: white;
+        border: none;
+        border-radius: var(--radius-sm);
+        padding: var(--spacing-sm) var(--spacing-md);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        transition: background-color 0.2s;
+    }
+    
+    .add-crawler-btn:hover {
+        background-color: var(--primary-600);
+    }
+    
+    .crawler-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+    
+    .crawler-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--spacing-md);
+        border-radius: var(--radius-sm);
+        background-color: var(--neutral-50);
+        transition: background-color 0.2s;
+    }
+    
+    .crawler-item:hover {
+        background-color: var(--neutral-100);
+    }
+    
+    .crawler-info {
+        flex: 1;
+    }
+    
+    .crawler-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .crawler-url, .crawler-schedule {
+        font-size: var(--font-size-xs);
+        color: var(--text-secondary);
+    }
+    
+    .crawler-status {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: var(--radius-sm);
+        font-size: var(--font-size-xs);
+        font-weight: 500;
+        margin-right: var(--spacing-md);
+    }
+    
+    .crawler-status.running {
+        background-color: var(--primary-100);
+        color: var(--primary-700);
+    }
+    
+    .crawler-status.idle {
+        background-color: var(--neutral-100);
+        color: var(--neutral-500);
+    }
+    
+    .crawler-actions {
+        display: flex;
+        gap: var(--spacing-sm);
+    }
+    
+    .action-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .start-btn {
+        background-color: var(--success);
+        color: white;
+    }
+    
+    .stop-btn {
+        background-color: var(--error);
+        color: white;
+    }
+    
+    .edit-btn {
+        background-color: var(--info);
+        color: white;
+    }
+    
+    .delete-btn {
+        background-color: var(--neutral-300);
+        color: white;
+    }
+    
+    .action-btn:hover {
+        opacity: 0.9;
+    }
+    
+    /* 爬虫日志 */
+    .crawler-logs {
+        background-color: white;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        padding: var(--spacing-md);
+    }
+    
+    .crawler-logs h2 {
+        font-size: var(--font-size-lg);
+        color: var(--text-primary);
+        margin-bottom: var(--spacing-md);
+        padding-bottom: var(--spacing-md);
+        border-bottom: 1px solid var(--neutral-100);
+    }
+    
+    .log-container {
+        max-height: 300px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: var(--font-size-sm);
+    }
+    
+    .log-entry {
+        padding: var(--spacing-sm);
+        border-bottom: 1px solid var(--neutral-100);
+    }
+    
+    .log-entry:last-child {
+        border-bottom: none;
+    }
+    
+    .log-time {
+        color: var(--text-tertiary);
+        margin-right: var(--spacing-sm);
+    }
+    
+    .log-level {
+        display: inline-block;
+        width: 70px;
+        text-align: center;
+        padding: 2px 4px;
+        border-radius: 3px;
+        margin-right: var(--spacing-sm);
+        font-weight: 500;
+    }
+    
+    .log-level.info {
+        background-color: var(--info);
+        color: white;
+    }
+    
+    .log-level.success {
+        background-color: var(--success);
+        color: white;
+    }
+    
+    .log-level.error {
+        background-color: var(--error);
+        color: white;
+    }
+    
+    .log-message {
+        color: var(--text-primary);
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .status-cards {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .crawler-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .crawler-status {
+            margin: var(--spacing-sm) 0;
+        }
+        
+        .crawler-actions {
+            align-self: flex-end;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .status-cards {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 添加爬虫按钮点击事件
+        const addCrawlerBtn = document.querySelector('.add-crawler-btn');
+        if (addCrawlerBtn) {
+            addCrawlerBtn.addEventListener('click', function() {
+                alert('添加爬虫功能即将上线');
+            });
+        }
+        
+        // 爬虫操作按钮点击事件
+        const actionBtns = document.querySelectorAll('.action-btn');
+        actionBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const action = this.classList.contains('start-btn') ? '启动' :
+                               this.classList.contains('stop-btn') ? '停止' :
+                               this.classList.contains('edit-btn') ? '编辑' : '删除';
+                               
+                const crawlerName = this.closest('.crawler-item').querySelector('.crawler-name').textContent;
+                
+                alert(`${action}爬虫: ${crawlerName}`);
+            });
+        });
+    });
+</script>
+{% endblock %} 

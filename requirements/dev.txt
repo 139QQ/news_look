@@ -1,0 +1,25 @@
+# 开发环境依赖
+-r base.txt
+
+# 代码质量工具
+pylint>=2.15.0
+black>=22.3.0
+mypy>=0.950
+isort>=5.10.0
+flake8>=4.0.1
+
+# 文档工具
+sphinx>=4.5.0
+sphinx-rtd-theme>=1.0.0
+
+# 调试工具
+ipython>=8.0.0
+jupyter>=1.0.0
+
+# 性能分析
+memory-profiler>=0.60.0
+line-profiler>=3.5.1
+
+# 开发工具
+pre-commit>=2.20.0
+pytest-cov>=3.0.0 

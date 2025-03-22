@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="财经新闻爬虫系统 - 自动爬取、分析和展示财经新闻的综合平台">
+    <title>{% block title %}财经新闻爬虫系统{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/variables.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pagination.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- 跳过导航链接 - 用于键盘用户 -->
+    <a href="#main-content" class="skip-link">跳到主要内容</a>
+    
+    <!-- 加载状态指示器 -->
+    <div class="loader-container" id="loader">
+        <div class="loader"></div>
+    </div>
+    
+    <!-- 头部导航 -->
+    <header class="header" role="banner">
+        <div class="header-container">
+            <div class="logo">财经新闻爬虫系统</div>
+            <nav role="navigation" aria-label="主导航">
+                <ul class="nav-menu">
+                    <li><a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}" {% if request.endpoint == 'index' %}aria-current="page"{% endif %}>首页</a></li>
+                    <li><a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}" {% if request.endpoint == 'dashboard' %}aria-current="page"{% endif %}>数据统计</a></li>
+                    <li><a href="{{ url_for('crawler') }}" class="{% if request.endpoint == 'crawler' %}active{% endif %}" {% if request.endpoint == 'crawler' %}aria-current="page"{% endif %}>爬虫管理</a></li>
+                    <li><a href="{{ url_for('feedback') }}" class="{% if request.endpoint == 'feedback' %}active{% endif %}" {% if request.endpoint == 'feedback' %}aria-current="page"{% endif %}>用户反馈</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- 主要内容区域 -->
+    <main id="main-content" class="container" role="main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- 主题切换按钮 -->
+    <button class="theme-toggle" id="theme-toggle" aria-label="切换主题模式">
+        <i class="fas fa-moon"></i>
+    </button>
+
+    <!-- 页脚 -->
+    <footer role="contentinfo">
+        <div class="container">
+            <p>&copy; {{ now.year }} 财经新闻爬虫系统 | 版本 1.0.0</p>
+            <p>更新时间: {{ now.strftime('%Y-%m-%d') }}</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 

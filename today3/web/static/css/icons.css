@@ -1,0 +1,71 @@
+@font-face {
+  font-family: 'finance-icons';
+  src: url('../fonts/finance-icons.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+[class^="icon-"], [class*=" icon-"] {
+  font-family: 'Font Awesome 6 Free' !important;
+  speak: never;
+  font-style: normal;
+  font-weight: 900;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 使用Font Awesome图标替代自定义图标 */
+.icon-search:before {
+  content: "\f002"; /* 搜索图标 */
+}
+
+.icon-calendar:before {
+  content: "\f133"; /* 日历图标 */
+}
+
+.icon-source:before {
+  content: "\f1ea"; /* 报纸图标 */
+}
+
+.icon-sentiment:before {
+  content: "\f201"; /* 图表图标 */
+}
+
+.icon-keyword:before {
+  content: "\f002"; /* 搜索图标 */
+}
+
+.icon-filter:before {
+  content: "\f0b0"; /* 过滤器图标 */
+}
+
+.icon-time:before {
+  content: "\f017"; /* 时钟图标 */
+}
+
+.icon-menu:before {
+  content: "\f0c9"; /* 菜单图标 */
+}
+
+.icon-close:before {
+  content: "\f00d"; /* 关闭图标 */
+}
+
+.icon-arrow-down:before {
+  content: "\f107"; /* 向下箭头 */
+}
+
+.icon-arrow-up:before {
+  content: "\f106"; /* 向上箭头 */
+}
+
+.icon-arrow-right:before {
+  content: "\f105"; /* 向右箭头 */
+}
+
+.icon-arrow-left:before {
+  content: "\f104"; /* 向左箭头 */
+} 

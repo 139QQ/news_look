@@ -1,0 +1,105 @@
+/* 全局样式 */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    color: #333;
+}
+
+/* 导航栏样式 */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+/* 卡片样式 */
+.card {
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-bottom: 15px;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 新闻列表样式 */
+.news-card {
+    border-left: 4px solid #007bff;
+}
+
+.news-card .card-title {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.news-card .card-title a {
+    color: #333;
+}
+
+.news-card .card-title a:hover {
+    color: #007bff;
+}
+
+.news-meta {
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+/* 新闻详情页样式 */
+.news-detail-title {
+    font-size: 1.8rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.news-detail-content {
+    font-size: 1.1rem;
+    line-height: 1.8;
+}
+
+.news-images .card {
+    overflow: hidden;
+}
+
+.news-images img {
+    transition: transform 0.3s;
+    object-fit: cover;
+    height: 200px;
+}
+
+.news-images .card:hover img {
+    transform: scale(1.05);
+}
+
+/* 分页样式 */
+.pagination {
+    margin-top: 2rem;
+}
+
+/* 页脚样式 */
+.footer {
+    margin-top: 3rem;
+    padding: 1.5rem 0;
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .news-detail-title {
+        font-size: 1.5rem;
+    }
+    
+    .news-images .col-md-4 {
+        margin-bottom: 1rem;
+    }
+}

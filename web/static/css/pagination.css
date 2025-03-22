@@ -1,0 +1,70 @@
+/* 分页样式 */
+.pagination-container {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.pagination {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pagination li {
+  margin: 0;
+}
+
+.pagination-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  border-radius: 0.375rem;
+  background-color: var(--neutral-100);
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.pagination-link:hover {
+  background-color: var(--primary-100);
+  color: var(--primary-500);
+}
+
+.pagination-link.active {
+  background-color: var(--primary-500);
+  color: white;
+}
+
+.pagination-link.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.pagination-link i {
+  font-size: 0.875rem;
+}
+
+/* 暗色模式下的分页样式 */
+[data-theme="dark"] .pagination-link {
+  background-color: var(--neutral-700);
+  color: var(--text-tertiary);
+}
+
+[data-theme="dark"] .pagination-link:hover {
+  background-color: var(--primary-700);
+  color: white;
+}
+
+[data-theme="dark"] .pagination-link.active {
+  background-color: var(--primary-600);
+  color: white;
+} 

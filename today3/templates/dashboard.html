@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}数据统计 - 财经新闻爬虫系统{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-graph-up"></i> 数据统计</h2>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-newspaper"></i> 新闻总数
+            </div>
+            <div class="card-body text-center">
+                <h3>{{ total_news }}</h3>
+                <p class="text-muted">总新闻数量</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-building"></i> 新闻来源
+            </div>
+            <div class="card-body text-center">
+                <h3>{{ sources|length }}</h3>
+                <p class="text-muted">不同来源数量</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-calendar-check"></i> 今日新闻
+            </div>
+            <div class="card-body text-center">
+                <h3>{{ today_news }}</h3>
+                <p class="text-muted">今日新增数量</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-pie-chart"></i> 来源分布
+            </div>
+            <div class="card-body">
+                <canvas id="sourceChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-bar-chart"></i> 情感分布
+            </div>
+            <div class="card-body">
+                <canvas id="sentimentChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-graph-up"></i> 每日新闻数量趋势
+            </div>
+            <div class="card-body">
+                <canvas id="trendChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 来源分布图表
+        var sourceCtx = document.getElementById('sourceChart').getContext('2d');
+        var sourceChart = new Chart(sourceCtx, {
+            type: 'pie',
+            data: {
+                labels: {{ source_labels|tojson }},
+                datasets: [{
+                    data: {{ source_data|tojson }},
+                    backgroundColor: [
+                        '#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8',
+                        '#6610f2', '#fd7e14', '#20c997', '#e83e8c', '#6c757d'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+        
+        // 情感分布图表
+        var sentimentCtx = document.getElementById('sentimentChart').getContext('2d');
+        var sentimentChart = new Chart(sentimentCtx, {
+            type: 'bar',
+            data: {
+                labels: ['积极', '中性', '消极'],
+                datasets: [{
+                    label: '新闻数量',
+                    data: [{{ positive_count }}, {{ neutral_count }}, {{ negative_count }}],
+                    backgroundColor: ['#28a745', '#6c757d', '#dc3545']
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        // 趋势图表
+        var trendCtx = document.getElementById('trendChart').getContext('2d');
+        var trendChart = new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: {{ trend_labels|tojson }},
+                datasets: [{
+                    label: '新闻数量',
+                    data: {{ trend_data|tojson }},
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}
