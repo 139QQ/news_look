@@ -24,7 +24,7 @@ CRAWLER_CLASSES = {
     "凤凰财经": IfengCrawler,
 }
 
-def get_crawler(source, db_manager=None, use_proxy=False, use_source_db=False):
+def get_crawler(source, db_manager=None, use_proxy=False, use_source_db=False, db_path=None):
     """
     获取指定来源的爬虫实例
     
@@ -33,6 +33,7 @@ def get_crawler(source, db_manager=None, use_proxy=False, use_source_db=False):
         db_manager: 数据库管理器对象
         use_proxy: 是否使用代理
         use_source_db: 是否使用来源专用数据库
+        db_path: 数据库路径，如果为None则使用默认路径
     
     Returns:
         BaseCrawler: 爬虫实例
@@ -44,9 +45,9 @@ def get_crawler(source, db_manager=None, use_proxy=False, use_source_db=False):
         raise ValueError(f"不支持的爬虫来源: {source}，可用来源: {', '.join(CRAWLER_CLASSES.keys())}")
     
     crawler_class = CRAWLER_CLASSES[source]
-    return crawler_class()
+    return crawler_class(db_manager=db_manager, use_proxy=use_proxy, use_source_db=use_source_db, db_path=db_path)
 
-def get_all_crawlers(db_manager=None, use_proxy=False, use_source_db=False):
+def get_all_crawlers(db_manager=None, use_proxy=False, use_source_db=False, db_path=None):
     """
     获取所有爬虫实例
     
@@ -54,14 +55,15 @@ def get_all_crawlers(db_manager=None, use_proxy=False, use_source_db=False):
         db_manager: 数据库管理器对象
         use_proxy: 是否使用代理
         use_source_db: 是否使用来源专用数据库
+        db_path: 数据库路径，如果为None则使用默认路径
     
     Returns:
         list: 爬虫实例列表
     """
     crawlers = []
-    for source, crawler_class in CRAWLER_CLASSES.items():
+    for source in CRAWLER_CLASSES:
         try:
-            crawler = crawler_class()
+            crawler = get_crawler(source, db_manager, use_proxy, use_source_db, db_path)
             crawlers.append(crawler)
         except Exception as e:
             print(f"初始化爬虫 {source} 失败: {str(e)}")

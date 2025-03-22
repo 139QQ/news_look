@@ -11,11 +11,105 @@ import jieba.analyse
 from app.utils.logger import get_logger
 from bs4 import BeautifulSoup
 import html
+import urllib.parse
 from datetime import datetime, timedelta
 import unicodedata
 
 # 设置日志记录器
 logger = get_logger('text_cleaner')
+
+# 扩展替换字典，处理常见的特殊字符
+REPLACE_DICT = {
+    '&nbsp;': ' ', 
+    '&quot;': '"', 
+    '&amp;': '&', 
+    '&lt;': '<', 
+    '&gt;': '>', 
+    '&ldquo;': '"', 
+    '&rdquo;': '"', 
+    '&#39;': "'", 
+    '&#160;': ' ',
+    '&#8220;': '"',
+    '&#8221;': '"',
+    '&#8230;': '...',
+    '&#8216;': ''',
+    '&#8217;': ''',
+    '&#8226;': '•',
+    '&mdash;': '—',
+    '&ndash;': '–',
+    '&hellip;': '...',
+    '\xa0': ' ',
+    '\u3000': ' ',  # 全角空格
+    '\r': '',
+    '\t': ' ',
+}
+
+def decode_unicode_escape(text):
+    """
+    解码Unicode转义序列，如 \u4e2d\u56fd -> 中国
+    
+    Args:
+        text: 包含Unicode转义序列的文本
+        
+    Returns:
+        str: 解码后的文本
+    """
+    if not text:
+        return ""
+    
+    # 查找所有的Unicode转义序列并解码
+    pattern = r'\\u([0-9a-fA-F]{4})'
+    
+    def replace(match):
+        try:
+            return chr(int(match.group(1), 16))
+        except:
+            return match.group(0)
+    
+    return re.sub(pattern, replace, text)
+
+def decode_url_encoded(text):
+    """
+    解码URL编码的字符, 如 %E4%B8%AD%E5%9B%BD -> 中国
+    
+    Args:
+        text: 包含URL编码字符的文本
+        
+    Returns:
+        str: 解码后的文本
+    """
+    if not text:
+        return ""
+    
+    try:
+        # 尝试解码URL编码
+        if '%' in text:
+            return urllib.parse.unquote(text)
+        return text
+    except:
+        return text
+
+def decode_html_entities(text):
+    """
+    解码HTML实体，如 &amp; -> &
+    
+    Args:
+        text: 包含HTML实体的文本
+        
+    Returns:
+        str: 解码后的文本
+    """
+    if not text:
+        return ""
+    
+    # 使用html.unescape解码HTML实体
+    decoded = html.unescape(text)
+    
+    # 额外处理一些常见的HTML实体
+    for entity, replacement in REPLACE_DICT.items():
+        decoded = decoded.replace(entity, replacement)
+    
+    return decoded
 
 def clean_html(html_text):
     """
@@ -30,8 +124,14 @@ def clean_html(html_text):
     if not html_text:
         return ""
     
+    # 解码文本中可能存在的各种编码
+    text = html_text
+    text = decode_html_entities(text)
+    text = decode_unicode_escape(text)
+    text = decode_url_encoded(text)
+    
     # 去除HTML标签
-    text = re.sub(r'<[^>]+>', '', html_text)
+    text = re.sub(r'<[^>]+>', '', text)
     
     # 去除多余的空白字符
     text = re.sub(r'\s+', ' ', text)
@@ -72,6 +172,11 @@ def normalize_text(text):
     """
     if not text:
         return ""
+    
+    # 解码各种编码
+    text = decode_html_entities(text)
+    text = decode_unicode_escape(text)
+    text = decode_url_encoded(text)
     
     # 去除特殊字符
     text = re.sub(r'[^\w\s]', '', text)
@@ -120,8 +225,10 @@ def clean_text(text):
     if not text:
         return ""
     
-    # 解码HTML实体
-    text = html.unescape(text)
+    # 解码各种编码
+    text = decode_html_entities(text)
+    text = decode_unicode_escape(text)
+    text = decode_url_encoded(text)
     
     # 去除多余空白字符
     text = re.sub(r'\s+', ' ', text)
@@ -186,6 +293,11 @@ def format_news_content(content):
     """
     if not content:
         return ""
+    
+    # 解码各种编码
+    content = decode_html_entities(content)
+    content = decode_unicode_escape(content)
+    content = decode_url_encoded(content)
     
     # 分段落
     paragraphs = re.split(r'\n+', content)

@@ -95,8 +95,11 @@ def run_crawler(source, days, use_proxy, **kwargs):
     
     try:
         if source:
-            # 运行单个爬虫
-            crawler = get_crawler(source, use_proxy=use_proxy)
+            # 提取db_path参数
+            db_path = kwargs.get('db_path')
+            
+            # 运行单个爬虫，传递db_path参数
+            crawler = get_crawler(source, use_proxy=use_proxy, use_source_db=False, db_path=db_path)
             logger.info(f"开始运行 {source} 爬虫，爬取最近 {days} 天的新闻")
             
             # 设置爬虫参数
@@ -104,13 +107,16 @@ def run_crawler(source, days, use_proxy, **kwargs):
                 if hasattr(crawler, key):
                     setattr(crawler, key, value)
             
-            # 执行爬取
-            news_data = crawler.crawl(days=days, **kwargs)
+            # 简化：只传递days参数给所有爬虫
+            news_data = crawler.crawl(days=days)
             logger.info(f"{source} 爬虫运行完成，共爬取 {len(news_data)} 条新闻")
             
         else:
+            # 提取db_path参数
+            db_path = kwargs.get('db_path')
+            
             # 运行所有爬虫
-            crawlers = get_all_crawlers(use_proxy=use_proxy)
+            crawlers = get_all_crawlers(use_proxy=use_proxy, db_path=db_path)
             logger.info(f"开始运行所有爬虫，共 {len(crawlers)} 个，爬取最近 {days} 天的新闻")
             
             total_news = 0
@@ -122,10 +128,10 @@ def run_crawler(source, days, use_proxy, **kwargs):
                         if hasattr(crawler, key):
                             setattr(crawler, key, value)
                     
-                    # 执行爬取
+                    # 简化：只传递days参数给所有爬虫
                     crawler_logger = get_logger(crawler_source.lower())
                     crawler_logger.info(f"开始运行 {crawler_source} 爬虫")
-                    news_data = crawler.crawl(days=days, **kwargs)
+                    news_data = crawler.crawl(days=days)
                     crawler_logger.info(f"{crawler_source} 爬虫运行完成，共爬取 {len(news_data)} 条新闻")
                     total_news += len(news_data)
                     
@@ -161,10 +167,20 @@ def main():
     os.makedirs('data/db', exist_ok=True)
     os.makedirs('data/output', exist_ok=True)
     
+    # 设置新的数据库文件路径
+    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+    new_db_path = os.path.join(os.getcwd(), 'data', 'db', f'new_news_{current_time}.db')
+    absolute_db_path = os.path.abspath(new_db_path)
+    
     # 设置环境变量
     os.environ['LOG_LEVEL'] = args.log_level
     os.environ['LOG_DIR'] = os.path.abspath(args.log_dir)
     os.environ['DB_DIR'] = os.environ.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
+    os.environ['DB_PATH'] = absolute_db_path
+    
+    print(f"当前工作目录: {os.getcwd()}")
+    print(f"设置新的数据库文件: {absolute_db_path}")
+    print(f"设置的环境变量DB_DIR: {os.environ['DB_DIR']}")
     
     # 设置日志
     setup_logging(args.log_level, args.log_dir, args.source)
@@ -174,11 +190,33 @@ def main():
         'max_news': args.max_news,
         'categories': args.categories,
         'delay': args.delay,
-        'timeout': args.timeout
+        'timeout': args.timeout,
+        'db_path': absolute_db_path  # 添加数据库路径参数
     }
     
     # 运行爬虫
     run_crawler(args.source, args.days, args.use_proxy, **crawler_kwargs)
+    
+    # 爬取完成后检查数据库文件是否存在
+    if os.path.exists(absolute_db_path):
+        print(f"数据库文件已成功创建: {absolute_db_path}")
+        print(f"文件大小: {os.path.getsize(absolute_db_path)} 字节")
+    else:
+        print(f"警告: 数据库文件未找到: {absolute_db_path}")
+        
+        # 搜索可能的数据库文件
+        db_files = []
+        for root, dirs, files in os.walk(os.getcwd()):
+            for file in files:
+                if file.endswith('.db') and f'_{current_time}' in file:
+                    db_files.append(os.path.join(root, file))
+        
+        if db_files:
+            print(f"找到可能的数据库文件:")
+            for db_file in db_files:
+                print(f"  - {db_file} ({os.path.getsize(db_file)} 字节)")
+        else:
+            print("未找到任何可能的数据库文件")
 
 if __name__ == '__main__':
     main()

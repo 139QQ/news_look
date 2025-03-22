@@ -15,10 +15,12 @@ import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 import json
+import logging
+from urllib.parse import urlparse
 
 from app.crawlers.base import BaseCrawler
 from app.utils.logger import get_crawler_logger
-from app.utils.text_cleaner import clean_html, extract_keywords
+from app.utils.text_cleaner import clean_html, extract_keywords, decode_unicode_escape, decode_html_entities, decode_url_encoded
 
 # 使用专门的爬虫日志记录器
 logger = get_crawler_logger('sina')
@@ -45,11 +47,12 @@ class SinaCrawler(BaseCrawler):
     # 作者选择器
     AUTHOR_SELECTOR = 'span.source'
     
-    def __init__(self, db_path=None, use_proxy=False, use_source_db=False):
+    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False):
         """
         初始化新浪财经爬虫
         
         Args:
+            db_manager: 数据库管理器对象
             db_path: 数据库路径，如果为None则使用默认路径
             use_proxy: 是否使用代理
             use_source_db: 是否使用来源专用数据库
@@ -62,7 +65,66 @@ class SinaCrawler(BaseCrawler):
         self.error_count = 0  # 添加错误计数属性
         self.success_count = 0  # 添加成功计数属性
         
-        super().__init__(db_manager=None, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db)
+        # 新浪财经特有的请求头
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Cache-Control': 'max-age=0',
+            'Referer': 'https://finance.sina.com.cn/'
+        }
+        
+        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db)
+    
+    def fetch_page(self, url, params=None, headers=None, max_retries=None, timeout=None):
+        """
+        重写获取页面内容方法，处理新浪财经特有的编码问题
+        
+        Args:
+            url: 页面URL
+            params: 请求参数
+            headers: 自定义请求头
+            max_retries: 最大重试次数
+            timeout: 超时时间（秒）
+            
+        Returns:
+            页面内容或None
+        """
+        # 调用父类的fetch_page方法获取响应
+        response = super().fetch_page(url, params, headers, max_retries, timeout)
+        
+        if response is None:
+            return None
+        
+        # 解决新浪财经的编码问题
+        try:
+            # 尝试检测编码
+            if response.encoding == 'ISO-8859-1':
+                # 对于误判为ISO-8859-1的页面，先尝试utf-8
+                try:
+                    content = response.content.decode('utf-8')
+                except UnicodeDecodeError:
+                    # 如果utf-8解码失败，尝试GBK
+                    try:
+                        content = response.content.decode('gbk')
+                    except UnicodeDecodeError:
+                        # 如果GBK也失败，使用gb18030（超集）
+                        content = response.content.decode('gb18030')
+            else:
+                # 使用响应的编码
+                content = response.text
+            
+            # 应用额外的解码处理
+            content = decode_html_entities(content)
+            content = decode_unicode_escape(content)
+            content = decode_url_encoded(content)
+            
+            return content
+        except Exception as e:
+            logger.error(f"处理页面编码时出错: {url}, 错误: {str(e)}")
+            return response.text  # 出错时返回原始文本
     
     def crawl(self, days=1):
         """
@@ -251,65 +313,71 @@ class SinaCrawler(BaseCrawler):
             soup = BeautifulSoup(html, 'html.parser')
             
             # 提取标题
-            title = None
+            title_elem = soup.select_one('h1.main-title')
+            if not title_elem:
+                title_elem = soup.select_one('h1.title')
             
-            # 尝试从title标签中提取
-            title_tag = soup.select_one('title')
-            if title_tag:
-                title_text = title_tag.text.strip()
-                # 移除网站名称
-                if '_新浪财经' in title_text:
-                    title = title_text.split('_新浪财经')[0].strip()
-                elif '_新浪网' in title_text:
-                    title = title_text.split('_新浪网')[0].strip()
-                else:
-                    title = title_text
-            
-            # 如果从title标签中提取失败，尝试从h1标签中提取
-            if not title:
-                title_tag = soup.select_one('h1.main-title')
-                if not title_tag:
-                    title_tag = soup.select_one('h1')
-                
-                if title_tag:
-                    title = title_tag.text.strip()
-            
-            if not title:
-                logger.warning(f"提取标题失败: {url}")
+            if not title_elem:
+                logger.warning(f"未找到标题: {url}")
                 return None
             
-            logger.debug(f"提取到标题: {title}")
+            title = title_elem.text.strip()
+            # 确保标题没有乱码
+            title = decode_html_entities(title)
+            title = decode_unicode_escape(title)
+            title = decode_url_encoded(title)
             
-            # 提取内容
-            content_tag = soup.select_one(self.CONTENT_SELECTOR)
-            if not content_tag:
-                # 尝试其他选择器
-                content_tag = soup.select_one('div.article-content')
-                if not content_tag:
-                    content_tag = soup.select_one('div.article')
-                    if not content_tag:
-                        content_tag = soup.select_one('div#artibody')
-            
-            if not content_tag:
-                logger.warning(f"提取内容失败: {url}")
+            if not title:
+                logger.warning(f"标题为空: {url}")
                 return None
-            
-            # 清理HTML内容
-            content = clean_html(str(content_tag))
             
             # 提取发布时间
             pub_time = self.extract_pub_time(soup)
-            if not pub_time:
-                pub_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
-            # 提取作者
+            # 提取作者/来源
             author = self.extract_author(soup)
             
-            # 提取关键词
-            keywords = extract_keywords(title + ' ' + content)
+            # 尝试从URL推断来源
+            if not author or author == "未知":
+                domain = urlparse(url).netloc
+                if "finance.sina.com.cn" in domain:
+                    author = "新浪财经"
+                elif "sina.com.cn" in domain:
+                    author = "新浪新闻"
+                
+            # 提取正文
+            content_tag = soup.select_one(self.CONTENT_SELECTOR)
+            if not content_tag:
+                # 尝试其他可能的选择器
+                content_tag = soup.select_one('div.article')
+                if not content_tag:
+                    content_tag = soup.select_one('#artibody')
+            
+            if not content_tag:
+                logger.warning(f"未找到正文: {url}")
+                return None
             
             # 提取图片
             images = self.extract_images(content_tag)
+            
+            # 提取正文内容
+            for script in content_tag.find_all('script'):
+                script.decompose()
+            for style in content_tag.find_all('style'):
+                style.decompose()
+            
+            # 移除广告和无关元素
+            for div in content_tag.find_all('div', class_=lambda c: c and ('recommend' in c.lower() or 'footer' in c.lower() or 'ad' in c.lower() or 'bottom' in c.lower())):
+                div.decompose()
+            
+            content = content_tag.get_text('\n').strip()
+            # 确保内容没有乱码
+            content = decode_html_entities(content)
+            content = decode_unicode_escape(content)
+            content = decode_url_encoded(content)
+            
+            # 提取关键词
+            keywords = extract_keywords(content)
             
             # 提取相关股票
             related_stocks = self.extract_related_stocks(soup)
@@ -317,27 +385,31 @@ class SinaCrawler(BaseCrawler):
             # 生成新闻ID
             news_id = self.generate_news_id(url, title)
             
-            # 分析情感
-            sentiment = self.sentiment_analyzer.analyze(title, content)
-            
             # 构建新闻数据
             news_data = {
-                'id': news_id,
+                'news_id': news_id,
                 'title': title,
                 'content': content,
                 'pub_time': pub_time,
-                'author': author,
                 'source': self.source,
+                'author': author,
+                'category': category,
                 'url': url,
                 'keywords': ','.join(keywords),
-                'sentiment': sentiment,
-                'crawl_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'category': category,
                 'images': ','.join(images),
-                'related_stocks': ','.join(related_stocks)
+                'related_stocks': ','.join(related_stocks),
+                'sentiment': 0,
+                'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
             
-            logger.debug(f"爬取新闻详情成功: {title}")
+            # 分析情感
+            if content:
+                try:
+                    sentiment = self.sentiment_analyzer.analyze(text=content)
+                    news_data['sentiment'] = sentiment
+                except Exception as e:
+                    logger.error(f"情感分析失败: {str(e)}")
+            
             return news_data
         except Exception as e:
             logger.error(f"爬取新闻详情失败: {url}, 错误: {str(e)}")
