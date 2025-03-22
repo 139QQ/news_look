@@ -6,6 +6,7 @@
 """
 
 import os
+import glob
 from flask import Flask
 from datetime import datetime
 from app.config import get_settings
@@ -32,8 +33,49 @@ def create_app(config=None):
     # 加载配置
     app.secret_key = settings.get('secret_key', os.urandom(24).hex())
     app.config['DEBUG'] = settings.get('debug', False)
-    app.config['LOG_DIR'] = settings.get('LOG_DIR', os.path.join(os.getcwd(), 'logs'))
-    app.config['DB_DIR'] = settings.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
+    
+    # 确保日志目录存在
+    log_dir = settings.get('LOG_DIR', os.path.join(os.getcwd(), 'logs'))
+    app.config['LOG_DIR'] = log_dir
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # 确定数据库目录
+    if config and 'DB_DIR' in config:
+        # 使用传入的DB_DIR配置
+        db_dir = config['DB_DIR']
+    else:
+        # 尝试从环境变量获取
+        db_dir = os.environ.get('DB_DIR')
+        
+        # 如果环境变量中没有，则尝试自动查找
+        if not db_dir:
+            # 尝试查找数据库目录
+            possible_dirs = [
+                os.path.join(os.getcwd(), 'data', 'db'),
+                os.path.join(os.getcwd(), 'db'),
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data', 'db'),
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'db')
+            ]
+            
+            # 查找包含数据库文件的目录
+            for possible_dir in possible_dirs:
+                if os.path.exists(possible_dir):
+                    db_files = glob.glob(os.path.join(possible_dir, '*.db'))
+                    if db_files:
+                        db_dir = possible_dir
+                        break
+            
+            # 如果没找到含数据库文件的目录，使用默认目录
+            if not db_dir:
+                db_dir = os.path.join(os.getcwd(), 'data', 'db')
+    
+    # 确保数据库目录存在
+    app.config['DB_DIR'] = db_dir
+    os.makedirs(db_dir, exist_ok=True)
+    print(f"Web应用使用数据库目录: {db_dir}")
+    
+    # 设置环境变量，以便其他模块访问
+    os.environ['DB_DIR'] = db_dir
     
     # 如果提供了额外配置，则更新
     if config:
@@ -41,14 +83,6 @@ def create_app(config=None):
             app.config.update(config)
         else:
             app.config.from_object(config)
-    
-    # 确保目录存在
-    os.makedirs(os.path.join(app.root_path, 'static/css'), exist_ok=True)
-    os.makedirs(os.path.join(app.root_path, 'static/js'), exist_ok=True)
-    os.makedirs(os.path.join(app.root_path, 'static/img'), exist_ok=True)
-    os.makedirs(os.path.join(app.root_path, 'templates'), exist_ok=True)
-    os.makedirs(app.config['LOG_DIR'], exist_ok=True)
-    os.makedirs(app.config['DB_DIR'], exist_ok=True)
     
     # 初始化爬虫管理器（如果可用）
     if 'CRAWLER_MANAGER' in app.config:

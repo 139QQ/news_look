@@ -15,6 +15,7 @@ from flask import render_template, request, redirect, url_for, flash, jsonify, s
 from app.utils.database import NewsDatabase
 from app.utils.logger import get_logger
 from app.config import get_settings
+import sqlite3
 
 logger = get_logger(__name__)
 
@@ -41,8 +42,8 @@ def register_routes(app):
         # 每页显示的新闻数量
         per_page = 10
         
-        # 查询数据库
-        db = NewsDatabase()
+        # 查询数据库 - 使用优化后的数据库类，并搜索所有数据库
+        db = NewsDatabase(use_all_dbs=True)
         news_list = db.query_news(
             keyword=keyword if keyword else None,
             days=days,
@@ -88,7 +89,7 @@ def register_routes(app):
     @app.route('/crawler_status')
     def crawler_status():
         """爬虫状态页面"""
-        db = NewsDatabase()
+        db = NewsDatabase(use_all_dbs=True)
         
         # 获取统计数据
         today = datetime.now().date()
@@ -99,47 +100,30 @@ def register_routes(app):
         
         # 获取爬虫状态
         crawlers = []
-        # 检查crawler_manager是否存在且可用
-        if hasattr(app, 'crawler_manager') and app.crawler_manager is not None:
-            try:
-                for crawler in app.crawler_manager.get_crawlers():
-                    crawlers.append({
-                        'name': crawler.name,
-                        'status': crawler.status,
-                        'status_color': 'success' if crawler.status == 'running' else 'warning',
-                        'last_run': crawler.last_run.strftime('%Y-%m-%d %H:%M:%S') if crawler.last_run else '从未运行',
-                        'next_run': crawler.next_run.strftime('%Y-%m-%d %H:%M:%S') if crawler.next_run else '未设置'
-                    })
-            except Exception as e:
-                logger.error(f"获取爬虫状态失败: {str(e)}")
-                flash(f"获取爬虫状态失败: {str(e)}", 'danger')
-        else:
-            logger.warning("爬虫管理器未初始化或不可用")
-            flash("爬虫管理器未初始化或不可用", 'warning')
+        if hasattr(app, 'crawler_manager'):
+            crawler_manager = app.crawler_manager
+            if crawler_manager and hasattr(crawler_manager, 'get_status'):
+                crawlers = crawler_manager.get_status()
+                
+        # 获取系统信息
+        system_info = {
+            'platform': platform.platform(),
+            'python_version': platform.python_version(),
+            'cpu_count': psutil.cpu_count(),
+            'memory': {
+                'total': psutil.virtual_memory().total / (1024 * 1024 * 1024),  # GB
+                'used': psutil.virtual_memory().used / (1024 * 1024 * 1024),  # GB
+                'percent': psutil.virtual_memory().percent
+            },
+            'disk': {
+                'total': psutil.disk_usage('/').total / (1024 * 1024 * 1024),  # GB
+                'used': psutil.disk_usage('/').used / (1024 * 1024 * 1024),  # GB
+                'percent': psutil.disk_usage('/').percent
+            }
+        }
         
-        # 获取最近日志
-        recent_logs = []
-        log_file = os.path.join(app.config['LOG_DIR'], f'crawler_{today.strftime("%Y%m%d")}.log')
-        if os.path.exists(log_file):
-            with open(log_file, 'r', encoding='utf-8') as f:
-                for line in f.readlines()[-100:]:  # 只读取最后100行
-                    try:
-                        log_data = json.loads(line)
-                        recent_logs.append({
-                            'timestamp': log_data['timestamp'],
-                            'crawler': log_data.get('crawler', 'system'),
-                            'level': log_data['level'],
-                            'level_color': {
-                                'DEBUG': 'secondary',
-                                'INFO': 'info',
-                                'WARNING': 'warning',
-                                'ERROR': 'danger',
-                                'CRITICAL': 'danger'
-                            }.get(log_data['level'], 'info'),
-                            'message': log_data['message']
-                        })
-                    except:
-                        continue
+        # 获取源列表
+        sources = db.get_sources()
         
         return render_template('crawler_status.html',
                              today_count=today_count,
@@ -147,7 +131,8 @@ def register_routes(app):
                              month_count=month_count,
                              total_count=total_count,
                              crawlers=crawlers,
-                             recent_logs=recent_logs)
+                             system_info=system_info,
+                             sources=sources)
     
     @app.route('/data_analysis')
     def data_analysis():
@@ -338,26 +323,61 @@ def register_routes(app):
     @app.route('/news/<news_id>')
     def news_detail(news_id):
         """新闻详情页"""
-        db = NewsDatabase()
-        news = db.get_news_by_id(news_id)
+        # 查询数据库
+        db = NewsDatabase(use_all_dbs=True)
+        
+        # 获取新闻数据
+        news = None
+        
+        # 尝试直接使用sqlite3连接查询所有数据库
+        for db_path in db.all_db_paths:
+            try:
+                conn = sqlite3.connect(db_path)
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                # 查询指定ID的新闻
+                cursor.execute("SELECT * FROM news WHERE id = ?", (news_id,))
+                row = cursor.fetchone()
+                
+                if row:
+                    # 转换为字典
+                    news = {}
+                    for i, column in enumerate(cursor.description):
+                        news[column[0]] = row[i]
+                    break  # 找到后跳出循环
+                    
+                conn.close()
+            except Exception as e:
+                logger.error(f"查询新闻详情失败: {str(e)}")
         
         if not news:
-            flash('新闻不存在', 'error')
+            flash('新闻不存在或已被删除', 'danger')
             return redirect(url_for('index'))
-        
-        # 获取相关新闻
+            
+        # 查询相关新闻
         related_news = []
         if 'keywords' in news and news['keywords']:
-            keywords = news['keywords'].split(',')[:3]
-            for keyword in keywords:
-                related = db.query_news(keyword=keyword, limit=3)
-                for item in related:
-                    if item['id'] != news_id and item not in related_news:
-                        related_news.append(item)
-                        if len(related_news) >= 5:
-                            break
-                if len(related_news) >= 5:
-                    break
+            try:
+                # 从关键词中提取查询条件
+                if isinstance(news['keywords'], str):
+                    try:
+                        keywords = json.loads(news['keywords'])
+                    except:
+                        keywords = news['keywords'].split(',')
+                else:
+                    keywords = news['keywords']
+                
+                if keywords:
+                    # 使用第一个关键词查询
+                    keyword = keywords[0] if isinstance(keywords, list) else keywords
+                    related_news = db.query_news(
+                        keyword=keyword,
+                        limit=5,
+                        source=news.get('source')
+                    )
+            except Exception as e:
+                logger.error(f"查询相关新闻失败: {str(e)}")
         
         return render_template('news_detail.html', news=news, related_news=related_news)
     
@@ -387,62 +407,74 @@ def register_routes(app):
             sentiment_stats=sentiment_stats
         )
     
+    @app.route('/search')
+    def search():
+        """搜索页面"""
+        return redirect(url_for('index', 
+                               keyword=request.args.get('keyword', ''),
+                               source=request.args.get('source', ''),
+                               days=request.args.get('days', '7')))
+    
     @app.route('/feedback', methods=['GET', 'POST'])
     def feedback():
         """反馈页面"""
         if request.method == 'POST':
-            # 获取表单数据
-            feedback_type = request.form.get('type')
-            title = request.form.get('title')
-            content = request.form.get('content')
-            email = request.form.get('email')
-            urgent = request.form.get('urgent') == 'on'
-            
-            # 验证数据
-            if not all([feedback_type, title, content]):
-                flash('请填写所有必填字段', 'error')
-                return redirect(url_for('feedback'))
-            
-            # 生成反馈ID
-            feedback_id = str(uuid.uuid4())
-            
-            # 构建反馈数据
+            # 接收反馈信息
             feedback_data = {
-                'id': feedback_id,
-                'feedback_type': feedback_type,
-                'title': title,
-                'content': content,
-                'email': email,
-                'urgent': urgent,
-                'submit_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                'id': str(uuid.uuid4()),
+                'feedback_type': request.form.get('feedback_type'),
+                'title': request.form.get('title'),
+                'content': request.form.get('content'),
+                'email': request.form.get('email'),
+                'urgent': request.form.get('urgent') == 'on',
+                'status': 'pending',
+                'submit_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
             
-            # 保存到数据库
-            db = NewsDatabase()
-            if db.save_feedback(feedback_data):
-                flash('反馈提交成功，感谢您的反馈！', 'success')
-                return redirect(url_for('feedback_status', feedback_id=feedback_id))
-            else:
-                flash('反馈提交失败，请稍后重试', 'error')
-                return redirect(url_for('feedback'))
+            # 保存反馈
+            try:
+                db = NewsDatabase(use_all_dbs=True)
+                
+                # 尝试直接使用sqlite3连接插入数据
+                conn = sqlite3.connect(db.db_path)
+                cursor = conn.cursor()
+                
+                # 插入反馈
+                cursor.execute('''
+                INSERT INTO feedback (id, feedback_type, title, content, email, urgent, status, submit_time, update_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    feedback_data['id'],
+                    feedback_data['feedback_type'],
+                    feedback_data['title'],
+                    feedback_data['content'],
+                    feedback_data['email'],
+                    1 if feedback_data['urgent'] else 0,
+                    feedback_data['status'],
+                    feedback_data['submit_time'],
+                    feedback_data['update_time']
+                ))
+                
+                conn.commit()
+                conn.close()
+                
+                flash('感谢您的反馈！我们会尽快处理。', 'success')
+                return redirect(url_for('index'))
+            except Exception as e:
+                logger.error(f"保存反馈失败: {str(e)}")
+                flash('反馈提交失败，请稍后再试。', 'danger')
         
         return render_template('feedback.html')
     
-    @app.route('/feedback/status/<feedback_id>')
-    def feedback_status(feedback_id):
-        """反馈状态页面"""
-        db = NewsDatabase()
-        feedback = db.get_feedback(feedback_id)
-        
-        if not feedback:
-            flash('反馈不存在', 'error')
-            return redirect(url_for('feedback'))
-        
-        return render_template('feedback_status.html', feedback=feedback)
+    @app.route('/about')
+    def about():
+        """关于页面"""
+        return render_template('about.html')
     
     @app.route('/api/news')
     def api_news():
-        """新闻API"""
+        """API: 获取新闻列表"""
         # 获取查询参数
         keyword = request.args.get('keyword', '')
         source = request.args.get('source', '')
@@ -458,9 +490,9 @@ def register_routes(app):
             days = 7
             page = 1
             limit = 10
-        
+            
         # 查询数据库
-        db = NewsDatabase()
+        db = NewsDatabase(use_all_dbs=True)
         news_list = db.query_news(
             keyword=keyword if keyword else None,
             days=days,
@@ -470,7 +502,7 @@ def register_routes(app):
         )
         
         # 获取总数
-        total_count = db.count_news(
+        total_count = db.get_news_count(
             keyword=keyword if keyword else None,
             days=days,
             source=source if source else None
@@ -480,15 +512,11 @@ def register_routes(app):
         total_pages = (total_count + limit - 1) // limit
         
         return jsonify({
-            'code': 0,
-            'msg': 'success',
-            'data': {
-                'news': news_list,
-                'total': total_count,
-                'page': page,
-                'limit': limit,
-                'pages': total_pages
-            }
+            'news': news_list,
+            'total': total_count,
+            'page': page,
+            'limit': limit,
+            'total_pages': total_pages
         })
     
     @app.route('/api/news/<news_id>')
@@ -549,6 +577,65 @@ def register_routes(app):
                 'sources': source_stats,
                 'sentiment': sentiment_stats
             }
+        })
+    
+    @app.route('/api/stats/sources')
+    def api_stats_sources():
+        """API: 获取来源统计"""
+        db = NewsDatabase(use_all_dbs=True)
+        sources = db.get_sources()
+        
+        # 计算每个来源的新闻数
+        result = []
+        for source in sources:
+            count = db.get_news_count(source=source)
+            result.append({'name': source, 'count': count})
+        
+        # 按数量排序
+        result.sort(key=lambda x: x['count'], reverse=True)
+        
+        return jsonify(result)
+    
+    @app.route('/api/stats/daily')
+    def api_stats_daily():
+        """API: 获取每日新闻数统计"""
+        days = request.args.get('days', '30')
+        try:
+            days = int(days)
+        except ValueError:
+            days = 30
+            
+        db = NewsDatabase(use_all_dbs=True)
+        
+        # 生成日期范围
+        today = datetime.now().date()
+        date_range = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days)]
+        date_range.reverse()  # 从早到晚排序
+        
+        # 统计每天的新闻数
+        news_counts = []
+        for date in date_range:
+            # 尝试直接使用sqlite3连接查询所有数据库
+            total_count = 0
+            for db_path in db.all_db_paths:
+                try:
+                    conn = sqlite3.connect(db_path)
+                    cursor = conn.cursor()
+                    
+                    # 查询当天的新闻数
+                    cursor.execute("SELECT COUNT(*) FROM news WHERE pub_time LIKE ?", (f"{date}%",))
+                    count = cursor.fetchone()[0]
+                    total_count += count
+                    
+                    conn.close()
+                except Exception as e:
+                    logger.error(f"查询日期统计失败: {str(e)}")
+            
+            news_counts.append(total_count)
+            
+        return jsonify({
+            'dates': date_range,
+            'counts': news_counts
         })
     
     @app.errorhandler(404)

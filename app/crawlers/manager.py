@@ -26,7 +26,8 @@ class CrawlerManager:
     def __init__(self):
         """初始化爬虫管理器"""
         self.settings = get_settings()
-        self.db = NewsDatabase()
+        # 使用优化后的数据库类
+        self.db = NewsDatabase(use_all_dbs=True)
         self.crawlers: Dict[str, BaseCrawler] = {}
         self.crawler_threads: Dict[str, threading.Thread] = {}
         self.stop_flags: Dict[str, threading.Event] = {}
@@ -130,7 +131,7 @@ class CrawlerManager:
         stop_flag = self.stop_flags[name]
 
         # 为线程创建新的数据库连接
-        thread_db = NewsDatabase()
+        thread_db = NewsDatabase(use_all_dbs=True)
 
         while not stop_flag.is_set():
             try:
@@ -173,11 +174,13 @@ class CrawlerManager:
         status = {}
         for name, crawler in self.crawlers.items():
             status[name] = {
-                'status': crawler.status,
-                'last_run': crawler.last_run.strftime('%Y-%m-%d %H:%M:%S') if crawler.last_run else None,
-                'next_run': crawler.next_run.strftime('%Y-%m-%d %H:%M:%S') if crawler.next_run else None,
-                'error_count': crawler.error_count,
-                'success_count': crawler.success_count
+                'name': name,
+                'display_name': crawler.source,
+                'status': getattr(crawler, 'status', 'unknown'),
+                'last_run': getattr(crawler, 'last_run', None).strftime('%Y-%m-%d %H:%M:%S') if getattr(crawler, 'last_run', None) else None,
+                'next_run': getattr(crawler, 'next_run', None).strftime('%Y-%m-%d %H:%M:%S') if getattr(crawler, 'next_run', None) else None,
+                'error_count': getattr(crawler, 'error_count', 0),
+                'success_count': getattr(crawler, 'success_count', 0)
             }
         return status
 
@@ -214,7 +217,7 @@ class CrawlerManager:
             logger.info(f"爬虫 {crawler_name} 运行完成，共获取 {len(result)} 条新闻")
             
             # 创建新的数据库连接保存数据
-            thread_db = NewsDatabase()
+            thread_db = NewsDatabase(use_all_dbs=True)
             for news in result:
                 try:
                     # 确保新闻包含正确的来源

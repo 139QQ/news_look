@@ -157,3 +157,187 @@
     </div>
 </div>
 {% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 修复页面上可能出现的乱码
+        fixNewsContent();
+        
+        // 添加分页键盘支持
+        addPaginationKeyboardSupport();
+    });
+    
+    // 修复新闻内容的乱码问题
+    function fixNewsContent() {
+        // 处理新闻标题
+        document.querySelectorAll('.card-title a').forEach(function(element) {
+            const text = element.textContent;
+            if (containsEncodingIssues(text)) {
+                // 尝试修复编码问题
+                const fixed = fixEncodingIssues(text);
+                if (fixed && fixed !== text) {
+                    element.textContent = fixed;
+                }
+            }
+        });
+        
+        // 处理新闻来源
+        document.querySelectorAll('.badge.bg-primary').forEach(function(element) {
+            const text = element.textContent;
+            if (text === '未知来源' || containsEncodingIssues(text)) {
+                // 尝试从URL推断来源
+                const newsCard = element.closest('.news-card');
+                if (newsCard) {
+                    const linkElement = newsCard.querySelector('.card-title a');
+                    if (linkElement) {
+                        const href = linkElement.getAttribute('href');
+                        if (href) {
+                            const source = inferSourceFromUrl(href);
+                            if (source) {
+                                element.textContent = source;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // 处理时间显示
+        document.querySelectorAll('.text-muted').forEach(function(element) {
+            if (element.textContent.includes('bi-calendar')) {
+                const text = element.textContent;
+                if (containsEncodingIssues(text)) {
+                    element.innerHTML = '<i class="bi bi-calendar"></i> 最近更新';
+                }
+            }
+        });
+        
+        // 处理关键词
+        document.querySelectorAll('.news-keywords .badge').forEach(function(element) {
+            const text = element.textContent;
+            if (containsEncodingIssues(text)) {
+                element.textContent = fixEncodingIssues(text);
+            }
+        });
+    }
+    
+    // 检查文本是否包含编码问题
+    function containsEncodingIssues(text) {
+        if (!text) return false;
+        
+        // 检查常见乱码字符
+        const problematicChars = ['æ', 'ç', '¥', 'â', 'ä', 'ë', 'ï', 'ö', 'ü', '\u0000', '\u0001', '\uFFFD'];
+        for (const char of problematicChars) {
+            if (text.includes(char)) {
+                return true;
+            }
+        }
+        
+        // 检查Unicode转义序列
+        if (text.includes('\\u')) {
+            return true;
+        }
+        
+        // 检查URL编码字符
+        if (text.includes('%') && (text.includes('%20') || text.includes('%E') || text.includes('%C'))) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    // 修复编码问题
+    function fixEncodingIssues(text) {
+        if (!text) return text;
+        
+        // 替换常见乱码字符
+        const replacements = {
+            'æ': '-',
+            'ç': ':',
+            '¥': ' ',
+            'â': '',
+            'ä': 'a',
+            'ë': 'e',
+            'ï': 'i',
+            'ö': 'o',
+            'ü': 'u'
+        };
+        
+        let result = text;
+        
+        // 应用替换
+        for (const [oldChar, newChar] of Object.entries(replacements)) {
+            result = result.replace(new RegExp(oldChar, 'g'), newChar);
+        }
+        
+        // 如果文本包含太多乱码，简化显示
+        let problematicCharsCount = 0;
+        for (const char of Object.keys(replacements)) {
+            if (text.includes(char)) {
+                problematicCharsCount++;
+            }
+        }
+        
+        if (problematicCharsCount > 2) {
+            // 太多乱码，尝试从文本中提取有效部分
+            const validParts = result.split(/[^\u4e00-\u9fa5a-zA-Z0-9]+/).filter(part => part.length > 3);
+            if (validParts.length > 0) {
+                return validParts.join(' ');
+            }
+            return '内容解析中...';
+        }
+        
+        return result;
+    }
+    
+    // 从URL推断新闻来源
+    function inferSourceFromUrl(url) {
+        if (!url) return null;
+        
+        const lowerUrl = url.toLowerCase();
+        
+        // 检查常见新闻源
+        if (lowerUrl.includes('sina.com') || lowerUrl.includes('sina.cn')) {
+            return '新浪财经';
+        } else if (lowerUrl.includes('eastmoney.com')) {
+            return '东方财富网';
+        } else if (lowerUrl.includes('qq.com') || lowerUrl.includes('finance.qq')) {
+            return '腾讯财经';
+        } else if (lowerUrl.includes('163.com') || lowerUrl.includes('money.163')) {
+            return '网易财经';
+        } else if (lowerUrl.includes('ifeng.com')) {
+            return '凤凰财经';
+        } else if (lowerUrl.includes('jrj.com')) {
+            return '金融界';
+        } else if (lowerUrl.includes('cnstock.com')) {
+            return '中国证券网';
+        } else if (lowerUrl.includes('hexun.com')) {
+            return '和讯网';
+        }
+        
+        return null;
+    }
+    
+    // 添加分页键盘支持
+    function addPaginationKeyboardSupport() {
+        document.addEventListener('keydown', function(e) {
+            // 左箭头 - 上一页
+            if (e.key === 'ArrowLeft') {
+                const prevLink = document.querySelector('.pagination .page-item:first-child:not(.disabled) .page-link');
+                if (prevLink) {
+                    prevLink.click();
+                }
+            }
+            
+            // 右箭头 - 下一页
+            if (e.key === 'ArrowRight') {
+                const nextLink = document.querySelector('.pagination .page-item:last-child:not(.disabled) .page-link');
+                if (nextLink) {
+                    nextLink.click();
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

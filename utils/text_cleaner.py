@@ -23,6 +23,19 @@ def clean_text(text: str) -> str:
     if not text:
         return ""
     
+    # 尝试解决Unicode编码问题
+    try:
+        # 检查是否是Unicode转义字符
+        if '\\u' in text:
+            text = text.encode('utf-8').decode('unicode_escape')
+        
+        # 检查是否是URL编码
+        if '%' in text and any(c in text for c in ['%20', '%E', '%C', '%D']):
+            import urllib.parse
+            text = urllib.parse.unquote(text)
+    except Exception:
+        pass  # 如果转换失败，继续使用原始文本
+    
     # 替换常见乱码字符
     replacements = {
         'æ': '-',
@@ -94,9 +107,32 @@ def clean_text(text: str) -> str:
         'Ø': 'O',
         'ø': 'o',
         'Å': 'A',
-        'å': 'a'
+        'å': 'a',
+        '\u003c': '<',
+        '\u003e': '>',
+        '\u0026': '&',
+        '\u2019': "'",
+        '\u2018': "'",
+        '\u201c': '"',
+        '\u201d': '"',
+        '\u00a0': ' ',
+        '\t': ' ',
+        # 特殊处理HTML字符实体
+        '&lt;': '<',
+        '&gt;': '>',
+        '&amp;': '&',
+        '&quot;': '"',
+        '&apos;': "'",
+        '&nbsp;': ' '
     }
     
+    # 处理Unicode字符
+    if '\\u' in text:
+        try:
+            text = text.encode().decode('unicode_escape')
+        except:
+            pass
+            
     for old, new in replacements.items():
         text = text.replace(old, new)
     
@@ -108,6 +144,9 @@ def clean_text(text: str) -> str:
     
     # 移除HTML标签
     text = re.sub(r'<[^>]+>', '', text)
+    
+    # 解码HTML实体
+    text = html.unescape(text)
     
     return text
 

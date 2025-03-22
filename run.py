@@ -11,6 +11,7 @@ import sys
 import argparse
 import logging
 import importlib
+import glob
 from pathlib import Path
 
 # 添加项目根目录到系统路径
@@ -35,6 +36,7 @@ def parse_args():
     crawler_parser.add_argument('-p', '--use-proxy', action='store_true', help='使用代理')
     crawler_parser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default='INFO', help='日志级别')
     crawler_parser.add_argument('--log-dir', default='./logs', help='日志目录')
+    crawler_parser.add_argument('--db-dir', default=None, help='数据库目录，如不指定则自动检测')
     crawler_parser.add_argument('--max-news', type=int, default=10, help='每类最多新闻数')
     crawler_parser.add_argument('--categories', nargs='+', default=['财经', '股票'], help='新闻分类')
     crawler_parser.add_argument('--debug', action='store_true', help='调试模式')
@@ -45,6 +47,7 @@ def parse_args():
     scheduler_parser.add_argument('--config', help='配置文件路径')
     scheduler_parser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default='INFO', help='日志级别')
     scheduler_parser.add_argument('--log-dir', default='./logs', help='日志目录')
+    scheduler_parser.add_argument('--db-dir', default=None, help='数据库目录，如不指定则自动检测')
     scheduler_parser.add_argument('--command', choices=['start', 'list'], default='start', help='调度器命令')
 
     # Web应用模式
@@ -54,16 +57,52 @@ def parse_args():
     web_parser.add_argument('--debug', action='store_true', help='调试模式')
     web_parser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default='INFO', help='日志级别')
     web_parser.add_argument('--log-dir', default='./logs', help='日志目录')
+    web_parser.add_argument('--db-dir', default=None, help='数据库目录，如不指定则自动检测')
     web_parser.add_argument('--with-crawler', action='store_true', help='初始化爬虫管理器')
 
     return parser.parse_args()
+
+def find_db_dir():
+    """查找数据库目录，按优先级顺序尝试多个可能的位置"""
+    # 可能的数据库目录列表，按优先级排序
+    possible_dirs = [
+        os.path.join(project_root, 'data', 'db'),  # ./data/db
+        os.path.join(project_root, 'db'),          # ./db
+        os.path.join(os.getcwd(), 'data', 'db'),   # 当前工作目录/data/db
+        os.path.join(os.getcwd(), 'db')            # 当前工作目录/db
+    ]
+    
+    # 首先找含有数据库文件的目录
+    for db_dir in possible_dirs:
+        if os.path.exists(db_dir):
+            db_files = glob.glob(os.path.join(db_dir, '*.db'))
+            if db_files:
+                return os.path.abspath(db_dir)
+    
+    # 如果没有找到含数据库文件的目录，则返回第一个存在的目录
+    for db_dir in possible_dirs:
+        if os.path.exists(db_dir):
+            return os.path.abspath(db_dir)
+    
+    # 如果所有目录都不存在，则创建并返回默认目录
+    default_dir = os.path.join(project_root, 'data', 'db')
+    os.makedirs(default_dir, exist_ok=True)
+    return os.path.abspath(default_dir)
 
 def run_crawler_mode(args):
     """运行爬虫模式"""
     # 设置环境变量
     os.environ['LOG_LEVEL'] = args.log_level
     os.environ['LOG_DIR'] = os.path.abspath(args.log_dir)
-    os.environ['DB_DIR'] = os.environ.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
+    
+    # 设置数据库目录
+    if args.db_dir:
+        db_dir = os.path.abspath(args.db_dir)
+    else:
+        db_dir = find_db_dir()
+    os.environ['DB_DIR'] = db_dir
+    
+    print(f"使用数据库目录: {db_dir}")
 
     # 动态导入模块
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -101,7 +140,15 @@ def run_scheduler_mode(args):
     # 设置环境变量
     os.environ['LOG_LEVEL'] = args.log_level
     os.environ['LOG_DIR'] = os.path.abspath(args.log_dir)
-    os.environ['DB_DIR'] = os.environ.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
+    
+    # 设置数据库目录
+    if args.db_dir:
+        db_dir = os.path.abspath(args.db_dir)
+    else:
+        db_dir = find_db_dir()
+    os.environ['DB_DIR'] = db_dir
+    
+    print(f"使用数据库目录: {db_dir}")
 
     # 动态导入模块
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -123,11 +170,19 @@ def run_web_mode(args):
     # 设置环境变量
     os.environ['LOG_LEVEL'] = args.log_level
     os.environ['LOG_DIR'] = os.path.abspath(args.log_dir)
-    os.environ['DB_DIR'] = os.environ.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
+    
+    # 设置数据库目录
+    if args.db_dir:
+        db_dir = os.path.abspath(args.db_dir)
+    else:
+        db_dir = find_db_dir()
+    os.environ['DB_DIR'] = db_dir
+    
+    print(f"使用数据库目录: {db_dir}")
 
     # 检查必要的目录
-    if not os.path.exists('data/db'):
-        os.makedirs('data/db', exist_ok=True)
+    if not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
 
     # 动态导入模块
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -135,7 +190,8 @@ def run_web_mode(args):
     
     # 创建Flask应用
     app_config = {
-        'DEBUG': args.debug
+        'DEBUG': args.debug,
+        'DB_DIR': db_dir
     }
     
     # 如果需要初始化爬虫管理器
@@ -153,14 +209,17 @@ def run_web_mode(args):
 def main():
     """主函数"""
     # 创建必要的目录
-    for directory in ['logs', 'data/db', 'data/output']:
+    for directory in ['logs']:
         os.makedirs(directory, exist_ok=True)
         print(f"创建目录: {directory}")
 
     # 设置默认环境变量
     os.environ['LOG_LEVEL'] = os.environ.get('LOG_LEVEL', 'INFO')
     os.environ['LOG_DIR'] = os.environ.get('LOG_DIR', os.path.join(os.getcwd(), 'logs'))
-    os.environ['DB_DIR'] = os.environ.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
+    
+    # 查找并设置数据库目录
+    db_dir = find_db_dir()
+    os.environ['DB_DIR'] = os.environ.get('DB_DIR', db_dir)
     
     print(f"环境变量设置完成:")
     print(f"LOG_LEVEL: {os.environ['LOG_LEVEL']}")
@@ -180,6 +239,7 @@ def main():
             debug=True,
             log_level='INFO',
             log_dir='./logs',
+            db_dir=None,
             with_crawler=True  # 确保默认启用爬虫管理器
         )
         run_web_mode(web_args)

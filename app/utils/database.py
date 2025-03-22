@@ -10,6 +10,7 @@ import sys
 import sqlite3
 import json
 import shutil
+import glob
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Float, ForeignKey, func
 from sqlalchemy.ext.declarative import declarative_base
@@ -39,18 +40,60 @@ class News(Base):
 class NewsDatabase:
     """新闻数据库工具类"""
     
-    def __init__(self):
-        """初始化数据库连接"""
+    def __init__(self, db_path=None, use_all_dbs=False):
+        """
+        初始化数据库连接
+        
+        Args:
+            db_path: 数据库路径，如果为None则使用默认路径
+            use_all_dbs: 是否使用所有找到的数据库文件
+        """
         settings = get_settings()
         
         # 确保DB_DIR存在
-        db_dir = settings.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
-        if not os.path.exists(db_dir):
-            os.makedirs(db_dir, exist_ok=True)
+        self.db_dir = settings.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
+        if not os.path.exists(self.db_dir):
+            os.makedirs(self.db_dir, exist_ok=True)
+            
+        # 检查项目根目录下的db目录
+        proj_db_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'db')
+        if os.path.exists(proj_db_dir):
+            self.db_dir = proj_db_dir
+            
+        # 如果指定了db_path，直接使用
+        if db_path:
+            self.db_path = db_path
+        else:
+            # 默认使用news.db
+            self.db_path = os.path.join(self.db_dir, 'news.db')
+            
+            # 查找finance_news.db（可能是主数据库）
+            finance_db = os.path.join(self.db_dir, 'finance_news.db')
+            if os.path.exists(finance_db):
+                self.db_path = finance_db
+                logger.info(f"找到主数据库: {self.db_path}")
+            else:
+                # 查找任何.db文件
+                db_files = glob.glob(os.path.join(self.db_dir, '*.db'))
+                if db_files:
+                    # 使用修改时间最新的数据库
+                    newest_db = max(db_files, key=os.path.getmtime)
+                    self.db_path = newest_db
+                    logger.info(f"使用最新的数据库: {self.db_path}")
+        
+        logger.info(f"初始化数据库连接: {self.db_path}")
+        
+        # 收集所有要查询的数据库
+        self.all_db_paths = []
+        if use_all_dbs:
+            # 查找所有.db文件
+            self.all_db_paths = glob.glob(os.path.join(self.db_dir, '*.db'))
+            logger.info(f"找到 {len(self.all_db_paths)} 个数据库文件")
+        else:
+            self.all_db_paths = [self.db_path]
             
         if settings.get('db_type', 'sqlite') == 'sqlite':
-            db_path = os.path.join(db_dir, 'news.db')
-            self.engine = create_engine(f'sqlite:///{db_path}')
+            self.engine = create_engine(f'sqlite:///{self.db_path}')
         else:
             db_user = settings.get('db_user', '')
             db_password = settings.get('db_password', '')
@@ -61,6 +104,7 @@ class NewsDatabase:
             db_url = f"{db_type}://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
             self.engine = create_engine(db_url)
         
+        # 创建表（如果不存在）
         Base.metadata.create_all(self.engine)
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
@@ -145,136 +189,151 @@ class NewsDatabase:
     
     def query_news(self, keyword=None, days=None, source=None, limit=10, offset=0):
         """查询新闻"""
-        query = self.session.query(News)
+        results = []
         
-        if keyword:
-            query = query.filter(News.title.like(f'%{keyword}%'))
+        # 尝试从所有数据库查询
+        for db_path in self.all_db_paths:
+            try:
+                # 直接使用sqlite3连接，以保证兼容性
+                conn = sqlite3.connect(db_path)
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                # 构建查询条件
+                conditions = []
+                params = []
+                
+                if keyword:
+                    conditions.append("(title LIKE ? OR content LIKE ?)")
+                    params.extend([f"%{keyword}%", f"%{keyword}%"])
+                
+                if days:
+                    start_time = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+                    conditions.append("pub_time >= ?")
+                    params.append(start_time)
+                
+                if source:
+                    conditions.append("source = ?")
+                    params.append(source)
+                
+                # 构建SQL查询
+                sql = "SELECT * FROM news"
+                if conditions:
+                    sql += " WHERE " + " AND ".join(conditions)
+                
+                # 添加排序和分页
+                sql += " ORDER BY pub_time DESC"
+                if limit:
+                    sql += f" LIMIT {limit}"
+                    if offset:
+                        sql += f" OFFSET {offset}"
+                
+                # 执行查询
+                cursor.execute(sql, params)
+                rows = cursor.fetchall()
+                
+                # 将结果转换为字典列表
+                for row in rows:
+                    item = {}
+                    for i, column in enumerate(cursor.description):
+                        item[column[0]] = row[i]
+                    results.append(item)
+                
+                conn.close()
+            except Exception as e:
+                logger.error(f"查询数据库 {db_path} 失败: {str(e)}")
         
-        if days:
-            start_time = datetime.now() - timedelta(days=days)
-            query = query.filter(News.publish_time >= start_time)
-        
-        if source:
-            query = query.filter(News.source == source)
-        
-        query = query.order_by(News.publish_time.desc())
-        query = query.limit(limit).offset(offset)
-        
-        return query.all()
+        return results[:limit]  # 确保不超过limit限制
     
-    def get_news_count(self, keyword=None, days=None, source=None, start_date=None, end_date=None):
+    def get_news_count(self, keyword=None, days=None, source=None):
         """获取新闻数量"""
-        query = self.session.query(News)
+        total_count = 0
         
-        if keyword:
-            query = query.filter(News.title.like(f'%{keyword}%'))
+        # 尝试从所有数据库查询
+        for db_path in self.all_db_paths:
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                
+                # 构建查询条件
+                conditions = []
+                params = []
+                
+                if keyword:
+                    conditions.append("(title LIKE ? OR content LIKE ?)")
+                    params.extend([f"%{keyword}%", f"%{keyword}%"])
+                
+                if days:
+                    start_time = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+                    conditions.append("pub_time >= ?")
+                    params.append(start_time)
+                
+                if source:
+                    conditions.append("source = ?")
+                    params.append(source)
+                
+                # 构建SQL查询
+                sql = "SELECT COUNT(*) FROM news"
+                if conditions:
+                    sql += " WHERE " + " AND ".join(conditions)
+                
+                # 执行查询
+                cursor.execute(sql, params)
+                count = cursor.fetchone()[0]
+                total_count += count
+                
+                conn.close()
+            except Exception as e:
+                logger.error(f"查询数据库 {db_path} 计数失败: {str(e)}")
         
-        if days:
-            start_time = datetime.now() - timedelta(days=days)
-            query = query.filter(News.publish_time >= start_time)
-        
-        if source:
-            query = query.filter(News.source == source)
-        
-        if start_date:
-            query = query.filter(News.publish_time >= start_date)
-        
-        if end_date:
-            query = query.filter(News.publish_time < end_date)
-        
-        return query.count()
+        return total_count
     
     def get_sources(self):
-        """获取新闻来源统计"""
-        result = self.session.query(
-            News.source,
-            func.count(News.id).label('count')
-        ).group_by(News.source).all()
+        """获取所有新闻来源"""
+        sources = set()
         
-        return [{'name': row[0], 'count': row[1]} for row in result]
-    
-    def get_keywords(self, limit=50):
-        """获取热门关键词"""
-        # 从所有新闻中提取关键词并统计
-        all_keywords = {}
-        news_list = self.session.query(News.keywords).all()
+        # 尝试从所有数据库查询
+        for db_path in self.all_db_paths:
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                
+                cursor.execute("SELECT DISTINCT source FROM news")
+                for row in cursor.fetchall():
+                    if row[0]:  # 排除空值
+                        sources.add(row[0])
+                
+                conn.close()
+            except Exception as e:
+                logger.error(f"查询数据库 {db_path} 来源失败: {str(e)}")
         
-        for news in news_list:
-            if news[0]:
-                keywords = json.loads(news[0])
-                for keyword in keywords:
-                    all_keywords[keyword] = all_keywords.get(keyword, 0) + 1
-        
-        # 按出现次数排序
-        sorted_keywords = sorted(all_keywords.items(), key=lambda x: x[1], reverse=True)
-        return [{'word': word, 'count': count} for word, count in sorted_keywords[:limit]]
+        return sorted(list(sources))
     
     def get_categories(self):
-        """获取新闻分类统计"""
-        result = self.session.query(
-            News.category,
-            func.count(News.id).label('count')
-        ).group_by(News.category).all()
+        """获取所有分类"""
+        categories = set()
         
-        # 计算每个分类的趋势（与前一天相比的变化）
-        categories = []
-        for row in result:
-            category = row[0]
-            count = row[1]
-            
-            # 获取昨天的数据
-            yesterday = datetime.now() - timedelta(days=1)
-            yesterday_count = self.session.query(News).filter(
-                News.category == category,
-                News.publish_time >= yesterday,
-                News.publish_time < datetime.now()
-            ).count()
-            
-            # 计算趋势
-            trend = count - yesterday_count
-            
-            categories.append({
-                'name': category,
-                'count': count,
-                'trend': trend
-            })
+        # 尝试从所有数据库查询
+        for db_path in self.all_db_paths:
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                
+                cursor.execute("SELECT DISTINCT category FROM news")
+                for row in cursor.fetchall():
+                    if row[0]:  # 排除空值
+                        categories.add(row[0])
+                
+                conn.close()
+            except Exception as e:
+                logger.error(f"查询数据库 {db_path} 分类失败: {str(e)}")
         
-        return categories
-    
-    def get_news_by_id(self, news_id):
-        """根据ID获取新闻"""
-        return self.session.query(News).filter(News.id == news_id).first()
-    
-    def update_news(self, news_id, news_data):
-        """更新新闻"""
-        try:
-            news = self.get_news_by_id(news_id)
-            if news:
-                for key, value in news_data.items():
-                    setattr(news, key, value)
-                self.session.commit()
-                return True
-            return False
-        except Exception as e:
-            self.session.rollback()
-            raise e
-    
-    def delete_news(self, news_id):
-        """删除新闻"""
-        try:
-            news = self.get_news_by_id(news_id)
-            if news:
-                self.session.delete(news)
-                self.session.commit()
-                return True
-            return False
-        except Exception as e:
-            self.session.rollback()
-            raise e
+        return sorted(list(categories))
     
     def close(self):
         """关闭数据库连接"""
-        self.session.close()
+        if hasattr(self, 'session'):
+            self.session.close()
 
 class DatabaseManager:
     """数据库管理器，提供数据库连接和初始化功能"""

@@ -108,59 +108,126 @@ class NewsDatabase:
     def save_news(self, news_item):
         """保存新闻到数据库"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            # 确保必要的字段存在
+            if 'id' not in news_item:
+                import hashlib
+                hash_str = f"{news_item.get('title', '')}-{news_item.get('url', '')}"
+                news_item['id'] = hashlib.md5(hash_str.encode('utf-8')).hexdigest()
+            
+            # 确保source不为空且准确
+            source = news_item.get('source', '未知来源')
+            
+            # 尝试从URL中推断来源
+            if source == '未知来源' or not source:
+                if 'url' in news_item:
+                    url = news_item['url'].lower()
+                    if 'eastmoney.com' in url:
+                        source = '东方财富网'
+                    elif 'sina.com' in url or 'sina.cn' in url or 'finance.sina' in url:
+                        source = '新浪财经'
+                    elif 'qq.com' in url or 'finance.qq' in url:
+                        source = '腾讯财经'
+                    elif '163.com' in url or 'money.163' in url:
+                        source = '网易财经'
+                    elif 'ifeng.com' in url:
+                        source = '凤凰财经'
+                    elif 'jrj.com' in url:
+                        source = '金融界'
+                    elif 'cnstock.com' in url:
+                        source = '中国证券网'
+                    elif 'hexun.com' in url:
+                        source = '和讯网'
+                    elif 'cs.com.cn' in url:
+                        source = '中证网'
+                    elif 'xinhuanet.com' in url:
+                        source = '新华网'
+                    elif 'people.com.cn' in url:
+                        source = '人民网'
+                    elif 'cctv.com' in url:
+                        source = 'CCTV'
+                    elif 'stcn.com' in url:
+                        source = '证券时报网'
+                    elif '21jingji.com' in url:
+                        source = '21世纪经济报道'
+                    elif 'chinanews.com' in url:
+                        source = '中新网'
+                    elif 'cnfol.com' in url:
+                        source = '中金在线'
+                    elif 'caixin.com' in url:
+                        source = '财新网'
+                    else:
+                        # 使用域名作为来源
+                        import re
+                        domain_match = re.search(r'://([^/]+)', url)
+                        if domain_match:
+                            domain = domain_match.group(1)
+                            # 移除www和其他常见子域名
+                            domain = re.sub(r'^(www|finance|money|stock|business)\.', '', domain)
+                            # 获取主域名部分
+                            main_domain = '.'.join(domain.split('.')[-2:] if len(domain.split('.')) > 1 else [domain])
+                            source = main_domain
+                
+            news_item['source'] = source
+            
+            # 检查新闻是否已存在
+            conn = self.get_connection()
             cursor = conn.cursor()
             
-            # 检查是否已存在
             cursor.execute("SELECT id FROM news WHERE id = ?", (news_item['id'],))
             if cursor.fetchone():
-                logging.info(f"新闻已存在: {news_item['title']}")
                 conn.close()
-                return False
+                return False  # 新闻已存在
             
             # 准备数据字段
-            fields = [
-                'id', 'title', 'content', 'pub_time', 'author', 'source', 
-                'url', 'keywords', 'sentiment', 'crawl_time'
-            ]
+            fields = ['id', 'title', 'content', 'pub_time', 'author', 'source', 'url', 
+                    'keywords', 'sentiment', 'crawl_time', 'category', 'images', 'related_stocks']
             
-            # 添加可选字段
-            optional_fields = ['category', 'images', 'related_stocks']
-            for field in optional_fields:
-                if field in news_item:
-                    fields.append(field)
-            
-            # 构建SQL语句
-            placeholders = ', '.join(['?'] * len(fields))
-            fields_str = ', '.join(fields)
-            
-            # 准备值
-            values = []
+            # 确保所有字段都存在于news_item中
             for field in fields:
-                if field in news_item:
-                    # 处理特殊类型
-                    if field in ['images', 'related_stocks'] and isinstance(news_item[field], (list, dict)):
-                        import json
-                        values.append(json.dumps(news_item[field], ensure_ascii=False))
+                if field not in news_item:
+                    if field == 'pub_time' or field == 'crawl_time':
+                        news_item[field] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    elif field == 'sentiment':
+                        news_item[field] = 0.0
+                    elif field == 'keywords':
+                        news_item[field] = ''
+                    elif field == 'category':
+                        news_item[field] = '财经'
+                    elif field == 'images' or field == 'related_stocks':
+                        news_item[field] = '[]'
                     else:
-                        values.append(news_item[field])
-                else:
-                    values.append(None)
+                        news_item[field] = ''
+            
+            # 处理列表或字典类型的字段
+            import json
+            for field in ['keywords', 'images', 'related_stocks']:
+                if field in news_item:
+                    if isinstance(news_item[field], (list, dict)):
+                        news_item[field] = json.dumps(news_item[field], ensure_ascii=False)
+                    elif not isinstance(news_item[field], str):
+                        news_item[field] = str(news_item[field])
+            
+            # 构建SQL插入语句
+            placeholders = ', '.join(['?' for _ in fields])
+            sql = f"INSERT INTO news ({', '.join(fields)}) VALUES ({placeholders})"
             
             # 执行插入
-            sql = f"INSERT INTO news ({fields_str}) VALUES ({placeholders})"
+            values = [news_item.get(field, '') for field in fields]
             cursor.execute(sql, values)
             
             conn.commit()
             conn.close()
             
-            # 同步到主数据库（如果当前不是主数据库）
-            if self.source and self.db_path != os.path.join(self.db_dir, 'finance_news.db'):
+            # 如果使用的是来源专用数据库，也同步到主数据库
+            if self.source:
                 self.sync_to_main_db(news_item)
                 
             return True
+            
         except Exception as e:
-            logging.error(f"保存新闻到数据库失败: {str(e)}")
+            logging.error(f"保存新闻失败: {str(e)}")
+            if 'title' in news_item:
+                logging.error(f"失败的新闻标题: {news_item['title']}")
             return False
     
     def sync_to_main_db(self, news_item):

@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.database import NewsDatabase
 from utils.article_processor import ArticleProcessor
-from utils.text_cleaner import clean_text, format_news_content
+from utils.text_cleaner import clean_text, format_news_content, format_datetime
 
 # 数据库路径
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'finance_news.db')
@@ -48,8 +48,9 @@ def register_routes(app):
         elif sentiment == 'neutral':
             sentiment_value = 0
         
+        # 查询新闻数据
         news_data = db.query_news(keyword=keyword, days=days, source=source, 
-                                limit=per_page, offset=(page-1)*per_page)
+                               limit=per_page, offset=(page-1)*per_page)
         
         # 过滤情感
         if sentiment_value is not None:
@@ -60,12 +61,56 @@ def register_routes(app):
             else:
                 news_data = [news for news in news_data if -0.2 <= news['sentiment'] <= 0.2]
         
-        # 清理新闻数据中的乱码
+        # 全面清理新闻数据中的乱码
         for item in news_data:
-            item['title'] = clean_text(item['title'])
-            item['content'] = format_news_content(item['content'], 200)
-            if item['author']:
+            # 标题处理
+            if 'title' in item and item['title']:
+                item['title'] = clean_text(item['title'])
+                
+            # 内容处理 
+            if 'content' in item and item['content']:
+                item['content'] = format_news_content(item['content'], 200)
+                
+            # 作者处理
+            if 'author' in item and item['author']:
                 item['author'] = clean_text(item['author'])
+                
+            # 时间处理
+            if 'pub_time' in item and item['pub_time']:
+                item['pub_time'] = format_datetime(item['pub_time'])
+                
+            # 来源处理
+            if 'source' in item:
+                if not item['source'] or item['source'] == '未知来源':
+                    # 尝试从URL推断来源
+                    if 'url' in item and item['url']:
+                        url = item['url'].lower()
+                        if 'eastmoney.com' in url:
+                            item['source'] = '东方财富网'
+                        elif 'sina.com' in url or 'sina.cn' in url:
+                            item['source'] = '新浪财经'
+                        elif 'qq.com' in url:
+                            item['source'] = '腾讯财经'
+                        elif '163.com' in url:
+                            item['source'] = '网易财经'
+                        elif 'ifeng.com' in url:
+                            item['source'] = '凤凰财经'
+                
+            # 关键词处理
+            if 'keywords' in item and item['keywords']:
+                try:
+                    if isinstance(item['keywords'], str):
+                        if item['keywords'].startswith('[') and item['keywords'].endswith(']'):
+                            import json
+                            kw_list = json.loads(item['keywords'])
+                            item['keywords'] = ','.join(kw_list)
+                        elif ',' in item['keywords']:
+                            kws = item['keywords'].split(',')
+                            item['keywords'] = ','.join([clean_text(kw) for kw in kws])
+                        else:
+                            item['keywords'] = clean_text(item['keywords'])
+                except:
+                    pass
         
         # 获取总数
         total = db.count_news(keyword=keyword, days=days, source=source)
@@ -102,42 +147,24 @@ def register_routes(app):
         # 按类别分组热门关键词
         categorized_keywords = categorize_keywords(hot_keywords)
         
-        # 新增：按来源分类的新闻数据
+        # 按来源分类的新闻数据
         categorized_news = {}
         if view_mode == 'card':
             for src in sources:
                 src_news = db.query_news(days=days, source=src, limit=5)
                 # 清理数据
                 for item in src_news:
-                    item['title'] = clean_text(item['title'])
-                    item['content'] = format_news_content(item['content'], 100)
-                    if item['author']:
+                    if 'title' in item and item['title']:
+                        item['title'] = clean_text(item['title'])
+                    if 'content' in item and item['content']:
+                        item['content'] = format_news_content(item['content'], 100)
+                    if 'author' in item and item['author']:
                         item['author'] = clean_text(item['author'])
+                    if 'pub_time' in item and item['pub_time']:
+                        item['pub_time'] = format_datetime(item['pub_time'])
                 
                 if src_news:
                     categorized_news[src] = src_news
-        
-        # 在返回新闻数据前处理乱码
-        for item in news_data:
-            if hasattr(item, 'pub_time'):
-                item.pub_time = format_datetime(item.pub_time)
-            if hasattr(item, 'content'):
-                item.content = clean_text(item.content)
-            if hasattr(item, 'title'):
-                item.title = clean_text(item.title)
-            if hasattr(item, 'author'):
-                item.author = clean_text(item.author)
-            if hasattr(item, 'keywords'):
-                item.keywords = clean_text(item.keywords)
-        
-        # 如果使用卡片视图，也处理分类新闻数据
-        if view_mode == 'card' and categorized_news:
-            for source, items in categorized_news.items():
-                for item in items:
-                    if hasattr(item, 'pub_time'):
-                        item.pub_time = format_datetime(item.pub_time)
-                    if hasattr(item, 'title'):
-                        item.title = clean_text(item.title)
         
         return render_template('index.html',
                             news=news_data,
@@ -443,18 +470,9 @@ def clean_text(text):
     if not text:
         return ""
     
-    # 替换常见乱码字符
-    text = text.replace('æ', '-')
-    text = text.replace('ç', ':')
-    text = text.replace('¥', ' ')
-    text = text.replace('â', '')
-    text = text.replace('ä', 'a')
-    text = text.replace('ë', 'e')
-    
-    # 移除其他不可见字符
-    text = ''.join(c for c in text if ord(c) >= 32 or c == '\n')
-    
-    return text
+    # 导入正式的文本清理模块
+    from utils.text_cleaner import clean_text as cleaner
+    return cleaner(text)
 
 # 格式化日期时间
 def format_datetime(date_str):
@@ -462,27 +480,6 @@ def format_datetime(date_str):
     if not date_str:
         return "未知时间"
     
-    # 清理日期字符串中的乱码
-    date_str = clean_text(date_str)
-    
-    # 尝试解析不同格式的日期
-    try:
-        # 尝试解析标准格式
-        if '-' in date_str:
-            parts = date_str.split('-')
-            if len(parts) >= 3:
-                return f"{parts[0]}年{parts[1]}月{parts[2].split(' ')[0]}日"
-        
-        # 尝试解析月日格式
-        if '月' in date_str and '日' in date_str:
-            return date_str
-        
-        # 尝试解析数字格式
-        import re
-        match = re.search(r'(\d{1,2})[\/\-](\d{1,2})', date_str)
-        if match:
-            return f"{match.group(1)}月{match.group(2)}日"
-    except:
-        pass
-    
-    return "最近更新" 
+    # 导入正式的日期格式化模块
+    from utils.text_cleaner import format_datetime as formatter
+    return formatter(date_str) 
