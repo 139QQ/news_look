@@ -111,6 +111,26 @@ def run_crawler(source, days, use_proxy, **kwargs):
             news_data = crawler.crawl(days=days)
             logger.info(f"{source} 爬虫运行完成，共爬取 {len(news_data)} 条新闻")
             
+            # 确保新闻数据保存到数据库
+            if news_data and hasattr(crawler, 'db_manager') and hasattr(crawler.db_manager, 'save_news'):
+                saved_count = 0
+                for news in news_data:
+                    try:
+                        if crawler.db_manager.save_news(news):
+                            saved_count += 1
+                    except Exception as e:
+                        logger.error(f"保存新闻到数据库失败: {news.get('title', '未知标题')}, 错误: {str(e)}")
+                
+                logger.info(f"成功保存 {saved_count} 条新闻到数据库: {crawler.db_path}")
+            
+            # 保存数据库连接
+            if hasattr(crawler, 'conn') and crawler.conn:
+                try:
+                    crawler.conn.commit()
+                    logger.info(f"已提交数据库事务")
+                except Exception as e:
+                    logger.error(f"提交数据库事务失败: {str(e)}")
+            
         else:
             # 提取db_path参数
             db_path = kwargs.get('db_path')
@@ -134,6 +154,26 @@ def run_crawler(source, days, use_proxy, **kwargs):
                     news_data = crawler.crawl(days=days)
                     crawler_logger.info(f"{crawler_source} 爬虫运行完成，共爬取 {len(news_data)} 条新闻")
                     total_news += len(news_data)
+                    
+                    # 确保新闻数据保存到数据库
+                    if news_data and hasattr(crawler, 'db_manager') and hasattr(crawler.db_manager, 'save_news'):
+                        saved_count = 0
+                        for news in news_data:
+                            try:
+                                if crawler.db_manager.save_news(news):
+                                    saved_count += 1
+                            except Exception as e:
+                                logger.error(f"保存新闻到数据库失败: {news.get('title', '未知标题')}, 错误: {str(e)}")
+                        
+                        logger.info(f"成功保存 {saved_count} 条新闻到数据库: {crawler.db_path}")
+                    
+                    # 保存数据库连接
+                    if hasattr(crawler, 'conn') and crawler.conn:
+                        try:
+                            crawler.conn.commit()
+                            logger.info(f"已提交数据库事务")
+                        except Exception as e:
+                            logger.error(f"提交数据库事务失败: {str(e)}")
                     
                     # 随机延迟，避免频繁请求
                     time.sleep(random.uniform(1, kwargs.get('delay', 3)))

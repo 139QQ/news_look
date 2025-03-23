@@ -90,6 +90,10 @@ class BaseCrawler:
                 if db_dir:
                     os.makedirs(db_dir, exist_ok=True)
             
+            # 设置db_manager的db_path属性
+            if not hasattr(self.db_manager, 'db_path'):
+                setattr(self.db_manager, 'db_path', self.db_path)
+            
             # 初始化数据库连接
             if hasattr(self.db_manager, 'get_connection'):
                 self.conn = self.db_manager.get_connection(self.db_path)

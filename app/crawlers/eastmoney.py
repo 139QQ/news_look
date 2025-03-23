@@ -28,21 +28,23 @@ logger = get_crawler_logger('eastmoney')
 class EastMoneyCrawler(BaseCrawler):
     """东方财富网爬虫，用于爬取东方财富网的财经新闻"""
     
-    def __init__(self, db_path="db/finance_news.db", use_proxy=False, use_source_db=False, db_manager=None):
+    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False):
         """
         初始化东方财富网爬虫
         
         Args:
-            db_path: 数据库路径
+            db_manager: 数据库管理器对象
+            db_path: 数据库路径，如果为None则使用默认路径
             use_proxy: 是否使用代理
-            use_source_db: 是否使用源数据库
-            db_manager: 数据库管理器
+            use_source_db: 是否使用来源专用数据库
         """
         # 基本属性
         self.source = "东方财富网"
         self.name = "eastmoney"
-        self.db_path = db_path
-        self.use_proxy = use_proxy
+        
+        # 调用父类的初始化方法
+        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db)
+        
         self.status = 'idle'
         self.last_run = None
         self.next_run = None
@@ -68,8 +70,6 @@ class EastMoneyCrawler(BaseCrawler):
         
         # 初始化数据列表
         self.news_data = []
-        
-        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db)
         
         # 随机User-Agent
         self.user_agents = [

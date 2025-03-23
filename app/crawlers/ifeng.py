@@ -45,17 +45,18 @@ class IfengCrawler(BaseCrawler):
     # 作者选择器
     AUTHOR_SELECTOR = 'span.ss03'
     
-    def __init__(self, db_path=None, use_proxy=False, use_source_db=False):
+    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False):
         """
         初始化凤凰财经爬虫
         
         Args:
+            db_manager: 数据库管理器对象
             db_path: 数据库路径，如果为None则使用默认路径
             use_proxy: 是否使用代理
             use_source_db: 是否使用来源专用数据库
         """
         self.source = "凤凰财经"
-        super().__init__(db_path, use_proxy, use_source_db)
+        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db)
     
     def crawl(self, days=1):
         """

@@ -388,34 +388,124 @@ class DatabaseManager:
         Args:
             conn: 数据库连接
         """
-        # 创建新闻表
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS news (
-                id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                content TEXT NOT NULL,
-                pub_time TEXT NOT NULL,
-                author TEXT,
-                source TEXT NOT NULL,
-                url TEXT NOT NULL,
-                keywords TEXT,
-                sentiment REAL,
-                crawl_time TEXT NOT NULL,
-                category TEXT,
-                images TEXT,
-                related_stocks TEXT
-            )
-        ''')
+        try:
+            cursor = conn.cursor()
+            
+            # 创建新闻表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS news (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    content TEXT,
+                    pub_time TEXT,
+                    author TEXT,
+                    source TEXT,
+                    url TEXT,
+                    keywords TEXT,
+                    sentiment REAL,
+                    crawl_time TEXT,
+                    category TEXT,
+                    images TEXT,
+                    related_stocks TEXT
+                )
+            ''')
+            
+            # 提交事务
+            conn.commit()
+            
+            logger.debug("已初始化数据库表")
+            
+        except Exception as e:
+            logger.error(f"初始化数据库失败: {str(e)}")
+            conn.rollback()
+            raise
+    
+    def save_news(self, news_data, conn=None, db_path=None):
+        """
+        保存新闻数据到数据库
         
-        # 创建索引
-        conn.execute('CREATE INDEX IF NOT EXISTS idx_news_source ON news (source)')
-        conn.execute('CREATE INDEX IF NOT EXISTS idx_news_pub_time ON news (pub_time)')
-        conn.execute('CREATE INDEX IF NOT EXISTS idx_news_category ON news (category)')
+        Args:
+            news_data: 新闻数据字典
+            conn: 数据库连接，如果为None则创建新连接
+            db_path: 数据库路径，如果为None则使用默认路径
+            
+        Returns:
+            bool: 是否保存成功
+        """
+        # 如果没有提供数据库路径，使用当前对象的db_path属性（如果存在）
+        if db_path is None:
+            if hasattr(self, 'db_path') and self.db_path:
+                db_path = self.db_path
+            else:
+                db_path = self.main_db_path
         
-        # 提交事务
-        conn.commit()
+        logger.debug(f"使用数据库路径保存新闻: {db_path}")
         
-        logger.debug("数据库初始化完成")
+        # 如果没有提供连接，创建新连接
+        close_conn = False
+        if conn is None:
+            conn = self.get_connection(db_path)
+            close_conn = True
+            
+            # 确保数据库已初始化
+            try:
+                self.init_db(conn)
+            except Exception as e:
+                logger.error(f"初始化数据库失败: {str(e)}")
+        
+        try:
+            cursor = conn.cursor()
+            
+            # 检查新闻ID是否已存在
+            cursor.execute("SELECT id FROM news WHERE id = ?", (news_data['id'],))
+            if cursor.fetchone():
+                logger.debug(f"新闻已存在: {news_data.get('title', 'unknown')}")
+                return False
+            
+            # 确保所有字段都存在
+            fields = ['id', 'title', 'content', 'pub_time', 'author', 'source', 'url', 
+                      'keywords', 'sentiment', 'crawl_time', 'category', 'images', 'related_stocks']
+            
+            news_dict = {}
+            for field in fields:
+                if field in news_data:
+                    # 如果是列表类型，转换为逗号分隔的字符串
+                    if isinstance(news_data[field], list):
+                        news_dict[field] = ','.join(news_data[field])
+                    else:
+                        news_dict[field] = news_data[field]
+                else:
+                    # 对于缺失的字段设置默认值
+                    if field == 'crawl_time':
+                        news_dict[field] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    elif field == 'sentiment':
+                        news_dict[field] = 0.5
+                    else:
+                        news_dict[field] = ''
+            
+            # 构建INSERT语句
+            fields_str = ', '.join(fields)
+            placeholders = ', '.join(['?' for _ in fields])
+            sql = f"INSERT INTO news ({fields_str}) VALUES ({placeholders})"
+            
+            # 执行INSERT语句
+            cursor.execute(sql, tuple(news_dict[field] for field in fields))
+            
+            # 提交事务
+            conn.commit()
+            
+            logger.debug(f"成功保存新闻: {news_dict.get('title', 'unknown')}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"保存新闻失败: {str(e)}")
+            conn.rollback()
+            return False
+            
+        finally:
+            # 如果我们创建了连接，则关闭它
+            if close_conn:
+                conn.close()
     
     def merge_db(self, source_db_path, target_db_path=None):
         """

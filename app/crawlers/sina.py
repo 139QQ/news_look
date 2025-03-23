@@ -405,7 +405,7 @@ class SinaCrawler(BaseCrawler):
             # 分析情感
             if content:
                 try:
-                    sentiment = self.sentiment_analyzer.analyze(text=content)
+                    sentiment = self.sentiment_analyzer.analyze(title, content)
                     news_data['sentiment'] = sentiment
                 except Exception as e:
                     logger.error(f"情感分析失败: {str(e)}")
