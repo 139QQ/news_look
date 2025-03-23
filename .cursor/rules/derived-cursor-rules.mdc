@@ -1,0 +1,163 @@
+---
+description: Cursor rules derived by SpecStory from the project AI interaction history
+globs: *
+---
+
+## PROJECT OVERVIEW
+
+This is the NewsLook project, a financial news crawler system designed to collect news from various financial websites, including Eastmoney, Sina Finance, Tencent Finance, Netease Finance, and Ifeng Finance.  The project uses a modular design with clear interfaces and functional separation for easy expansion and maintenance. It supports three main operating modes: crawler mode, scheduler mode, and web application mode, all accessible through the unified entry script `run.py`.  Recent updates include significant database optimizations and enhanced encoding handling to improve stability and performance.
+
+## CODE STYLE
+
+*   Follow PEP 8 guidelines.
+*   Use type annotations for all functions.
+*   Maintain consistent coding style throughout the project.
+
+
+## FOLDER ORGANIZATION
+
+```
+NewsLook
+├── api/              # API 接口
+├── app/              # 应用逻辑
+│   ├── crawlers/     # 爬虫模块
+│   ├── tasks/        # 任务调度模块
+│   ├── utils/        # 工具函数
+│   └── web/          # Web 应用
+├── data/             # 数据存储
+│   └── db/           # 数据库文件
+├── docs/             # 文档
+├── requirements/    # 依赖包
+├── scripts/          # 运行脚本
+├── tests/            # 测试
+├── static/           # 静态文件
+└── templates/        # 模板文件
+
+```
+
+## TECH STACK
+
+*   Python 3.13.0
+*   Flask
+*   SQLAlchemy (or sqlite3)
+*   Requests
+*   BeautifulSoup
+*   Selenium
+*   jieba
+*   fake-useragent
+*   webdriver-manager
+
+
+## PROJECT-SPECIFIC STANDARDS
+
+*   All news data must be stored in a consistent format.
+*   Use UTF-8 encoding for all files.
+*   All functions must have docstrings.
+*   All database interactions must be handled within try-except blocks.
+
+## WORKFLOW & RELEASE RULES
+
+*   Use Git for version control.
+*   Create new branches for each feature.
+*   Write clear and concise commit messages.
+*   Conduct thorough testing before releasing new versions.
+*   Implement a robust logging system to track errors and debug issues.
+
+## REFERENCE EXAMPLES
+
+*   [Example of a function with type annotations](#example-a-function-with-type-annotations)
+
+## PROJECT DOCUMENTATION & CONTEXT SYSTEM
+
+*   All documentation should be written in Markdown format.
+*   Use consistent formatting throughout the documentation.
+*   Maintain a README.md file in the root directory.
+*   Document all functions and classes.
+*   Use diagrams to illustrate complex systems.
+*   Regularly update the project documentation to reflect changes in the codebase.
+*   [Database Connection Details](docs/数据库连接说明.md)
+
+
+## DEBUGGING
+
+*   Use a logging system to track program execution.
+*   Use a debugger to step through code.
+*   Test frequently to catch errors early.
+
+
+## FINAL DOs AND DON'Ts
+
+*   **Do:** Use type hints, write clear and concise code, and test thoroughly.
+*   **Don't:** Commit broken code, use hardcoded values unless necessary, or ignore warnings.
+
+
+
+# Example: A function with type annotations
+
+```python
+from typing import List, Dict
+
+def get_news(source: str, days: int) -> List[Dict]:
+    """Retrieves news articles from a specified source for the given number of days."""
+    #Implementation goes here.
+    pass
+```
+
+## Database Connection Details
+
+This document describes the database connection mechanism in the financial news crawler system, including how each crawler connects to the database and stores news data.
+
+### Database Architecture
+
+The system uses SQLite databases to store the crawled news data.  The `SQLiteManager` class provides a unified database operation interface.
+
+### Database File Location
+
+Database files are stored in the `data/db/` directory.  Each source has its own database file (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`).
+
+### Database Table Structure
+
+The main data tables include:
+
+1.  **news** - Stores basic news information.  Fields include: `id` (primary key), `title`, `content`, `content_html`, `pub_time`, `author`, `source`, `url` (unique), `keywords`, `images`, `related_stocks`, `sentiment`, `classification`, `category`, `crawl_time`.
+
+2.  **keywords** - Stores keywords.  Fields include: `id` (primary key), `keyword` (unique), `count`, `last_updated`.
+
+3.  **news_keywords** - A join table between news and keywords.  Fields include: `news_id`, `keyword_id` (primary key).
+
+4.  **stocks** - Stores stock information.  Fields include: `code` (primary key), `name`, `count`, `last_updated`.
+
+5.  **news_stocks** - A join table between news and stocks.  Fields include: `news_id`, `stock_code` (primary key).
+
+### Database Connection Mechanism
+
+The `SQLiteManager` class (located in `app/db/sqlite_manager.py`) is the core database management class, providing functions for initializing database connections and table structures, saving and querying news data, and extracting and associating keyword and stock information.  All crawlers interact with the database via the `save_news_to_db` method, directly using sqlite3 connections for efficiency and reliability.
+
+### Best Practices
+
+1.  Use the unified database interface (`SQLiteManager`) for all database operations.
+2.  Use appropriate error handling for all database operations.
+3.  Log all database operation results.
+4.  Validate news data integrity before saving.
+5.  Regularly back up database files.
+6.  Use transactions for batch operations to ensure data consistency.
+
+### Database File Storage Optimization
+
+To optimize database storage and access, the system has been updated to use a single database file per news source. This improves efficiency, reduces file clutter, and simplifies data access and management.
+
+
+## Database File Storage Optimization
+
+To optimize database storage and access, the system has been updated as follows:
+
+**Fixed Database Filenames:**  The system now uses a fixed filename for each news source's database (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`), instead of the previous timestamp-based naming convention (`[source_name]_YYYYMMDD_HHMMSS.db`). This simplifies data access and management.
+
+**Direct Database Access:** Crawler classes now directly use `sqlite3` connections to save news data to the database. This reduces overhead and improves reliability.
+
+**Automatic Table Initialization:** The system automatically checks for and creates necessary database tables upon startup, ensuring data consistency.
+
+**Intelligent Path Handling:** The `NewsDatabase` class in the web application intelligently handles both relative and absolute database paths, allowing for flexible deployment.
+
+
+These optimizations significantly improve data storage efficiency, reduce data fragmentation, and simplify system maintenance.

@@ -69,7 +69,8 @@ docs/_build/
 
 # PyBuilder
 target/
-
+# 排除specstory目录
+.specstory/
 # Jupyter Notebook
 .ipynb_checkpoints
 

@@ -21,6 +21,7 @@ from bs4 import BeautifulSoup
 from app.crawlers.base import BaseCrawler
 from app.utils.logger import get_crawler_logger
 from app.utils.text_cleaner import clean_html, extract_keywords
+from app.db.sqlite_manager import SQLiteManager
 
 # 使用专门的爬虫日志记录器
 logger = get_crawler_logger('eastmoney')
@@ -79,6 +80,22 @@ class EastMoneyCrawler(BaseCrawler):
             "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
             "Mozilla/5.0 (iPad; CPU OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
         ]
+        
+        # 如果提供了db_manager并且不是SQLiteManager类型，创建SQLiteManager
+        if db_manager and not isinstance(db_manager, SQLiteManager):
+            if hasattr(db_manager, 'db_path'):
+                self.sqlite_manager = SQLiteManager(db_manager.db_path)
+            else:
+                # 使用传入的db_path或默认路径
+                self.sqlite_manager = SQLiteManager(db_path or self.db_path)
+        elif not db_manager:
+            # 如果没有提供db_manager，创建SQLiteManager
+            self.sqlite_manager = SQLiteManager(db_path or self.db_path)
+        else:
+            # 否则使用提供的db_manager
+            self.sqlite_manager = db_manager
+        
+        logger.info(f"东方财富网爬虫初始化完成，数据库路径: {self.db_path}")
     
     def get_random_user_agent(self):
         """返回一个随机的User-Agent"""
@@ -138,6 +155,16 @@ class EastMoneyCrawler(BaseCrawler):
                     break
             
             logger.info(f"爬取完成，共获取{len(news_list)}条新闻")
+            
+            # 爬取结束后，确保数据被保存到数据库
+            if hasattr(self, 'news_data') and self.news_data:
+                saved_count = 0
+                for news in self.news_data:
+                    if self.save_news_to_db(news):
+                        saved_count += 1
+                
+                logger.info(f"成功保存 {saved_count}/{len(self.news_data)} 条新闻到数据库")
+            
             return news_list
         
         except Exception as e:
@@ -203,7 +230,7 @@ class EastMoneyCrawler(BaseCrawler):
                                 
                                 # 保存到数据库
                                 try:
-                                    self.save_news(news)
+                                    self.save_news_to_db(news)
                                     logger.info(f"已将新闻保存到数据库: {news['title']}")
                                 except Exception as e:
                                     logger.error(f"保存新闻到数据库失败: {news['title']}, 错误: {str(e)}")
@@ -744,6 +771,27 @@ class EastMoneyCrawler(BaseCrawler):
             return category_urls['finance']
         
         return category_urls[category]
+    
+    def save_news_to_db(self, news):
+        """
+        保存新闻到数据库
+        
+        Args:
+            news: 新闻数据字典
+            
+        Returns:
+            bool: 是否保存成功
+        """
+        try:
+            # 如果有sqlite_manager属性则使用它保存
+            if hasattr(self, 'sqlite_manager') and self.sqlite_manager:
+                return self.sqlite_manager.save_news(news)
+            
+            # 否则使用父类的save_news方法保存到内存中
+            return super().save_news(news)
+        except Exception as e:
+            logger.error(f"保存新闻到数据库失败: {news.get('title', '未知标题')}, 错误: {str(e)}")
+            return False
 
 def main():
     """测试爬虫功能"""

@@ -72,7 +72,16 @@ def create_app(config=None):
     # 确保数据库目录存在
     app.config['DB_DIR'] = db_dir
     os.makedirs(db_dir, exist_ok=True)
+    
+    # 查找并输出数据库文件情况
+    db_files = glob.glob(os.path.join(db_dir, '*.db'))
     print(f"Web应用使用数据库目录: {db_dir}")
+    print(f"找到 {len(db_files)} 个数据库文件:")
+    for db_file in sorted(db_files, key=os.path.getmtime, reverse=True)[:5]:  # 只显示最新的5个
+        file_size = os.path.getsize(db_file) / 1024  # KB
+        print(f"  - {os.path.basename(db_file)} ({file_size:.1f} KB)")
+    if len(db_files) > 5:
+        print(f"  - ... 以及其他 {len(db_files) - 5} 个数据库文件")
     
     # 设置环境变量，以便其他模块访问
     os.environ['DB_DIR'] = db_dir

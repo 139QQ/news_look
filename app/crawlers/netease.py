@@ -19,6 +19,7 @@ import json
 from app.crawlers.base import BaseCrawler
 from app.utils.logger import get_crawler_logger
 from app.utils.text_cleaner import clean_html, extract_keywords
+from app.db.sqlite_manager import SQLiteManager
 
 # 使用专门的爬虫日志记录器
 logger = get_crawler_logger('netease')
@@ -57,13 +58,30 @@ class NeteaseCrawler(BaseCrawler):
         """
         self.source = "网易财经"
         super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db)
+        
+        # 如果提供了db_manager并且不是SQLiteManager类型，创建SQLiteManager
+        if db_manager and not isinstance(db_manager, SQLiteManager):
+            if hasattr(db_manager, 'db_path'):
+                self.sqlite_manager = SQLiteManager(db_manager.db_path)
+            else:
+                # 使用传入的db_path或默认路径
+                self.sqlite_manager = SQLiteManager(db_path or self.db_path)
+        elif not db_manager:
+            # 如果没有提供db_manager，创建SQLiteManager
+            self.sqlite_manager = SQLiteManager(db_path or self.db_path)
+        else:
+            # 否则使用提供的db_manager
+            self.sqlite_manager = db_manager
+        
+        logger.info(f"网易财经爬虫初始化完成，数据库路径: {self.db_path}")
     
-    def crawl(self, days=1):
+    def crawl(self, days=1, max_news=10):
         """
         爬取网易财经的财经新闻
         
         Args:
             days: 爬取最近几天的新闻
+            max_news: 最大新闻数量
         
         Returns:
             list: 爬取的新闻列表
@@ -105,7 +123,8 @@ class NeteaseCrawler(BaseCrawler):
                         logger.warning(f"解析新闻日期失败: {news_data['pub_time']}, 错误: {str(e)}")
                     
                     # 保存新闻数据
-                    self.save_news(news_data)
+                    self.save_news_to_db(news_data)
+                    self.news_data.append(news_data)
         except Exception as e:
             logger.error(f"从首页爬取新闻失败: {str(e)}")
         
@@ -140,9 +159,19 @@ class NeteaseCrawler(BaseCrawler):
                         logger.warning(f"解析新闻日期失败: {news_data['pub_time']}, 错误: {str(e)}")
                     
                     # 保存新闻数据
-                    self.save_news(news_data)
+                    self.save_news_to_db(news_data)
+                    self.news_data.append(news_data)
             except Exception as e:
                 logger.error(f"爬取分类 '{category}' 失败: {str(e)}")
+        
+        # 爬取结束后，确保数据被保存到数据库
+        if hasattr(self, 'news_data') and self.news_data:
+            saved_count = 0
+            for news in self.news_data:
+                if self.save_news_to_db(news):
+                    saved_count += 1
+            
+            logger.info(f"成功保存 {saved_count}/{len(self.news_data)} 条新闻到数据库")
         
         # 统计爬取结果
         logger.info(f"网易财经爬虫运行完成，耗时: {(datetime.now() - (datetime.now() - timedelta(seconds=1))).total_seconds() + 1:.2f}秒")
@@ -512,4 +541,25 @@ class NeteaseCrawler(BaseCrawler):
             max_seconds: 最大休眠时间（秒）
         """
         sleep_time = random.uniform(min_seconds, max_seconds)
-        time.sleep(sleep_time) 
+        time.sleep(sleep_time)
+    
+    def save_news_to_db(self, news):
+        """
+        保存新闻到数据库
+        
+        Args:
+            news: 新闻数据字典
+            
+        Returns:
+            bool: 是否保存成功
+        """
+        try:
+            # 如果有sqlite_manager属性则使用它保存
+            if hasattr(self, 'sqlite_manager') and self.sqlite_manager:
+                return self.sqlite_manager.save_news(news)
+            
+            # 否则使用父类的save_news方法保存到内存中
+            return super().save_news(news)
+        except Exception as e:
+            logger.error(f"保存新闻到数据库失败: {news.get('title', '未知标题')}, 错误: {str(e)}")
+            return False 

@@ -17,47 +17,89 @@ from app.crawlers.base import BaseCrawler
 from app.crawlers.eastmoney import EastMoneyCrawler
 from app.crawlers.sina import SinaCrawler
 from app.crawlers.tencent import TencentCrawler
+from app.crawlers.netease import NeteaseCrawler
+from app.crawlers.ifeng import IfengCrawler
+import re
 
 logger = get_logger(__name__)
 
 class CrawlerManager:
     """爬虫管理器"""
 
-    def __init__(self):
-        """初始化爬虫管理器"""
-        self.settings = get_settings()
-        # 使用优化后的数据库类
-        self.db = NewsDatabase(use_all_dbs=True)
-        self.crawlers: Dict[str, BaseCrawler] = {}
-        self.crawler_threads: Dict[str, threading.Thread] = {}
-        self.stop_flags: Dict[str, threading.Event] = {}
-
-        # 初始化爬虫
-        self.init_crawlers()
-
-    def init_crawlers(self):
-        """初始化爬虫"""
-        # 注册爬虫
-        eastmoney_crawler = EastMoneyCrawler()
-        eastmoney_crawler.source = "东方财富网"
-        eastmoney_crawler.name = "eastmoney"
+    def __init__(self, settings=None):
+        """
+        初始化爬虫管理器
         
-        sina_crawler = SinaCrawler()
-        sina_crawler.source = "新浪财经"
-        sina_crawler.name = "sina"
+        Args:
+            settings: 配置字典
+        """
+        self.settings = settings or {}
+        self.crawlers = {}
         
-        tencent_crawler = TencentCrawler()
-        tencent_crawler.source = "腾讯财经"
-        tencent_crawler.name = "tencent"
+        # 获取数据库目录
+        db_dir = self.settings.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
+        os.makedirs(db_dir, exist_ok=True)
         
-        self.register_crawler('eastmoney', eastmoney_crawler)
-        self.register_crawler('sina', sina_crawler)
-        self.register_crawler('tencent', tencent_crawler)
-
-    def register_crawler(self, name: str, crawler: BaseCrawler):
-        """注册爬虫"""
-        self.crawlers[name] = crawler
-        self.stop_flags[name] = threading.Event()
+        # 导入所有爬虫类
+        try:
+            # 初始化所有爬虫
+            ifeng_crawler = IfengCrawler()
+            sina_crawler = SinaCrawler()
+            tencent_crawler = TencentCrawler()
+            netease_crawler = NeteaseCrawler()
+            eastmoney_crawler = EastMoneyCrawler()
+            
+            # 设置爬虫来源
+            ifeng_crawler.source = "凤凰财经"
+            sina_crawler.source = "新浪财经"
+            tencent_crawler.source = "腾讯财经"
+            netease_crawler.source = "网易财经"
+            eastmoney_crawler.source = "东方财富"
+            
+            # 为每个爬虫设置固定的数据库路径
+            self._set_db_path(ifeng_crawler, "凤凰财经")
+            self._set_db_path(sina_crawler, "新浪财经")
+            self._set_db_path(tencent_crawler, "腾讯财经")
+            self._set_db_path(netease_crawler, "网易财经")
+            self._set_db_path(eastmoney_crawler, "东方财富")
+            
+            # 添加到字典
+            self.crawlers["凤凰财经"] = ifeng_crawler
+            self.crawlers["新浪财经"] = sina_crawler
+            self.crawlers["腾讯财经"] = tencent_crawler
+            self.crawlers["网易财经"] = netease_crawler
+            self.crawlers["东方财富"] = eastmoney_crawler
+            
+            logger.info(f"已初始化 {len(self.crawlers)} 个爬虫")
+            
+        except ImportError as e:
+            logger.error(f"导入爬虫模块失败: {str(e)}")
+    
+    def _set_db_path(self, crawler, source):
+        """
+        设置爬虫的数据库路径
+        
+        Args:
+            crawler: 爬虫实例
+            source: 爬虫来源
+        """
+        # 获取数据库目录
+        db_dir = self.settings.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
+        
+        # 将来源转换为文件名安全的字符串
+        db_name = re.sub(r'[^\w]', '_', source.lower())
+        
+        # 生成固定的数据库路径
+        db_path = os.path.join(db_dir, f"{db_name}.db")
+        
+        # 设置爬虫的数据库路径
+        crawler.db_path = db_path
+        
+        # 如果有sqlite_manager属性，也更新它的db_path
+        if hasattr(crawler, 'sqlite_manager'):
+            crawler.sqlite_manager.db_path = db_path
+        
+        logger.info(f"设置 {source} 爬虫的数据库路径: {db_path}")
 
     def get_crawlers(self) -> List[BaseCrawler]:
         """获取所有爬虫"""

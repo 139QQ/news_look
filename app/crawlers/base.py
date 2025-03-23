@@ -21,10 +21,12 @@ from webdriver_manager.chrome import ChromeDriverManager
 import logging
 from fake_useragent import UserAgent
 from bs4 import BeautifulSoup
+import re
 
 from app.utils.logger import get_logger, get_crawler_logger
 from app.utils.sentiment_analyzer import SentimentAnalyzer
 from app.utils.database import DatabaseManager
+from app.config import get_settings
 
 # 使用专门的爬虫日志记录器
 logger = get_crawler_logger('base')
@@ -32,7 +34,7 @@ logger = get_crawler_logger('base')
 class BaseCrawler:
     """爬虫基类，提供所有爬虫共用的基础功能"""
     
-    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False):
+    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False, **kwargs):
         """
         初始化爬虫基类
         
@@ -41,9 +43,10 @@ class BaseCrawler:
             db_path: 数据库路径，如果为None则使用默认路径
             use_proxy: 是否使用代理
             use_source_db: 是否使用来源专用数据库
+            **kwargs: 其他参数
         """
         # 属性初始化
-        self.source = "未知来源"  # 子类需要覆盖此属性
+        self.source = kwargs.get('source', "未知来源")  # 子类需要覆盖此属性
         self.news_data = []  # 存储爬取的新闻数据
         self.use_proxy = use_proxy
         self.proxies = None
@@ -57,6 +60,9 @@ class BaseCrawler:
         
         # 初始化情感分析器
         self.sentiment_analyzer = SentimentAnalyzer()
+        
+        # 从配置中获取设置
+        self.settings = get_settings()
         
         # 如果提供了db_manager，直接使用
         if db_manager:
@@ -73,8 +79,13 @@ class BaseCrawler:
             if use_source_db:
                 if db_path is None:
                     # 使用来源名称作为数据库名称
-                    source_db_name = f"{self.source}_news.db"
-                    self.db_path = os.path.join('db', source_db_name)
+                    db_dir = self.settings.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
+                    if not os.path.exists(db_dir):
+                        os.makedirs(db_dir, exist_ok=True)
+                    
+                    # 使用来源名称作为数据库文件名
+                    self.db_path = os.path.join(db_dir, f"{self.source}.db")
+                    logger.info(f"设置新的数据库文件: {self.db_path}")
                 else:
                     self.db_path = db_path
             else:
@@ -93,11 +104,39 @@ class BaseCrawler:
             # 设置db_manager的db_path属性
             if not hasattr(self.db_manager, 'db_path'):
                 setattr(self.db_manager, 'db_path', self.db_path)
-            
-            # 初始化数据库连接
-            if hasattr(self.db_manager, 'get_connection'):
+        
+        # 初始化连接
+        self.conn = None
+        if os.path.exists(self.db_path):
+            try:
+                # 初始化数据库连接
+                if hasattr(self.db_manager, 'get_connection'):
+                    self.conn = self.db_manager.get_connection(self.db_path)
+                
+                # 验证表是否存在，如果不存在则创建
+                cursor = self.conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='news'")
+                if not cursor.fetchone():
+                    logger.info(f"数据库表不存在，正在创建表结构: {self.db_path}")
+                    self.db_manager.init_db(self.conn)
+            except Exception as e:
+                logger.error(f"连接数据库失败: {str(e)}")
+                # 尝试重新创建数据库
+                try:
+                    logger.info(f"尝试重新创建数据库: {self.db_path}")
+                    self.conn = self.db_manager.get_connection(self.db_path)
+                    self.db_manager.init_db(self.conn)
+                except Exception as e2:
+                    logger.error(f"重新创建数据库失败: {str(e2)}")
+        else:
+            try:
+                logger.info(f"数据库文件不存在，创建新数据库: {self.db_path}")
+                # 确保目录存在
+                os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
                 self.conn = self.db_manager.get_connection(self.db_path)
                 self.db_manager.init_db(self.conn)
+            except Exception as e:
+                logger.error(f"创建数据库失败: {str(e)}")
         
         # 初始化Selenium相关属性
         self.use_selenium = False
@@ -214,8 +253,7 @@ class BaseCrawler:
                     headers=headers,
                     proxies=proxies,
                     cookies=cookies,
-                    timeout=timeout,
-                    verify=False  # 不验证SSL证书
+                    timeout=timeout
                 )
                 
                 # 检查响应状态码
@@ -419,13 +457,13 @@ class BaseCrawler:
     
     def save_news(self, news_data):
         """
-        保存新闻数据（收集到内存列表，不直接保存到数据库）
+        保存新闻数据（首先尝试保存到数据库，如果无法保存则收集到内存列表）
         
         Args:
             news_data: 新闻数据字典
         
         Returns:
-            bool: 是否成功添加到列表
+            bool: 是否成功添加
         """
         try:
             # 检查news_data是否包含必要的字段
@@ -434,15 +472,6 @@ class BaseCrawler:
                 if field not in news_data:
                     logger.warning(f"新闻数据缺少必要字段: {field}")
                     return False
-            
-            # 检查是否已在内存中存在
-            if hasattr(self, 'news_data'):
-                if any(news['id'] == news_data['id'] for news in self.news_data):
-                    logger.debug(f"新闻已存在于内存中: {news_data['title']}")
-                    return False
-            else:
-                # 初始化新闻数据列表
-                self.news_data = []
             
             # 确保所有必要字段都有值
             if 'author' not in news_data or not news_data['author']:
@@ -466,10 +495,32 @@ class BaseCrawler:
             if 'related_stocks' not in news_data:
                 news_data['related_stocks'] = ''
             
-            # 将新闻添加到内存列表
-            self.news_data.append(news_data)
-            logger.info(f"新闻已添加到内存列表: {news_data['title']}")
-            return True
+            # 首先尝试保存到数据库
+            saved_to_db = False
+            if hasattr(self, 'db_manager') and hasattr(self.db_manager, 'save_news'):
+                try:
+                    saved_to_db = self.db_manager.save_news(news_data)
+                    if saved_to_db:
+                        logger.info(f"新闻已保存到数据库: {news_data['title']}")
+                        return True
+                except Exception as e:
+                    logger.error(f"保存新闻到数据库失败: {str(e)}")
+            
+            # 如果无法保存到数据库，则保存到内存列表
+            if not saved_to_db:
+                # 检查是否已在内存中存在
+                if hasattr(self, 'news_data'):
+                    if any(news['id'] == news_data['id'] for news in self.news_data):
+                        logger.debug(f"新闻已存在于内存中: {news_data['title']}")
+                        return False
+                else:
+                    # 初始化新闻数据列表
+                    self.news_data = []
+                
+                # 将新闻添加到内存列表
+                self.news_data.append(news_data)
+                logger.info(f"新闻已添加到内存列表: {news_data['title']}")
+                return True
             
         except Exception as e:
             logger.error(f"保存新闻失败: {str(e)}")
@@ -671,3 +722,21 @@ class BaseCrawler:
         }
         
         return cookie_values
+
+    def _get_db_path(self, source=None):
+        """获取数据库路径"""
+        if source is None:
+            source = self.source or "news"
+            
+        # 将来源转换为文件名安全的字符串
+        db_name = re.sub(r'[^\w]', '_', source.lower())
+        
+        # 确保DB_DIR存在
+        db_dir = self.settings.get('DB_DIR', 'data/db')
+        os.makedirs(db_dir, exist_ok=True)
+        
+        # 使用固定名称的数据库，每个来源一个数据库
+        db_path = os.path.join(db_dir, f"{db_name}.db")
+        logger.info(f"数据库路径: {db_path}")
+        
+        return db_path

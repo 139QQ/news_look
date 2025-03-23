@@ -17,6 +17,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from app.config import get_settings
 from app.utils.logger import get_logger
+import uuid
 
 # 设置日志记录器
 logger = get_logger('database')
@@ -188,62 +189,196 @@ class NewsDatabase:
             return False
     
     def query_news(self, keyword=None, days=None, source=None, limit=10, offset=0):
-        """查询新闻"""
+        """
+        根据条件查询新闻
+        
+        Args:
+            keyword: 搜索关键词（可选）
+            days: 最近几天的新闻（可选）
+            source: 新闻来源（可选）
+            limit: 返回结果数量限制
+            offset: 分页偏移量
+            
+        Returns:
+            list: 新闻列表
+        """
         results = []
         
-        # 尝试从所有数据库查询
-        for db_path in self.all_db_paths:
-            try:
-                # 直接使用sqlite3连接，以保证兼容性
-                conn = sqlite3.connect(db_path)
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
+        try:
+            # 如果指定了来源，尝试使用对应的数据库
+            db_paths = []
+            if source:
+                # 尝试找到与来源匹配的数据库
+                source_db = os.path.join(self.db_dir, f"{source}.db")
+                if os.path.exists(source_db):
+                    db_paths.append(source_db)
+                    logger.info(f"使用来源特定数据库: {source_db}")
+                else:
+                    logger.warning(f"找不到来源特定数据库 {source_db}，回退到默认数据库")
+                    db_paths = self.all_db_paths
+            else:
+                db_paths = self.all_db_paths
                 
-                # 构建查询条件
-                conditions = []
-                params = []
+            logger.info(f"查询数据库: {db_paths}")
+            
+            # 检查数据库文件是否存在
+            valid_db_paths = []
+            for db_path in db_paths:
+                if os.path.exists(db_path):
+                    valid_db_paths.append(db_path)
+                else:
+                    logger.warning(f"数据库文件不存在: {db_path}")
+            
+            if not valid_db_paths:
+                logger.error(f"没有找到有效的数据库文件")
+                return []
                 
-                if keyword:
-                    conditions.append("(title LIKE ? OR content LIKE ?)")
-                    params.extend([f"%{keyword}%", f"%{keyword}%"])
-                
-                if days:
-                    start_time = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
-                    conditions.append("pub_time >= ?")
-                    params.append(start_time)
-                
-                if source:
-                    conditions.append("source = ?")
-                    params.append(source)
-                
-                # 构建SQL查询
-                sql = "SELECT * FROM news"
-                if conditions:
-                    sql += " WHERE " + " AND ".join(conditions)
-                
-                # 添加排序和分页
-                sql += " ORDER BY pub_time DESC"
-                if limit:
-                    sql += f" LIMIT {limit}"
-                    if offset:
-                        sql += f" OFFSET {offset}"
-                
-                # 执行查询
-                cursor.execute(sql, params)
-                rows = cursor.fetchall()
-                
-                # 将结果转换为字典列表
-                for row in rows:
-                    item = {}
-                    for i, column in enumerate(cursor.description):
-                        item[column[0]] = row[i]
-                    results.append(item)
-                
-                conn.close()
-            except Exception as e:
-                logger.error(f"查询数据库 {db_path} 失败: {str(e)}")
+            # 遍历数据库文件查询
+            for db_path in valid_db_paths:
+                try:
+                    # 尝试从数据库文件名中提取来源
+                    db_source = os.path.basename(db_path).replace('.db', '')
+                    logger.info(f"从数据库 {db_path} 中查询新闻，来源: {db_source}")
+                    
+                    # 连接数据库
+                    conn = sqlite3.connect(db_path)
+                    conn.row_factory = sqlite3.Row
+                    cur = conn.cursor()
+                    
+                    # 构建查询条件
+                    conditions = []
+                    params = []
+                    
+                    if source and source != db_source:
+                        conditions.append("source = ?")
+                        params.append(source)
+                    
+                    if keyword:
+                        # 先从标题中搜索
+                        conditions.append("(title LIKE ? OR content LIKE ?)")
+                        params.extend([f'%{keyword}%', f'%{keyword}%'])
+                    
+                    if days:
+                        # 计算日期范围
+                        days_ago = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+                        conditions.append("pub_time >= ?")
+                        params.append(days_ago)
+                    
+                    # 构建SQL查询
+                    query = "SELECT * FROM news"
+                    if conditions:
+                        query += " WHERE " + " AND ".join(conditions)
+                    
+                    # 添加排序和分页
+                    query += " ORDER BY pub_time DESC LIMIT ? OFFSET ?"
+                    params.extend([limit, offset])
+                    
+                    logger.info(f"执行查询: {query} 参数: {params}")
+                    
+                    # 执行查询
+                    try:
+                        cur.execute(query, params)
+                        rows = cur.fetchall()
+                        logger.info(f"从 {db_path} 数据库查询到 {len(rows)} 条新闻")
+                        
+                        for row in rows:
+                            news = dict(row)
+                            
+                            # 处理关键词字段
+                            if 'keywords' in news and news['keywords']:
+                                try:
+                                    news['keywords'] = json.loads(news['keywords'])
+                                except json.JSONDecodeError:
+                                    news['keywords'] = []
+                            else:
+                                news['keywords'] = []
+                            
+                            # 处理图片字段
+                            if 'images' in news and news['images']:
+                                try:
+                                    news['images'] = json.loads(news['images'])
+                                except json.JSONDecodeError:
+                                    news['images'] = []
+                            else:
+                                news['images'] = []
+                                
+                            # 检查必需字段
+                            required_fields = ['id', 'title', 'content', 'url', 'pub_time', 'source']
+                            for field in required_fields:
+                                if field not in news or not news[field]:
+                                    if field == 'source':
+                                        news['source'] = db_source or '未知来源'
+                                    elif field == 'id':
+                                        news['id'] = str(uuid.uuid4())
+                                    elif field == 'pub_time':
+                                        news['pub_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                    
+                            results.append(news)
+                    except sqlite3.OperationalError as e:
+                        logger.error(f"执行查询失败: {str(e)}")
+                        # 可能是表不存在，尝试创建表
+                        if "no such table" in str(e).lower():
+                            logger.warning(f"数据库 {db_path} 中表不存在，尝试创建表")
+                            try:
+                                self._create_tables(conn)
+                                logger.info(f"成功创建表结构")
+                            except Exception as create_err:
+                                logger.error(f"创建表失败: {str(create_err)}")
+                    
+                    conn.close()
+                except Exception as db_error:
+                    logger.error(f"处理数据库 {db_path} 时出错: {str(db_error)}")
+        except Exception as e:
+            logger.error(f"查询新闻失败: {str(e)}")
+            
+        return results
+    
+    def _create_tables(self, conn):
+        """创建数据库表结构"""
+        cur = conn.cursor()
+        # 创建新闻表
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS news (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                content TEXT,
+                content_html TEXT,
+                pub_time TEXT,
+                author TEXT,
+                source TEXT,
+                url TEXT UNIQUE,
+                keywords TEXT,
+                images TEXT,
+                related_stocks TEXT,
+                sentiment TEXT,
+                classification TEXT,
+                category TEXT,
+                crawl_time TEXT
+            )
+        ''')
         
-        return results[:limit]  # 确保不超过limit限制
+        # 创建关键词表
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS keywords (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                keyword TEXT UNIQUE,
+                count INTEGER DEFAULT 1,
+                last_updated TEXT
+            )
+        ''')
+        
+        # 创建新闻-关键词关系表
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS news_keywords (
+                news_id TEXT,
+                keyword_id INTEGER,
+                PRIMARY KEY (news_id, keyword_id),
+                FOREIGN KEY (news_id) REFERENCES news(id) ON DELETE CASCADE,
+                FOREIGN KEY (keyword_id) REFERENCES keywords(id) ON DELETE CASCADE
+            )
+        ''')
+        
+        conn.commit()
     
     def get_news_count(self, keyword=None, days=None, source=None):
         """获取新闻数量"""
@@ -265,8 +400,8 @@ class NewsDatabase:
                 
                 if days:
                     start_time = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
-                    conditions.append("pub_time >= ?")
-                    params.append(start_time)
+                    conditions.append("(pub_time >= ? OR crawl_time >= ?)")
+                    params.extend([start_time, start_time])
                 
                 if source:
                     conditions.append("source = ?")
@@ -285,6 +420,8 @@ class NewsDatabase:
                 conn.close()
             except Exception as e:
                 logger.error(f"查询数据库 {db_path} 计数失败: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
         
         return total_count
     
@@ -334,6 +471,41 @@ class NewsDatabase:
         """关闭数据库连接"""
         if hasattr(self, 'session'):
             self.session.close()
+
+    def get_news_by_id(self, news_id):
+        """根据ID获取新闻详情
+        
+        Args:
+            news_id: 新闻ID
+            
+        Returns:
+            dict: 新闻数据，如果未找到则返回None
+        """
+        # 尝试从所有数据库查询
+        for db_path in self.all_db_paths:
+            try:
+                conn = sqlite3.connect(db_path)
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                # 查询指定ID的新闻
+                cursor.execute("SELECT * FROM news WHERE id = ?", (news_id,))
+                row = cursor.fetchone()
+                
+                if row:
+                    # 转换为字典
+                    news = {}
+                    for i, column in enumerate(cursor.description):
+                        news[column[0]] = row[i]
+                    
+                    conn.close()
+                    return news  # 找到后立即返回
+                     
+                conn.close()
+            except Exception as e:
+                logger.error(f"查询新闻详情失败: {str(e)}")
+        
+        return None  # 所有数据库都未找到，返回None
 
 class DatabaseManager:
     """数据库管理器，提供数据库连接和初始化功能"""

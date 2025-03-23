@@ -15,10 +15,12 @@ import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 import json
+import sqlite3
 
 from app.crawlers.base import BaseCrawler
 from app.utils.logger import get_crawler_logger
 from app.utils.text_cleaner import clean_html, extract_keywords
+from app.db.sqlite_manager import SQLiteManager
 
 # 使用专门的爬虫日志记录器
 logger = get_crawler_logger('tencent')
@@ -28,12 +30,25 @@ class TencentCrawler(BaseCrawler):
     
     # 新闻分类URL
     CATEGORY_URLS = {
-        '财经': 'https://finance.qq.com/roll.shtml',
-        '股票': 'https://finance.qq.com/stock/',
-        '公司': 'https://finance.qq.com/company/',
-        '产业': 'https://finance.qq.com/chuangye/',
-        '宏观': 'https://finance.qq.com/money/',
-        '国际': 'https://finance.qq.com/world/',
+        '财经': 'https://news.qq.com/ch/finance/',
+        '股票': 'https://news.qq.com/ch/stock/',
+        '公司': 'https://news.qq.com/ch/finance_company/',
+        '产业': 'https://news.qq.com/ch/chuangye/',
+        '宏观': 'https://news.qq.com/ch/finance_macro/',
+        '国际': 'https://news.qq.com/ch/world/',
+    }
+    
+    # 新闻API URL模板
+    API_URL_TEMPLATE = "https://i.news.qq.com/trpc.qqnews_web.kv_srv.kv_srv_http_proxy/list?sub_srv_id={sub_srv_id}&srv_id=pc&offset={offset}&limit={limit}&strategy=1&ext={{\"pool\":[\"top\",\"hot\"],\"is_filter\":7,\"check_type\":true}}"
+    
+    # 分类与API参数映射
+    CATEGORY_API_MAP = {
+        '财经': 'finance',
+        '股票': 'stock',
+        '公司': 'finance_company',
+        '产业': 'chuangye',
+        '宏观': 'finance_macro',
+        '国际': 'world'
     }
     
     # 内容选择器
@@ -62,20 +77,45 @@ class TencentCrawler(BaseCrawler):
         self.next_run = None  # 添加下次运行时间属性
         self.error_count = 0  # 添加错误计数属性
         self.success_count = 0  # 添加成功计数属性
+        self.proxy_manager = None  # 添加代理管理器属性
+        self.delay = 5  # 默认延迟5秒
+        self.selenium_timeout = 10  # Selenium超时时间
+        self.use_selenium = False  # 默认不使用Selenium
+        self.driver = None
+        self.cookies = None
+        self.max_retries = 3
         
-        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db)
+        # 初始化父类
+        super().__init__(db_manager, db_path, use_proxy, use_source_db)
+        
+        # 如果提供了db_manager并且不是SQLiteManager类型，创建SQLiteManager
+        if db_manager and not isinstance(db_manager, SQLiteManager):
+            if hasattr(db_manager, 'db_path'):
+                self.sqlite_manager = SQLiteManager(db_manager.db_path)
+            else:
+                # 使用传入的db_path或默认路径
+                self.sqlite_manager = SQLiteManager(db_path or self.db_path)
+        elif not db_manager:
+            # 如果没有提供db_manager，创建SQLiteManager
+            self.sqlite_manager = SQLiteManager(db_path or self.db_path)
+        else:
+            # 否则使用提供的db_manager
+            self.sqlite_manager = db_manager
+        
+        logger.info(f"腾讯财经爬虫初始化完成，数据库路径: {self.db_path}")
     
-    def crawl(self, days=1):
+    def crawl(self, days=1, max_news=None):
         """
         爬取腾讯财经的财经新闻
         
         Args:
             days: 爬取最近几天的新闻
+            max_news: 最大新闻数量，如果为None则不限制
         
         Returns:
             list: 爬取的新闻列表
         """
-        logger.info(f"开始爬取腾讯财经新闻，爬取天数: {days}")
+        logger.info(f"开始爬取腾讯财经新闻，爬取天数: {days}，最大新闻数: {max_news}")
         
         # 清空新闻数据列表
         self.news_data = []
@@ -83,10 +123,309 @@ class TencentCrawler(BaseCrawler):
         # 计算开始日期
         start_date = datetime.now() - timedelta(days=days)
         
-        # 尝试直接从首页获取新闻
+        # 1. 首先尝试使用API获取新闻
+        try:
+            logger.info("尝试使用API获取腾讯财经新闻")
+            success = self._crawl_from_api(max_news, start_date)
+            if success and self.news_data:
+                logger.info(f"API获取成功，已获取 {len(self.news_data)} 条新闻")
+            else:
+                logger.info("API获取失败或未获取到新闻，尝试传统方法")
+        except Exception as e:
+            logger.error(f"使用API获取新闻失败: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+        
+        # 2. 如果API获取失败或没有足够的新闻，尝试从网页获取
+        if not self.news_data or (max_news is not None and len(self.news_data) < max_news):
+            remaining = max_news - len(self.news_data) if max_news is not None else None
+            
+            try:
+                logger.info(f"尝试从网页获取腾讯财经新闻，还需 {remaining} 条") if remaining else logger.info("尝试从网页获取腾讯财经新闻")
+                self._crawl_from_web(days, remaining, start_date)
+            except Exception as e:
+                logger.error(f"从网页获取新闻失败: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+        
+        # 3. 如果仍然没有足够的新闻，尝试使用备用URL
+        if not self.news_data or (max_news is not None and len(self.news_data) < max_news):
+            remaining = max_news - len(self.news_data) if max_news is not None else None
+            
+            logger.info("网页爬取未获取到足够新闻，尝试使用备用URL")
+            try:
+                self._crawl_from_backup_urls(remaining, start_date)
+            except Exception as e:
+                logger.error(f"从备用URL获取新闻失败: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+        
+        # 统计爬取结果
+        logger.info(f"腾讯财经爬虫运行完成，共爬取 {len(self.news_data)} 条新闻")
+        
+        # 按分类统计
+        category_counts = {}
+        for news in self.news_data:
+            category = news.get('category', '未分类')
+            if category not in category_counts:
+                category_counts[category] = 0
+            category_counts[category] += 1
+        
+        for category, count in category_counts.items():
+            logger.info(f"分类 '{category}' 爬取: {count} 条新闻")
+        
+        # 爬取结束后，确保数据被保存到数据库
+        if hasattr(self, 'news_data') and self.news_data:
+            saved_count = 0
+            for news in self.news_data:
+                if self.save_news_to_db(news):
+                    saved_count += 1
+            
+            logger.info(f"成功保存 {saved_count}/{len(self.news_data)} 条新闻到数据库")
+        
+        return self.news_data
+    
+    def _crawl_from_api(self, max_news, start_date):
+        """
+        通过API爬取腾讯财经新闻
+        
+        Args:
+            max_news: 最大新闻数量
+            start_date: 开始日期
+            
+        Returns:
+            bool: 是否成功获取新闻
+        """
+        total_fetched = 0
+        
+        # 遍历每个分类
+        for category, sub_srv_id in self.CATEGORY_API_MAP.items():
+            logger.info(f"通过API获取分类 '{category}' 的新闻")
+            
+            if max_news is not None and total_fetched >= max_news:
+                logger.info(f"已达到最大新闻数量: {max_news}，停止获取")
+                break
+            
+            offset = 0
+            page_size = 20
+            retry_count = 0
+            max_retries = 3
+            
+            while True:
+                # 如果已达到最大数量，跳出循环
+                if max_news is not None and total_fetched >= max_news:
+                    logger.info(f"已达到最大新闻数量: {max_news}，停止获取")
+                    break
+                
+                # 计算当前页要获取的数量
+                current_limit = page_size
+                if max_news is not None:
+                    remaining = max_news - total_fetched
+                    if remaining < page_size:
+                        current_limit = remaining
+                
+                # 构建API URL
+                api_url = self.API_URL_TEMPLATE.format(
+                    sub_srv_id=sub_srv_id,
+                    offset=offset,
+                    limit=current_limit
+                )
+                
+                logger.info(f"请求API: {api_url}")
+                
+                # 发送请求
+                try:
+                    headers = {
+                        'User-Agent': self.get_random_user_agent(),
+                        'Referer': self.CATEGORY_URLS.get(category, 'https://news.qq.com/'),
+                        'Accept': 'application/json, text/plain, */*',
+                        'Origin': 'https://news.qq.com',
+                        'Host': 'i.news.qq.com'
+                    }
+                    
+                    response = requests.get(api_url, headers=headers, timeout=10)
+                    
+                    if response.status_code != 200:
+                        logger.warning(f"API请求失败，状态码: {response.status_code}")
+                        retry_count += 1
+                        if retry_count >= max_retries:
+                            logger.error(f"达到最大重试次数，跳过分类 '{category}'")
+                            break
+                        continue
+                    
+                    # 解析JSON响应
+                    data = response.json()
+                    
+                    # 验证响应数据结构
+                    if not data or 'data' not in data or 'list' not in data['data']:
+                        logger.warning(f"API响应数据结构异常: {data}")
+                        retry_count += 1
+                        if retry_count >= max_retries:
+                            logger.error(f"达到最大重试次数，跳过分类 '{category}'")
+                            break
+                        continue
+                    
+                    news_items = data['data']['list']
+                    logger.info(f"API返回 {len(news_items)} 条新闻")
+                    
+                    if not news_items:
+                        logger.info(f"分类 '{category}' 没有更多新闻，跳转到下一个分类")
+                        break
+                    
+                    # 处理每条新闻
+                    fetched_in_this_page = 0
+                    for item in news_items:
+                        try:
+                            # 提取基本信息
+                            news_url = item.get('url', '')
+                            title = item.get('title', '')
+                            
+                            if not news_url or not title:
+                                continue
+                            
+                            # 提取发布时间
+                            pub_time_str = item.get('publish_time', '') or item.get('time', '')
+                            pub_time = self._parse_api_time(pub_time_str)
+                            
+                            # 跳过旧新闻
+                            if pub_time and pub_time < start_date:
+                                logger.debug(f"新闻日期 {pub_time} 早于开始日期 {start_date}，跳过")
+                                continue
+                            
+                            # 随机休眠，避免频繁请求
+                            self.random_sleep(1, 2)
+                            
+                            # 爬取新闻详情
+                            news_data = self.crawl_news_detail(news_url, category)
+                            
+                            if not news_data:
+                                # 如果获取详情失败，创建一个基本的新闻对象
+                                logger.info(f"获取新闻详情失败，创建基本新闻对象: {title}")
+                                
+                                # 提取封面图片
+                                image_url = ''
+                                if 'thumb_nail' in item and item['thumb_nail']:
+                                    image_url = item['thumb_nail'].get('url', '')
+                                
+                                # 提取摘要
+                                abstract = item.get('abstract', '') or item.get('intro', '')
+                                
+                                # 生成新闻ID
+                                news_id = self.generate_news_id(news_url, title)
+                                
+                                news_data = {
+                                    'id': news_id,
+                                    'title': title,
+                                    'content': abstract,
+                                    'pub_time': pub_time.strftime('%Y-%m-%d %H:%M:%S') if pub_time else datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                    'author': item.get('media_name', '') or item.get('source', '') or '腾讯财经',
+                                    'source': self.source,
+                                    'url': news_url,
+                                    'keywords': '',
+                                    'sentiment': 0,  # 中性
+                                    'crawl_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                    'category': category,
+                                    'images': image_url,
+                                    'related_stocks': ''
+                                }
+                            
+                            # 保存新闻数据
+                            self.save_news_to_db(news_data)
+                            self.news_data.append(news_data)
+                            fetched_in_this_page += 1
+                            total_fetched += 1
+                            
+                            logger.info(f"成功从API获取新闻: {title}")
+                            
+                            # 如果已达到最大数量，跳出循环
+                            if max_news is not None and total_fetched >= max_news:
+                                logger.info(f"已达到最大新闻数量: {max_news}，停止获取")
+                                break
+                                
+                        except Exception as e:
+                            logger.error(f"处理API返回的新闻项失败: {str(e)}")
+                            continue
+                    
+                    # 如果这一页没有获取到有效新闻，或者返回的数量小于请求的数量，说明没有更多新闻了
+                    if fetched_in_this_page == 0 or len(news_items) < current_limit:
+                        logger.info(f"分类 '{category}' 没有更多新闻，跳转到下一个分类")
+                        break
+                    
+                    # 更新偏移量，获取下一页
+                    offset += current_limit
+                    
+                    # 随机休眠，避免频繁请求
+                    self.random_sleep(2, 4)
+                    
+                except Exception as e:
+                    logger.error(f"API请求异常: {str(e)}")
+                    retry_count += 1
+                    if retry_count >= max_retries:
+                        logger.error(f"达到最大重试次数，跳过分类 '{category}'")
+                        break
+                    continue
+        
+        logger.info(f"通过API共获取 {total_fetched} 条新闻")
+        return total_fetched > 0
+    
+    def _parse_api_time(self, time_str):
+        """
+        解析API返回的时间字符串
+        
+        Args:
+            time_str: 时间字符串
+            
+        Returns:
+            datetime: 日期时间对象
+        """
+        if not time_str:
+            return None
+        
+        try:
+            # 尝试解析Unix时间戳（秒或毫秒）
+            if time_str.isdigit():
+                timestamp = int(time_str)
+                if timestamp > 9999999999:  # 如果是毫秒时间戳
+                    timestamp = timestamp / 1000
+                return datetime.fromtimestamp(timestamp)
+            
+            # 尝试解析常见日期格式
+            formats = [
+                '%Y-%m-%d %H:%M:%S',
+                '%Y-%m-%d %H:%M',
+                '%Y-%m-%d',
+                '%Y年%m月%d日 %H:%M:%S',
+                '%Y年%m月%d日 %H:%M',
+                '%Y年%m月%d日'
+            ]
+            
+            for fmt in formats:
+                try:
+                    return datetime.strptime(time_str, fmt)
+                except:
+                    continue
+            
+            logger.warning(f"无法解析时间字符串: {time_str}")
+            return None
+        except Exception as e:
+            logger.error(f"解析时间字符串失败: {time_str}, 错误: {str(e)}")
+            return None
+    
+    def _crawl_from_web(self, days, max_news, start_date):
+        """
+        从网页爬取腾讯财经新闻
+        
+        Args:
+            days: 爬取天数
+            max_news: 最大新闻数量
+            start_date: 开始日期
+        """
+        total_fetched = 0
+        
+        # 爬取首页
         try:
             logger.info("尝试从首页获取新闻")
-            home_url = "https://finance.qq.com/"
+            home_url = "https://news.qq.com/ch/finance/"
             html = self.fetch_page(home_url)
             if html:
                 news_links = self.extract_news_links_from_home(html, "财经")
@@ -94,6 +433,11 @@ class TencentCrawler(BaseCrawler):
                 
                 # 爬取每个新闻详情
                 for news_link in news_links:
+                    # 如果已经达到最大数量，跳出循环
+                    if max_news is not None and total_fetched >= max_news:
+                        logger.info(f"已达到最大新闻数量: {max_news}，停止获取")
+                        break
+                    
                     # 随机休眠，避免被反爬
                     self.random_sleep(1, 3)
                     
@@ -112,23 +456,38 @@ class TencentCrawler(BaseCrawler):
                         logger.warning(f"解析新闻日期失败: {news_data['pub_time']}, 错误: {str(e)}")
                     
                     # 保存新闻数据
-                    self.save_news(news_data)
+                    self.save_news_to_db(news_data)
+                    self.news_data.append(news_data)
+                    total_fetched += 1
+                    logger.info(f"成功爬取新闻: {news_data['title']}")
         except Exception as e:
             logger.error(f"从首页爬取新闻失败: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
         
         # 爬取各个分类的新闻
         for category, url in self.CATEGORY_URLS.items():
+            # 如果已经达到最大数量，跳出循环
+            if max_news is not None and total_fetched >= max_news:
+                logger.info(f"已达到最大新闻数量: {max_news}，停止获取")
+                break
+            
             try:
                 logger.info(f"开始爬取分类: {category}, URL: {url}")
                 html = self.fetch_page(url)
                 if not html:
                     continue
                 
-                news_links = self.extract_news_links(html, category)
+                news_links = self.extract_news_links_from_page(html, category)
                 logger.info(f"分类 '{category}' 找到 {len(news_links)} 个潜在新闻项")
                 
                 # 爬取每个新闻详情
                 for news_link in news_links:
+                    # 如果已经达到最大数量，跳出循环
+                    if max_news is not None and total_fetched >= max_news:
+                        logger.info(f"已达到最大新闻数量: {max_news}，停止获取")
+                        break
+                    
                     # 随机休眠，避免被反爬
                     self.random_sleep(1, 3)
                     
@@ -147,26 +506,16 @@ class TencentCrawler(BaseCrawler):
                         logger.warning(f"解析新闻日期失败: {news_data['pub_time']}, 错误: {str(e)}")
                     
                     # 保存新闻数据
-                    self.save_news(news_data)
+                    self.save_news_to_db(news_data)
+                    self.news_data.append(news_data)
+                    total_fetched += 1
+                    logger.info(f"成功爬取新闻: {news_data['title']}")
             except Exception as e:
                 logger.error(f"爬取分类 '{category}' 失败: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
         
-        # 统计爬取结果
-        logger.info(f"腾讯财经爬虫运行完成，耗时: {(datetime.now() - (datetime.now() - timedelta(seconds=1))).total_seconds() + 1:.2f}秒")
-        logger.info(f"共爬取 {len(self.news_data)} 条新闻")
-        
-        # 按分类统计
-        category_counts = {}
-        for news in self.news_data:
-            category = news['category']
-            if category not in category_counts:
-                category_counts[category] = 0
-            category_counts[category] += 1
-        
-        for category, count in category_counts.items():
-            logger.info(f"分类 '{category}' 爬取: {count} 条新闻")
-        
-        return self.news_data
+        logger.info(f"从网页共爬取 {total_fetched} 条新闻")
     
     def extract_news_links_from_home(self, html, category):
         """
@@ -183,177 +532,316 @@ class TencentCrawler(BaseCrawler):
         try:
             soup = BeautifulSoup(html, 'html.parser')
             
-            # 查找所有可能的新闻链接
-            for a_tag in soup.find_all('a', href=True):
-                href = a_tag['href']
-                
-                # 过滤非新闻链接
-                if self.is_valid_news_url(href):
-                    news_links.append(href)
+            # 1. 尝试获取js中的数据
+            script_data = self.extract_js_data(soup)
+            if script_data:
+                for url in script_data:
+                    if self.is_valid_news_url(url):
+                        news_links.append(url)
+                        
+            # 2. 尝试获取轮播图新闻
+            carousel_items = soup.select('.swiper-slide, .slider-item, .swiper-item, [class*="banner"], [class*="slide"]')
+            for item in carousel_items:
+                a_tag = item.select_one('a')
+                if a_tag and 'href' in a_tag.attrs:
+                    href = a_tag['href']
+                    if self.is_valid_news_url(href):
+                        news_links.append(href)
             
-            # 去重
+            # 3. 尝试获取新闻列表
+            news_items = soup.select('.list li, .news-list li, .news-item, article, .item, .txt-list li, [class*="news"] li, [class*="article"]')
+            for item in news_items:
+                a_tag = item.select_one('a')
+                if a_tag and 'href' in a_tag.attrs:
+                    href = a_tag['href']
+                    if self.is_valid_news_url(href):
+                        news_links.append(href)
+            
+            # 4. 尝试获取标题为链接的新闻
+            title_links = soup.select('h1 a, h2 a, h3 a, .title a, .art_title a, [class*="title"] a')
+            for a_tag in title_links:
+                if 'href' in a_tag.attrs:
+                    href = a_tag['href']
+                    if self.is_valid_news_url(href):
+                        news_links.append(href)
+            
+            # 5. 如果以上都没找到，尝试寻找所有可能的新闻链接
+            if not news_links:
+                logger.info("尝试查找所有可能的新闻链接")
+                for a_tag in soup.find_all('a', href=True):
+                    href = a_tag['href']
+                    if self.is_valid_news_url(href):
+                        news_links.append(href)
+            
+            # 修复链接，去重
+            news_links = [self.fix_url(link) for link in news_links]
             news_links = list(set(news_links))
+            logger.info(f"从首页提取到 {len(news_links)} 个新闻链接")
             
         except Exception as e:
             logger.error(f"从首页提取新闻链接失败: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
         
         return news_links
     
-    def extract_news_links(self, html, category):
+    def extract_news_links_from_page(self, html, category):
         """
-        从分类页面提取新闻链接
+        从HTML中提取新闻链接列表
         
         Args:
-            html: 分类页面HTML内容
+            html: HTML内容
             category: 新闻分类
         
         Returns:
             list: 新闻链接列表
         """
+        if not html:
+            return []
+        
         news_links = []
+        
         try:
+            # 使用BeautifulSoup解析HTML
             soup = BeautifulSoup(html, 'html.parser')
             
-            # 查找新闻列表
-            news_list = soup.select('div.list ul li')
-            if not news_list:
-                logger.warning("未找到新闻列表，尝试查找所有可能的新闻链接")
-                # 如果找不到特定的新闻列表，尝试提取所有可能的新闻链接
-                for a_tag in soup.find_all('a', href=True):
-                    href = a_tag['href']
-                    
-                    # 过滤非新闻链接
-                    if self.is_valid_news_url(href):
+            # 查找包含新闻链接的元素
+            link_elements = []
+            
+            # 方法1：查找所有链接元素
+            all_links = soup.find_all('a', href=True)
+            
+            # 只保留可能是新闻链接的元素
+            for link in all_links:
+                href = link.get('href', '')
+                if self.is_valid_news_url(href):
+                    link_elements.append(link)
+            
+            # 方法2：查找特定新闻卡片中的链接
+            news_cards = soup.select('.list-card, .channel-card, .card, article, .list-item, .item, .txp-waterfall-item, .news-list-item')
+            for card in news_cards:
+                links = card.find_all('a', href=True)
+                for link in links:
+                    href = link.get('href', '')
+                    if self.is_valid_news_url(href) and link not in link_elements:
+                        link_elements.append(link)
+            
+            # 方法3：查找特定新闻标题中的链接
+            title_links = soup.select('.title a, .tt a, h3 a, h2 a, .content-title a')
+            for link in title_links:
+                href = link.get('href', '')
+                if self.is_valid_news_url(href) and link not in link_elements:
+                    link_elements.append(link)
+            
+            # 提取所有有效的新闻链接
+            for link in link_elements:
+                href = link.get('href', '')
+                # 处理相对URL
+                if href.startswith('/'):
+                    href = f"https://news.qq.com{href}"
+                # 检查URL是否有效
+                if self.is_valid_news_url(href):
+                    if href not in news_links:
                         news_links.append(href)
-            else:
-                # 从新闻列表中提取链接
-                for item in news_list:
-                    a_tag = item.find('a', href=True)
-                    if a_tag:
-                        href = a_tag['href']
-                        if self.is_valid_news_url(href):
-                            news_links.append(href)
             
-            # 去重
-            news_links = list(set(news_links))
-            
+            logger.info(f"从分类 '{category}' 页面提取到 {len(news_links)} 个新闻链接")
         except Exception as e:
-            logger.error(f"从分类页面提取新闻链接失败: {str(e)}")
+            logger.error(f"提取新闻链接失败: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
         
         return news_links
     
-    def is_valid_news_url(self, url):
+    def fix_url(self, url):
         """
-        判断URL是否为有效的新闻链接
+        修复URL，确保是完整的URL
         
         Args:
-            url: 链接URL
+            url: 原始URL
         
         Returns:
-            bool: 是否为有效的新闻链接
+            str: 修复后的URL
         """
-        # 腾讯财经新闻URL通常包含以下特征
-        patterns = [
-            r'https?://finance\.qq\.com/a/\d+/\d+\.htm',
-            r'https?://stock\.qq\.com/a/\d+/\d+\.htm',
-            r'https?://money\.qq\.com/a/\d+/\d+\.htm',
-            r'https?://finance\.qq\.com/\w+/\d+/\d+\.html',
+        if url.startswith('//'):
+            return 'https:' + url
+        elif not url.startswith('http'):
+            if url.startswith('/'):
+                return 'https://finance.qq.com' + url
+            else:
+                return 'https://finance.qq.com/' + url
+        return url
+    
+    def is_valid_news_url(self, url):
+        """
+        判断URL是否是有效的新闻URL（增强版）
+        
+        Args:
+            url: URL字符串
+        
+        Returns:
+            bool: 是否是有效的新闻URL
+        """
+        if not url:
+            return False
+        
+        # 转为小写进行比较
+        url_lower = url.lower()
+        
+        # 排除不是新闻内容的URL
+        exclude_keywords = [
+            '/tag/', '/vlike/', '/download/', '/about/', '/privacy/', '/terms/', 
+            '/login', '/register', '/search', '/app/', '/video/', '/live/', 
+            '/map/', '/sitemap', '/rss/', '/feed/', '/comment/', '/user/', 
+            '/account/', '/profile/', '/help/', '/faq/', '/support/', 
+            '/special/', '/topic/', '/column/', '/home/', '/index/', 
+            '/photo/', '/gallery/', '/picture/', '/image/', '/img/', '/podcast/',
+            'javascript:', 'mailto:', 'tel:', '#', 'javascript:void', 'javascript:;',
+            'javascript:void(0)', 'javascript:;', 'javascript:void(0);'
         ]
         
-        for pattern in patterns:
-            if re.match(pattern, url):
-                return True
+        for keyword in exclude_keywords:
+            if keyword in url_lower:
+                return False
         
-        return False
+        # 判断是否是腾讯新闻链接
+        tencent_patterns = [
+            'new.qq.com', 'news.qq.com', 'finance.qq.com', 'stock.qq.com',
+            'money.qq.com', 'view.inews.qq.com', 'view.news.qq.com'
+        ]
+        
+        # 腾讯新闻文章URL的常见模式
+        article_patterns = [
+            '/a/', '/rain/a/', '/omn/', '/cmsn/', '/20', '/article_', 
+            '/rain/a', 'inews.gtimg.com', '.html'
+        ]
+        
+        is_tencent = any(pattern in url_lower for pattern in tencent_patterns)
+        is_article = any(pattern in url_lower for pattern in article_patterns)
+        
+        return is_tencent and is_article
     
     def crawl_news_detail(self, url, category):
         """
-        爬取新闻详情
+        爬取新闻详情页（增强版）
         
         Args:
-            url: 新闻URL
+            url: 新闻链接
             category: 新闻分类
         
         Returns:
-            dict: 新闻数据
+            dict: 新闻数据，爬取失败则返回None
         """
         logger.info(f"爬取新闻详情: {url}")
+        
+        # 先尝试使用requests获取页面
+        html = self.fetch_page(url)
+        
+        # 如果获取失败，尝试使用Selenium
+        if not html or "content-article" not in html:
+            logger.info(f"使用requests获取页面失败，尝试使用Selenium: {url}")
+            html = self.fetch_page_with_selenium(url)
+        
+        if not html:
+            logger.warning(f"获取新闻详情页面失败: {url}")
+            return None
+        
         try:
-            # 获取新闻页面内容
-            html = self.fetch_page(url)
-            if not html:
-                return None
-            
-            # 解析HTML
+            # 使用BeautifulSoup解析HTML
             soup = BeautifulSoup(html, 'html.parser')
             
             # 提取标题
-            title = ""
-            title_tag = soup.select_one('title')
-            if title_tag:
-                title_text = title_tag.text.strip()
-                # 移除网站名称
-                if '_腾讯财经' in title_text:
-                    title = title_text.split('_腾讯财经')[0].strip()
-                elif '_腾讯网' in title_text:
-                    title = title_text.split('_腾讯网')[0].strip()
-                else:
-                    title = title_text
-            
-            # 如果从title标签中提取失败，尝试从h1标签中提取
-            if not title:
-                title_tag = soup.select_one('h1.title')
-                if not title_tag:
-                    title_tag = soup.select_one('h1')
-                
-                if title_tag:
-                    title = title_tag.text.strip()
-            
-            if not title:
-                logger.warning(f"提取标题失败: {url}")
+            title_element = soup.select_one('h1, .title, .content-title, .article-title, .main-title')
+            if title_element:
+                title = title_element.get_text().strip()
+            else:
+                # 如果找不到标题元素，返回None
+                logger.warning(f"找不到新闻标题: {url}")
                 return None
-            
-            logger.debug(f"提取到标题: {title}")
-            
-            # 提取内容
-            content_tag = soup.select_one(self.CONTENT_SELECTOR)
-            if not content_tag:
-                # 尝试其他选择器
-                content_tag = soup.select_one('div#ArticleContent')
-                if not content_tag:
-                    content_tag = soup.select_one('div.article-content')
-                    if not content_tag:
-                        content_tag = soup.select_one('div.content')
-            
-            if not content_tag:
-                logger.warning(f"提取内容失败: {url}")
-                return None
-            
-            # 清理HTML内容
-            content = clean_html(str(content_tag))
             
             # 提取发布时间
-            pub_time = self.extract_pub_time(soup)
+            time_element = soup.select_one(self.TIME_SELECTOR + ', .time, .article-time, .pubtime, .publish-time, .date, meta[name="pubdate"], meta[property="article:published_time"]')
+            pub_time = ""
+            if time_element:
+                if time_element.name == 'meta':
+                    pub_time = time_element.get('content', '')
+                else:
+                    pub_time = time_element.get_text().strip()
+            
+            # 处理时间格式
+            if pub_time:
+                pub_time = self.parse_date(pub_time)
+            
             if not pub_time:
+                # 如果找不到发布时间，使用当前时间
                 pub_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
-            # 提取作者
-            author = self.extract_author(soup)
+            # 提取作者/来源
+            author_element = soup.select_one(self.AUTHOR_SELECTOR + ', .author, .article-author, .source, .src, .src-info, .publish-info, meta[name="author"], meta[property="article:author"]')
+            author = ""
+            if author_element:
+                if author_element.name == 'meta':
+                    author = author_element.get('content', '')
+                else:
+                    author = author_element.get_text().strip()
             
-            # 提取关键词
-            keywords = extract_keywords(title + ' ' + content)
+            if not author:
+                author = "腾讯财经"
+            
+            # 清理作者信息
+            author = author.replace("来源：", "").replace("作者：", "").replace("记者：", "").strip()
+            
+            # 提取内容
+            content_element = soup.select_one(self.CONTENT_SELECTOR + ', article, .article, .article-content, .content, .main-content')
+            content = ""
+            if content_element:
+                # 删除不需要的元素
+                for elem in content_element.select('.article-status, .status, .status-bar, .share, .statement, .copyright, .related, .recommend, script, style, .comment, .reprint, .ad'):
+                    elem.decompose()
+                
+                # 获取所有段落文本
+                paragraphs = []
+                for p in content_element.select('p'):
+                    text = p.get_text().strip()
+                    if text:
+                        paragraphs.append(text)
+                
+                content = '\n'.join(paragraphs)
+            
+            if not content:
+                # 尝试其他提取方法
+                paragraphs = []
+                for p in soup.select('article p, .article p, .content p, .main-content p'):
+                    text = p.get_text().strip()
+                    if text:
+                        paragraphs.append(text)
+                
+                content = '\n'.join(paragraphs)
             
             # 提取图片
-            images = self.extract_images(content_tag)
+            image_urls = []
+            for img in soup.select('article img, .article img, .content img, .main-content img'):
+                src = img.get('src', '')
+                if not src:
+                    src = img.get('data-src', '')
+                
+                if src and src not in image_urls:
+                    # 处理相对URL
+                    if src.startswith('//'):
+                        src = 'https:' + src
+                    elif src.startswith('/'):
+                        src = 'https://news.qq.com' + src
+                    
+                    image_urls.append(src)
             
-            # 提取相关股票
-            related_stocks = self.extract_related_stocks(soup)
+            # 提取关键词
+            keywords = []
+            keywords_element = soup.select_one('meta[name="keywords"], meta[property="article:tag"]')
+            if keywords_element:
+                keywords_text = keywords_element.get('content', '')
+                keywords = [k.strip() for k in keywords_text.split(',') if k.strip()]
             
             # 生成新闻ID
             news_id = self.generate_news_id(url, title)
-            
-            # 分析情感
-            sentiment = self.sentiment_analyzer.analyze(title, content)
             
             # 构建新闻数据
             news_data = {
@@ -365,136 +853,645 @@ class TencentCrawler(BaseCrawler):
                 'source': self.source,
                 'url': url,
                 'keywords': ','.join(keywords),
-                'sentiment': sentiment,
+                'sentiment': 0,  # 中性
                 'crawl_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'category': category,
-                'images': ','.join(images),
-                'related_stocks': ','.join(related_stocks)
+                'images': ','.join(image_urls[:3]),  # 只保留前3张图片
+                'related_stocks': ''  # 相关股票代码
             }
             
-            logger.debug(f"爬取新闻详情成功: {title}")
             return news_data
         except Exception as e:
-            logger.error(f"爬取新闻详情失败: {url}, 错误: {str(e)}")
+            logger.error(f"解析新闻详情失败: {str(e)}, URL: {url}")
+            import traceback
+            logger.error(traceback.format_exc())
             return None
     
-    def extract_pub_time(self, soup):
+    def parse_date(self, date_str):
         """
-        提取发布时间
+        解析日期字符串
+        
+        Args:
+            date_str: 日期字符串
+        
+        Returns:
+            datetime: 解析后的日期时间对象
+        """
+        try:
+            # 尝试解析常见日期格式
+            formats = [
+                '%Y-%m-%d %H:%M:%S',
+                '%Y-%m-%d %H:%M',
+                '%Y-%m-%d',
+                '%Y年%m月%d日 %H:%M:%S',
+                '%Y年%m月%d日 %H:%M',
+                '%Y年%m月%d日'
+            ]
+            
+            for fmt in formats:
+                try:
+                    return datetime.strptime(date_str, fmt)
+                except:
+                    continue
+            
+            logger.warning(f"无法解析日期字符串: {date_str}")
+            return None
+        except Exception as e:
+            logger.error(f"解析日期字符串失败: {date_str}, 错误: {str(e)}")
+            return None
+    
+    def random_sleep(self, min_seconds=1, max_seconds=3):
+        """
+        随机休眠一段时间，避免被反爬
+        
+        Args:
+            min_seconds: 最小休眠时间（秒）
+            max_seconds: 最大休眠时间（秒）
+        """
+        sleep_time = random.uniform(min_seconds, max_seconds)
+        time.sleep(sleep_time) 
+    
+    def fetch_page(self, url, retry_count=3, delay=2):
+        """
+        获取页面内容，并处理反爬机制
+        
+        Args:
+            url: 页面URL
+            retry_count: 重试次数
+            delay: 请求之间的延迟时间（秒）
+            
+        Returns:
+            str: 页面内容，获取失败则返回None
+        """
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'max-age=0',
+            'Referer': 'https://news.qq.com/',
+            'Upgrade-Insecure-Requests': '1',
+            'sec-ch-ua': '"Not A;Brand";v="99", "Chromium";v="96", "Google Chrome";v="96"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"'
+        }
+        
+        for attempt in range(retry_count):
+            try:
+                # 使用代理（如果启用）
+                proxies = None
+                if self.use_proxy and self.proxy_manager:
+                    proxy = self.proxy_manager.get_proxy()
+                    if proxy:
+                        proxies = {'http': proxy, 'https': proxy}
+                
+                # 发送请求
+                logger.info(f"请求页面 {url}，第 {attempt+1} 次尝试")
+                session = requests.Session()
+                response = session.get(
+                    url, 
+                    headers=headers, 
+                    proxies=proxies, 
+                    timeout=10
+                )
+                
+                # 检查是否是成功的响应
+                if response.status_code != 200:
+                    logger.warning(f"请求失败，状态码: {response.status_code}, URL: {url}")
+                    time.sleep(delay + random.uniform(1, 3))  # 额外添加随机延迟
+                    continue
+                
+                # 检查是否被重定向到反爬页面
+                if "验证" in response.text or "安全检查" in response.text:
+                    logger.warning(f"可能遇到反爬措施，内容长度: {len(response.text)}，URL: {url}")
+                    
+                    # 检查是否是响应类型问题
+                    if 'application/json' in response.headers.get('Content-Type', ''):
+                        logger.warning(f"响应类型为JSON而非HTML，尝试解析JSON")
+                        try:
+                            # 尝试从JSON响应中提取URL
+                            data = response.json()
+                            if 'url' in data:
+                                new_url = data['url']
+                                logger.info(f"从JSON响应中找到新URL: {new_url}，重新请求")
+                                return self.fetch_page(new_url, retry_count - attempt - 1, delay)
+                        except:
+                            pass
+                    
+                    # 更换User-Agent再试
+                    headers['User-Agent'] = self.get_random_user_agent()
+                    
+                    # 增加延迟时间
+                    time.sleep(delay + random.uniform(3, 6))
+                    continue
+                
+                # 处理编码问题
+                if response.encoding == 'ISO-8859-1':
+                    # 对于误判为ISO-8859-1的页面，先尝试utf-8
+                    try:
+                        content = response.content.decode('utf-8')
+                    except UnicodeDecodeError:
+                        # 如果utf-8解码失败，尝试GBK
+                        try:
+                            content = response.content.decode('gbk')
+                        except UnicodeDecodeError:
+                            # 如果GBK也失败，使用gb18030（超集）
+                            content = response.content.decode('gb18030')
+                else:
+                    # 使用响应的编码
+                    content = response.text
+                
+                return content
+            
+            except requests.exceptions.RequestException as e:
+                logger.error(f"请求异常: {str(e)}, URL: {url}")
+                time.sleep(delay)
+        
+        logger.error(f"获取页面内容失败，已达到最大重试次数: {retry_count}, URL: {url}")
+        return None
+    
+    def get_random_user_agent(self):
+        """获取随机User-Agent"""
+        user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Safari/605.1.15',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36 Edg/96.0.1054.62',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36',
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 15_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Mobile/15E148 Safari/604.1',
+            'Mozilla/5.0 (iPad; CPU OS 15_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Mobile/15E148 Safari/604.1',
+        ]
+        return random.choice(user_agents)
+    
+    def extract_js_data(self, soup):
+        """
+        从JS脚本中提取数据
         
         Args:
             soup: BeautifulSoup对象
         
         Returns:
-            str: 发布时间
+            list: 提取的URL列表
         """
+        urls = []
         try:
-            time_tag = soup.select_one(self.TIME_SELECTOR)
-            if time_tag:
-                time_text = time_tag.text.strip()
-                # 提取时间字符串
-                time_match = re.search(r'\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?', time_text)
-                if time_match:
-                    time_str = time_match.group(0)
-                    # 确保时间格式统一
-                    if ':' in time_str and time_str.count(':') == 1:
-                        time_str += ':00'
-                    return time_str
-            
-            # 尝试其他方式提取时间
-            meta_tag = soup.select_one('meta[name="pubdate"]')
-            if meta_tag and 'content' in meta_tag.attrs:
-                return meta_tag['content']
-            
-            meta_tag = soup.select_one('meta[property="article:published_time"]')
-            if meta_tag and 'content' in meta_tag.attrs:
-                return meta_tag['content']
-            
-            logger.warning(f"未找到发布时间，使用当前时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            # 查找所有脚本标签
+            for script in soup.find_all('script'):
+                if not script.string:
+                    continue
+                
+                # 查找定义新闻数据的JavaScript变量
+                if 'var data' in script.string or 'window.DATA' in script.string or 'newslist' in script.string:
+                    # 提取URL
+                    links = re.findall(r'\"url\":\"(http[^\"]+)\"', script.string)
+                    urls.extend(links)
+                    
+                    # 提取href
+                    hrefs = re.findall(r'\"href\":\"(http[^\"]+)\"', script.string)
+                    urls.extend(hrefs)
         except Exception as e:
-            logger.error(f"提取发布时间失败: {str(e)}")
-            return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            logger.error(f"从JS脚本提取数据失败: {str(e)}")
+        
+        # 解码URL中的转义字符
+        decoded_urls = []
+        for url in urls:
+            try:
+                # 去除多余的转义字符
+                url = url.replace('\\', '')
+                decoded_urls.append(url)
+            except Exception as e:
+                logger.error(f"解码URL失败: {url}, 错误: {str(e)}")
+        
+        return decoded_urls
     
-    def extract_author(self, soup):
+    def _crawl_from_backup_urls(self, max_news, start_date):
         """
-        提取作者
+        从备用URL列表爬取新闻
         
         Args:
-            soup: BeautifulSoup对象
+            max_news: 最大新闻数量
+            start_date: 开始日期
         
         Returns:
-            str: 作者
+            bool: 是否成功获取了新闻
         """
-        try:
-            author_tag = soup.select_one(self.AUTHOR_SELECTOR)
-            if author_tag:
-                author_text = author_tag.text.strip()
-                # 提取作者名
-                author_match = re.search(r'作者[：:]\s*([^\s]+)', author_text)
-                if author_match:
-                    return author_match.group(1)
-                return author_text
+        # 备用URL基础列表 - 按分类组织
+        backup_urls = {
+            "财经": [
+                "https://new.qq.com/rain/a/20240322A01N6300",
+                "https://new.qq.com/rain/a/20240322A01IVF00",
+                "https://new.qq.com/rain/a/20240321A03RZ900",
+                "https://new.qq.com/rain/a/20240322A00MOH00",
+                "https://new.qq.com/omn/20240322/20240322A01CLT00.html",
+                "https://finance.qq.com/a/20240322/001021.htm",
+            ],
+            "股票": [
+                "https://new.qq.com/rain/a/20240322A00CTO00", 
+                "https://new.qq.com/rain/a/20240322A00L0700",
+                "https://new.qq.com/omn/20240322/20240322A0272G00.html",
+                "https://stock.qq.com/a/20240322/002931.htm",
+            ],
+            "公司": [
+                "https://new.qq.com/rain/a/20240322A00KAO00",
+                "https://new.qq.com/rain/a/20240322A00JE000",
+                "https://finance.qq.com/a/20240322/001124.htm",
+            ],
+            "宏观": [
+                "https://new.qq.com/rain/a/20240322A00HS500",
+                "https://new.qq.com/rain/a/20240322A00GP700",
+                "https://new.qq.com/omn/20240322/20240322A02YWO00.html",
+            ],
+            "国际": [
+                "https://new.qq.com/rain/a/20240322A00FS800",
+                "https://new.qq.com/rain/a/20240322A00F9F00", 
+                "https://new.qq.com/omn/20240322/20240322A040CF00.html",
+            ]
+        }
+        
+        # 备用新闻列表页URL
+        backup_list_pages = [
+            "https://new.qq.com/ch/finance/",
+            "https://new.qq.com/ch/stock/",
+            "https://finance.qq.com/",
+            "https://finance.qq.com/stock/",
+            "https://finance.qq.com/roll.shtml",
+            "https://stock.qq.com/",
+            "https://new.qq.com/zt/template/?id=FIN2017092703",  # 财经专题
+        ]
+        
+        # 可能的腾讯新闻URL模式
+        url_patterns = [
+            "https://new.qq.com/rain/a/{date}{part1}{d}{part2}00",
+            "https://new.qq.com/omn/{date}/{date}{part1}{d}{part2}00.html",
+            "https://finance.qq.com/a/{date}/{d}{part1}{part2}.htm",
+        ]
+        
+        # 生成一些基于模式的URL
+        pattern_urls = []
+        date_patterns = []
+        
+        # 添加最近几天的日期
+        for i in range(7):
+            day = datetime.now() - timedelta(days=i)
+            date_pattern = day.strftime('%Y%m%d')
+            date_patterns.append(date_pattern)
+        
+        # 生成不同字母组合的URL
+        for date in date_patterns:
+            for pattern in url_patterns:
+                # 限制生成的URL数量
+                if len(pattern_urls) > 200:  # 限制生成的URL数量
+                    break
+                    
+                for part1 in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[:5]:  # 限制字母范围以控制数量
+                    for d in range(5):  # 限制数字范围
+                        for part2 in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[:5]:
+                            # 随机采样，减少URL数量
+                            if random.random() < 0.05:  # 只有5%的概率生成该URL
+                                try:
+                                    url = pattern.format(date=date, part1=part1, d=d, part2=part2)
+                                    pattern_urls.append(url)
+                                except:
+                                    continue
+        
+        # 将所有URL整合到一个列表中
+        all_urls = []
+        
+        # 首先添加已知有效的备用URL
+        for category, urls in backup_urls.items():
+            for url in urls:
+                all_urls.append((url, category))
+        
+        # 添加从备用新闻列表页提取的URL
+        for list_page in backup_list_pages:
+            try:
+                logger.info(f"尝试从备用列表页获取新闻链接: {list_page}")
+                # 使用Selenium获取页面，因为这些页面通常需要JS渲染
+                html = self.fetch_page_with_selenium(list_page, wait_time=8)
+                if html:
+                    # 提取新闻链接
+                    links = self.extract_news_links_from_page(html, "财经")
+                    for link in links:
+                        # 根据链接特征判断分类
+                        category = self.determine_category_from_url(link)
+                        all_urls.append((link, category))
+                    logger.info(f"从列表页 {list_page} 提取到 {len(links)} 个新闻链接")
+                
+                # 随机休眠，避免反爬
+                self.random_sleep(3, 5)
+            except Exception as e:
+                logger.error(f"从列表页 {list_page} 提取链接失败: {str(e)}")
+                continue
+        
+        # 然后添加生成的模式URL，并标记为通用分类
+        for url in pattern_urls:
+            category = self.determine_category_from_url(url)
+            all_urls.append((url, category))
+        
+        # 打乱URL列表，增加随机性
+        random.shuffle(all_urls)
+        
+        # 限制URL数量
+        if len(all_urls) > 500:  # 设置合理的上限以避免过多请求
+            all_urls = all_urls[:500]
+        
+        logger.info(f"备用URL总数: {len(all_urls)}")
+        
+        # 爬取新闻
+        total_fetched = 0
+        selenium_initialized = False
+        selenium_driver = None
+        
+        for url, category in all_urls:
+            # 如果已经达到最大数量，跳出循环
+            if max_news is not None and total_fetched >= max_news:
+                logger.info(f"已达到最大新闻数量: {max_news}，停止获取")
+                break
             
-            # 尝试其他方式提取作者
-            meta_tag = soup.select_one('meta[name="author"]')
-            if meta_tag and 'content' in meta_tag.attrs:
-                return meta_tag['content']
+            # 随机休眠，避免被反爬
+            self.random_sleep(1, 3)
             
-            return "腾讯财经"
-        except Exception as e:
-            logger.error(f"提取作者失败: {str(e)}")
-            return "腾讯财经"
-    
-    def extract_images(self, content_tag):
+            # 爬取新闻详情
+            try:
+                # 先使用常规方法尝试
+                news_data = self.crawl_news_detail(url, category)
+                
+                # 如果失败，使用增强版方法
+                if not news_data:
+                    logger.info(f"常规方法获取失败，使用增强版方法: {url}")
+                    
+                    # 使用Selenium直接爬取
+                    if not selenium_initialized:
+                        try:
+                            # 仅当需要时才初始化Selenium
+                            from selenium import webdriver
+                            from selenium.webdriver.chrome.options import Options
+                            from selenium.webdriver.chrome.service import Service
+                            from webdriver_manager.chrome import ChromeDriverManager
+                            
+                            # 配置Chrome选项
+                            chrome_options = Options()
+                            chrome_options.add_argument("--headless")
+                            chrome_options.add_argument("--disable-gpu")
+                            chrome_options.add_argument("--no-sandbox")
+                            chrome_options.add_argument("--disable-dev-shm-usage")
+                            chrome_options.add_argument(f"user-agent={self.get_random_user_agent()}")
+                            
+                            # 初始化WebDriver
+                            service = Service(ChromeDriverManager().install())
+                            selenium_driver = webdriver.Chrome(service=service, options=chrome_options)
+                            selenium_driver.set_page_load_timeout(30)
+                            selenium_initialized = True
+                            logger.info("Selenium WebDriver初始化成功")
+                        except Exception as e:
+                            logger.error(f"初始化Selenium失败: {str(e)}")
+                            selenium_initialized = False
+                    
+                    # 使用已初始化的WebDriver获取页面
+                    if selenium_initialized and selenium_driver:
+                        try:
+                            logger.info(f"使用Selenium直接访问: {url}")
+                            selenium_driver.get(url)
+                            # 等待页面加载
+                            selenium_driver.implicitly_wait(5)
+                            
+                            # 获取页面内容
+                            html = selenium_driver.page_source
+                            
+                            # 使用BeautifulSoup解析
+                            from bs4 import BeautifulSoup
+                            soup = BeautifulSoup(html, 'html.parser')
+                            
+                            # 提取标题
+                            title_element = soup.select_one('h1, .title, .content-title, .article-title, .main-title')
+                            if title_element:
+                                title = title_element.get_text().strip()
+                                
+                                # 提取内容
+                                content_element = soup.select_one('.content-article, article, .article-content, .content')
+                                content = ""
+                                if content_element:
+                                    # 获取所有段落文本
+                                    paragraphs = []
+                                    for p in content_element.select('p'):
+                                        text = p.get_text().strip()
+                                        if text:
+                                            paragraphs.append(text)
+                                    
+                                    content = '\n'.join(paragraphs)
+                                
+                                if content:
+                                    # 提取发布时间
+                                    pub_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                    time_element = soup.select_one('.time, .article-time, .pubtime, .publish-time, .date')
+                                    if time_element:
+                                        time_text = time_element.get_text().strip()
+                                        # 尝试解析时间
+                                        try:
+                                            pub_time = self.parse_date(time_text)
+                                            if not pub_time:
+                                                pub_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                            else:
+                                                pub_time = pub_time.strftime('%Y-%m-%d %H:%M:%S')
+                                        except:
+                                            pass
+                                    
+                                    # 提取作者/来源
+                                    author = "腾讯财经"
+                                    author_element = soup.select_one('.author, .article-author, .source')
+                                    if author_element:
+                                        author = author_element.get_text().strip()
+                                        author = author.replace("来源：", "").replace("作者：", "").strip()
+                                    
+                                    # 生成新闻ID
+                                    news_id = self.generate_news_id(url, title)
+                                    
+                                    # 构建新闻数据
+                                    news_data = {
+                                        'id': news_id,
+                                        'title': title,
+                                        'content': content,
+                                        'pub_time': pub_time,
+                                        'author': author,
+                                        'source': self.source,
+                                        'url': url,
+                                        'keywords': '',
+                                        'sentiment': 0,
+                                        'crawl_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                        'category': category,
+                                        'images': '',
+                                        'related_stocks': ''
+                                    }
+                                    
+                                    logger.info(f"使用Selenium成功获取新闻: {title}")
+                        except Exception as e:
+                            logger.error(f"Selenium获取页面失败: {url}, 错误: {str(e)}")
+                
+                if not news_data:
+                    continue
+                
+                # 检查新闻日期是否在指定范围内
+                try:
+                    pub_time = news_data['pub_time']
+                    if isinstance(pub_time, str):
+                        news_date = datetime.strptime(pub_time.split(' ')[0], '%Y-%m-%d')
+                    else:
+                        news_date = pub_time
+                        
+                    if news_date < start_date:
+                        logger.debug(f"新闻日期 {news_date} 早于开始日期 {start_date}，跳过")
+                        continue
+                except Exception as e:
+                    logger.warning(f"解析新闻日期失败: {news_data.get('pub_time', '')}, 错误: {str(e)}")
+                
+                # 保存新闻数据
+                self.save_news_to_db(news_data)
+                self.news_data.append(news_data)
+                total_fetched += 1
+                logger.info(f"成功从备用URL爬取新闻: {news_data['title']}")
+                
+                # 如果已经成功获取了10条新闻，增加休眠时间以避免被封
+                if total_fetched % 10 == 0:
+                    logger.info(f"已成功获取 {total_fetched} 条新闻，增加休眠时间")
+                    self.random_sleep(5, 8)
+            except Exception as e:
+                logger.error(f"爬取备用URL失败: {url}, 错误: {str(e)}")
+                continue
+        
+        # 清理资源
+        if selenium_initialized and selenium_driver:
+            try:
+                selenium_driver.quit()
+                logger.info("Selenium WebDriver已关闭")
+            except:
+                pass
+        
+        logger.info(f"从备用URL列表共爬取 {total_fetched} 条新闻")
+        return total_fetched > 0
+        
+    def determine_category_from_url(self, url):
         """
-        提取图片
+        根据URL确定新闻分类
         
         Args:
-            content_tag: 内容标签
+            url: 新闻URL
         
         Returns:
-            list: 图片URL列表
+            str: 新闻分类
         """
-        images = []
-        try:
-            for img_tag in content_tag.find_all('img', src=True):
-                src = img_tag['src']
-                if src.startswith('//'):
-                    src = 'https:' + src
-                images.append(src)
-        except Exception as e:
-            logger.error(f"提取图片失败: {str(e)}")
+        url_lower = url.lower()
         
-        return images
-    
-    def extract_related_stocks(self, soup):
+        # 股票相关
+        if any(keyword in url_lower for keyword in ['stock', 'market', '股票', '行情', '大盘']):
+            return '股票'
+        
+        # 公司相关
+        if any(keyword in url_lower for keyword in ['company', 'finance_company', 'business', '公司']):
+            return '公司'
+        
+        # 宏观相关
+        if any(keyword in url_lower for keyword in ['macro', 'economy', 'finance_macro', '宏观', '经济']):
+            return '宏观'
+        
+        # 国际相关
+        if any(keyword in url_lower for keyword in ['world', 'global', 'international', '国际']):
+            return '国际'
+        
+        # 默认为财经
+        return '财经'
+        
+    def fetch_page_with_selenium(self, url, wait_time=5):
         """
-        提取相关股票
+        使用Selenium获取页面内容，处理JS渲染内容
         
         Args:
-            soup: BeautifulSoup对象
-        
+            url: 页面URL
+            wait_time: 等待页面加载的时间（秒）
+            
         Returns:
-            list: 相关股票列表
+            str: 页面内容，获取失败则返回None
         """
-        related_stocks = []
         try:
-            # 查找股票代码
-            stock_pattern = r'(\d{6})[\.，,\s]+([^\s,.，,]{2,})'
-            content_text = soup.get_text()
+            # 检查是否已安装selenium
+            try:
+                from selenium import webdriver
+                from selenium.webdriver.chrome.options import Options
+                from selenium.webdriver.chrome.service import Service
+                from selenium.webdriver.common.by import By
+                from selenium.webdriver.support.ui import WebDriverWait
+                from selenium.webdriver.support import expected_conditions as EC
+                from webdriver_manager.chrome import ChromeDriverManager
+            except ImportError:
+                logger.error("未安装Selenium相关包，无法使用Selenium获取页面")
+                return None
             
-            for match in re.finditer(stock_pattern, content_text):
-                stock_code = match.group(1)
-                stock_name = match.group(2)
-                related_stocks.append(f"{stock_code}:{stock_name}")
+            logger.info(f"使用Selenium获取页面: {url}")
             
-            # 去重
-            related_stocks = list(set(related_stocks))
+            # 配置Chrome选项
+            chrome_options = Options()
+            chrome_options.add_argument("--headless")  # 无头模式
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument(f"user-agent={self.get_random_user_agent()}")
+            
+            # 添加更多选项来避免检测
+            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+            chrome_options.add_argument("--disable-web-security")
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            chrome_options.add_experimental_option("useAutomationExtension", False)
+            
+            # 初始化WebDriver
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+            
+            # 执行额外的脚本来规避检测
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            
+            # 设置页面加载超时
+            driver.set_page_load_timeout(30)
+            
+            try:
+                # 访问URL
+                driver.get(url)
+                
+                # 等待页面加载完成，最多等待wait_time秒
+                WebDriverWait(driver, wait_time).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "body"))
+                )
+                
+                # 额外等待一段时间，让JavaScript充分执行
+                import time
+                time.sleep(2)
+                
+                # 尝试查找新闻内容元素
+                try:
+                    content_element = WebDriverWait(driver, 3).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, ".content-article, article, .article-content, .content"))
+                    )
+                    logger.info("找到内容元素，页面加载完成")
+                except:
+                    logger.info("未找到特定内容元素，但页面已加载")
+                
+                # 获取页面内容
+                html = driver.page_source
+                
+                # 关闭WebDriver
+                driver.quit()
+                
+                return html
+            except Exception as e:
+                # 捕获访问URL时可能发生的异常
+                logger.error(f"Selenium访问URL时发生错误: {str(e)}")
+                driver.quit()
+                return None
         except Exception as e:
-            logger.error(f"提取相关股票失败: {str(e)}")
-        
-        return related_stocks
+            logger.error(f"使用Selenium获取页面失败: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return None
     
     def generate_news_id(self, url, title):
         """
@@ -511,13 +1508,65 @@ class TencentCrawler(BaseCrawler):
         id_str = f"{url}_{title}"
         return hashlib.md5(id_str.encode('utf-8')).hexdigest()
     
-    def random_sleep(self, min_seconds=1, max_seconds=3):
+    def save_news_to_db(self, news):
         """
-        随机休眠一段时间，避免被反爬
+        保存新闻到数据库
         
         Args:
-            min_seconds: 最小休眠时间（秒）
-            max_seconds: 最大休眠时间（秒）
+            news: 新闻数据字典
+            
+        Returns:
+            bool: 是否保存成功
         """
-        sleep_time = random.uniform(min_seconds, max_seconds)
-        time.sleep(sleep_time) 
+        try:
+            # 直接使用sqlite3连接将新闻保存到数据库
+            # 确保目录存在
+            db_dir = os.path.dirname(self.db_path)
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+                
+            # 连接数据库
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 准备SQL语句
+            sql = """
+            INSERT OR REPLACE INTO news (
+                id, title, content, pub_time, author, source, url, 
+                keywords, sentiment, crawl_time, category, images, 
+                related_stocks, content_html, classification
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
+            """
+            
+            # 准备数据
+            values = (
+                news.get('id', ''),
+                news.get('title', ''),
+                news.get('content', ''),
+                news.get('pub_time', ''),
+                news.get('author', ''),
+                news.get('source', ''),
+                news.get('url', ''),
+                news.get('keywords', ''),
+                news.get('sentiment', ''),
+                news.get('crawl_time', ''),
+                news.get('category', ''),
+                news.get('images', ''),
+                news.get('related_stocks', ''),
+                news.get('content_html', ''),
+                news.get('classification', '')
+            )
+            
+            # 执行SQL
+            cursor.execute(sql, values)
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"新闻已保存到数据库: {news.get('title', '未知标题')}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"保存新闻到数据库失败: {news.get('title', '未知标题')}, 错误: {str(e)}")
+            return False 

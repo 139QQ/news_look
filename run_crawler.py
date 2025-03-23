@@ -14,6 +14,7 @@ import random
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+import re
 
 # 添加项目根目录到系统路径
 project_root = os.path.dirname(os.path.abspath(__file__))
@@ -101,6 +102,17 @@ def run_crawler(source, days, use_proxy, **kwargs):
             # 运行单个爬虫，传递db_path参数
             crawler = get_crawler(source, use_proxy=use_proxy, use_source_db=False, db_path=db_path)
             logger.info(f"开始运行 {source} 爬虫，爬取最近 {days} 天的新闻")
+            
+            # 确保数据库表已创建
+            if hasattr(crawler, 'db_manager') and hasattr(crawler.db_manager, 'init_db'):
+                try:
+                    if hasattr(crawler, 'conn'):
+                        crawler.db_manager.init_db(crawler.conn)
+                        logger.info("数据库表初始化完成")
+                    else:
+                        logger.warning("爬虫没有数据库连接")
+                except Exception as e:
+                    logger.error(f"初始化数据库表失败: {str(e)}")
             
             # 设置爬虫参数
             for key, value in kwargs.items():
@@ -194,6 +206,29 @@ def run_crawler(source, days, use_proxy, **kwargs):
     duration = (end_time - start_time).total_seconds()
     logger.info(f"爬虫运行总耗时: {duration:.2f} 秒")
 
+def generate_db_path(source=None, db_dir=None):
+    """生成数据库路径"""
+    # 如果没有提供数据库目录，使用默认目录
+    if db_dir is None:
+        db_dir = os.path.join(os.getcwd(), 'data', 'db')
+    
+    # 确保数据库目录存在
+    os.makedirs(db_dir, exist_ok=True)
+    
+    # 根据来源生成数据库文件名
+    if source:
+        # 将来源转换为文件名安全的字符串
+        source_name = re.sub(r'[^\w]', '_', source.lower())
+        db_filename = f"{source_name}.db"
+    else:
+        # 使用固定的文件名
+        db_filename = "finance_news.db"
+    
+    # 生成数据库路径
+    db_path = os.path.join(db_dir, db_filename)
+    
+    return db_path
+
 def main():
     """主函数"""
     # 解析命令行参数
@@ -207,15 +242,14 @@ def main():
     os.makedirs('data/db', exist_ok=True)
     os.makedirs('data/output', exist_ok=True)
     
-    # 设置新的数据库文件路径
-    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-    new_db_path = os.path.join(os.getcwd(), 'data', 'db', f'new_news_{current_time}.db')
-    absolute_db_path = os.path.abspath(new_db_path)
+    # 使用新的函数生成固定的数据库路径
+    absolute_db_path = os.path.abspath(generate_db_path(args.source, os.path.join(os.getcwd(), 'data', 'db')))
     
     # 设置环境变量
+    db_dir = os.path.dirname(absolute_db_path)
+    os.environ['DB_DIR'] = db_dir
     os.environ['LOG_LEVEL'] = args.log_level
     os.environ['LOG_DIR'] = os.path.abspath(args.log_dir)
-    os.environ['DB_DIR'] = os.environ.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
     os.environ['DB_PATH'] = absolute_db_path
     
     print(f"当前工作目录: {os.getcwd()}")

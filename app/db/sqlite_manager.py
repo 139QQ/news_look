@@ -121,10 +121,38 @@ class SQLiteManager:
             
             self.conn.commit()
             logging.debug("数据库表创建成功")
+            
+            # 检查并升级表结构
+            self.upgrade_tables()
         except sqlite3.Error as e:
             logging.error(f"创建数据库表失败: {str(e)}")
             self.conn.rollback()
             raise
+    
+    def upgrade_tables(self):
+        """升级数据库表结构，添加缺失的列"""
+        try:
+            cursor = self.conn.cursor()
+            
+            # 获取news表的列信息
+            cursor.execute("PRAGMA table_info(news)")
+            columns = {row[1]: row for row in cursor.fetchall()}
+            
+            # 检查是否缺少content_html列
+            if 'content_html' not in columns:
+                logging.info("升级数据库：添加content_html列到news表")
+                cursor.execute("ALTER TABLE news ADD COLUMN content_html TEXT")
+            
+            # 检查是否缺少classification列
+            if 'classification' not in columns:
+                logging.info("升级数据库：添加classification列到news表")
+                cursor.execute("ALTER TABLE news ADD COLUMN classification TEXT")
+            
+            self.conn.commit()
+            logging.debug("数据库表升级完成")
+        except sqlite3.Error as e:
+            logging.error(f"升级数据库表失败: {str(e)}")
+            self.conn.rollback()
     
     def save_news(self, news_data):
         """
@@ -175,16 +203,15 @@ class SQLiteManager:
             # 插入新闻数据
             cursor.execute("""
                 INSERT INTO news (
-                    id, title, content, content_html, pub_time, author, source, url, 
-                    keywords, images, related_stocks, sentiment, classification, category, crawl_time
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    id, title, content, pub_time, author, source, url, 
+                    keywords, images, related_stocks, sentiment, category, crawl_time
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 news_data['id'], news_data['title'], news_data.get('content', ''), 
-                news_data.get('content_html', ''), news_data.get('pub_time', ''), 
-                news_data.get('author', ''), news_data.get('source', ''), 
-                news_data.get('url', ''), keywords_str, images_str, 
-                related_stocks_str, news_data.get('sentiment', ''), 
-                news_data.get('classification', ''), news_data.get('category', ''), crawl_time
+                news_data.get('pub_time', ''), news_data.get('author', ''), 
+                news_data.get('source', ''), news_data.get('url', ''), keywords_str, 
+                images_str, related_stocks_str, news_data.get('sentiment', ''), 
+                news_data.get('category', ''), crawl_time
             ))
             
             # 处理关键词

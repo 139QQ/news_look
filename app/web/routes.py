@@ -42,7 +42,7 @@ def register_routes(app):
         # 每页显示的新闻数量
         per_page = 10
         
-        # 查询数据库 - 使用优化后的数据库类，并搜索所有数据库
+        # 查询数据库 - 始终使用所有可用的数据库
         db = NewsDatabase(use_all_dbs=True)
         news_list = db.query_news(
             keyword=keyword if keyword else None,
@@ -89,6 +89,7 @@ def register_routes(app):
     @app.route('/crawler_status')
     def crawler_status():
         """爬虫状态页面"""
+        # 始终使用所有可用的数据库
         db = NewsDatabase(use_all_dbs=True)
         
         # 获取统计数据
@@ -148,7 +149,8 @@ def register_routes(app):
             start_date = datetime.now() - timedelta(days=30)
             end_date = datetime.now()
         
-        db = NewsDatabase()
+        # 始终使用所有可用的数据库
+        db = NewsDatabase(use_all_dbs=True)
         
         # 获取趋势数据
         trend_dates = []
@@ -322,34 +324,12 @@ def register_routes(app):
     
     @app.route('/news/<news_id>')
     def news_detail(news_id):
-        """新闻详情页"""
-        # 查询数据库
+        """新闻详情页面"""
+        # 始终使用所有可用的数据库
         db = NewsDatabase(use_all_dbs=True)
         
-        # 获取新闻数据
-        news = None
-        
-        # 尝试直接使用sqlite3连接查询所有数据库
-        for db_path in db.all_db_paths:
-            try:
-                conn = sqlite3.connect(db_path)
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                
-                # 查询指定ID的新闻
-                cursor.execute("SELECT * FROM news WHERE id = ?", (news_id,))
-                row = cursor.fetchone()
-                
-                if row:
-                    # 转换为字典
-                    news = {}
-                    for i, column in enumerate(cursor.description):
-                        news[column[0]] = row[i]
-                    break  # 找到后跳出循环
-                    
-                conn.close()
-            except Exception as e:
-                logger.error(f"查询新闻详情失败: {str(e)}")
+        # 获取新闻详情
+        news = db.get_news_by_id(news_id)
         
         if not news:
             flash('新闻不存在或已被删除', 'danger')

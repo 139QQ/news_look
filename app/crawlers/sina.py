@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 from app.crawlers.base import BaseCrawler
 from app.utils.logger import get_crawler_logger
 from app.utils.text_cleaner import clean_html, extract_keywords, decode_unicode_escape, decode_html_entities, decode_url_encoded
+from app.db.sqlite_manager import SQLiteManager
 
 # 使用专门的爬虫日志记录器
 logger = get_crawler_logger('sina')
@@ -76,7 +77,24 @@ class SinaCrawler(BaseCrawler):
             'Referer': 'https://finance.sina.com.cn/'
         }
         
-        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db)
+        # 初始化父类
+        super().__init__(db_manager, db_path, use_proxy, use_source_db)
+        
+        # 如果提供了db_manager并且不是SQLiteManager类型，创建SQLiteManager
+        if db_manager and not isinstance(db_manager, SQLiteManager):
+            if hasattr(db_manager, 'db_path'):
+                self.sqlite_manager = SQLiteManager(db_manager.db_path)
+            else:
+                # 使用传入的db_path或默认路径
+                self.sqlite_manager = SQLiteManager(db_path or self.db_path)
+        elif not db_manager:
+            # 如果没有提供db_manager，创建SQLiteManager
+            self.sqlite_manager = SQLiteManager(db_path or self.db_path)
+        else:
+            # 否则使用提供的db_manager
+            self.sqlite_manager = db_manager
+        
+        logger.info(f"新浪财经爬虫初始化完成，数据库路径: {self.db_path}")
     
     def fetch_page(self, url, params=None, headers=None, max_retries=None, timeout=None):
         """
@@ -126,12 +144,13 @@ class SinaCrawler(BaseCrawler):
             logger.error(f"处理页面编码时出错: {url}, 错误: {str(e)}")
             return response.text  # 出错时返回原始文本
     
-    def crawl(self, days=1):
+    def crawl(self, days=1, max_news=10):
         """
         爬取新浪财经的财经新闻
         
         Args:
             days: 爬取最近几天的新闻
+            max_news: 最大新闻数量
         
         Returns:
             list: 爬取的新闻列表
@@ -173,7 +192,10 @@ class SinaCrawler(BaseCrawler):
                         logger.warning(f"解析新闻日期失败: {news_data['pub_time']}, 错误: {str(e)}")
                     
                     # 保存新闻数据
-                    self.save_news(news_data)
+                    self.save_news_to_db(news_data)
+                    self.news_data.append(news_data)
+                    self.success_count += 1
+                    logger.info(f"成功爬取新浪新闻: {news_data['title']}")
         except Exception as e:
             logger.error(f"从首页获取新闻失败: {str(e)}")
         
@@ -218,10 +240,22 @@ class SinaCrawler(BaseCrawler):
                             logger.warning(f"解析新闻日期失败: {news_data['pub_time']}, 错误: {str(e)}")
                         
                         # 保存新闻数据
-                        self.save_news(news_data)
+                        self.save_news_to_db(news_data)
+                        self.news_data.append(news_data)
+                        self.success_count += 1
+                        logger.info(f"成功爬取新浪新闻: {news_data['title']}")
                     
                     # 随机休眠，避免被反爬
                     self.random_sleep(2, 5)
+        
+        # 爬取结束后，确保数据被保存到数据库
+        if hasattr(self, 'news_data') and self.news_data:
+            saved_count = 0
+            for news in self.news_data:
+                if self.save_news_to_db(news):
+                    saved_count += 1
+            
+            logger.info(f"成功保存 {saved_count}/{len(self.news_data)} 条新闻到数据库")
         
         logger.info(f"新浪财经爬取完成，共爬取新闻: {len(self.news_data)} 条")
         return self.news_data
@@ -581,6 +615,27 @@ class SinaCrawler(BaseCrawler):
             logger.error(f"从首页提取新闻链接失败: {category}, 错误: {str(e)}")
         
         return news_links
+    
+    def save_news_to_db(self, news):
+        """
+        保存新闻到数据库
+        
+        Args:
+            news: 新闻数据字典
+            
+        Returns:
+            bool: 是否保存成功
+        """
+        try:
+            # 如果有sqlite_manager属性则使用它保存
+            if hasattr(self, 'sqlite_manager') and self.sqlite_manager:
+                return self.sqlite_manager.save_news(news)
+            
+            # 否则使用父类的save_news方法保存到内存中
+            return super().save_news(news)
+        except Exception as e:
+            logger.error(f"保存新闻到数据库失败: {news.get('title', '未知标题')}, 错误: {str(e)}")
+            return False
 
 
 if __name__ == "__main__":
