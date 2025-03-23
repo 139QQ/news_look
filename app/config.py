@@ -9,21 +9,28 @@ import os
 import json
 from datetime import datetime
 
+# 获取项目根目录的绝对路径
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 统一使用绝对路径的data/db目录作为默认数据库目录
+DEFAULT_DB_DIR = os.path.join(ROOT_DIR, 'data', 'db')
+
 class Settings:
     """配置类"""
     
     def __init__(self):
         """初始化配置"""
         # 基础目录
-        self.BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.BASE_DIR = ROOT_DIR
         self.DATA_DIR = os.path.join(self.BASE_DIR, 'data')
         self.LOG_DIR = os.path.join(self.BASE_DIR, 'logs')
-        self.DB_DIR = os.path.join(self.BASE_DIR, 'data', 'db')
+        self.DB_DIR = DEFAULT_DB_DIR
         
         # 创建必要的目录
         for directory in [self.DATA_DIR, self.LOG_DIR, self.DB_DIR]:
             if not os.path.exists(directory):
                 os.makedirs(directory)
+                print(f"创建目录: {directory}")
         
         # 配置文件路径
         self.CONFIG_FILE = os.path.join(self.DATA_DIR, 'config.json')
@@ -74,8 +81,13 @@ class Settings:
     def update_from_env(self):
         """从环境变量更新配置"""
         if 'DB_DIR' in os.environ:
-            self.DB_DIR = os.environ['DB_DIR']
+            # 确保DB_DIR是绝对路径
+            db_dir = os.environ['DB_DIR']
+            if not os.path.isabs(db_dir):
+                db_dir = os.path.join(ROOT_DIR, db_dir)
+            self.DB_DIR = db_dir
             self.default_settings['DB_DIR'] = self.DB_DIR
+            print(f"设置环境变量DB_DIR: {self.DB_DIR}")
             
         if 'LOG_DIR' in os.environ:
             self.LOG_DIR = os.environ['LOG_DIR']

@@ -1,6 +1,7 @@
-# 财经新闻爬虫系统
+# 财经新闻爬虫系统 (NewsLook)
 
 一个用于爬取各大财经网站新闻的系统，包括东方财富、新浪财经、腾讯财经、网易财经和凤凰财经等网站。
+还有很多功能需要完善
 
 ## 功能特点
 
@@ -13,25 +14,40 @@
 - 自动提取新闻标题、内容、发布时间、作者等信息
 - 自动提取相关股票信息
 - 支持情感分析
+- 每个来源使用独立数据库，支持分布式部署
 
 ## 系统架构
 
 ```
 app/
-  ├── crawlers/
-  │   ├── __init__.py      # 爬虫包初始化文件，提供获取爬虫实例的接口
-  │   ├── base.py          # 爬虫基类，封装通用功能
-  │   ├── eastmoney.py     # 东方财富爬虫
-  │   ├── sina.py          # 新浪财经爬虫
-  │   ├── tencent.py       # 腾讯财经爬虫
-  │   ├── netease.py       # 网易财经爬虫
-  │   └── ifeng.py         # 凤凰财经爬虫
-  ├── utils/
-  │   ├── logger.py        # 日志工具
-  │   ├── text_cleaner.py  # 文本清洗工具
-  │   └── sentiment.py     # 情感分析工具
-  └── db/
-      └── database.py      # 数据库操作
+  ├── crawlers/         # 爬虫模块
+  │   ├── __init__.py   # 爬虫包初始化文件，提供获取爬虫实例的接口
+  │   ├── base.py       # 爬虫基类，封装通用功能
+  │   ├── eastmoney.py  # 东方财富爬虫
+  │   ├── sina.py       # 新浪财经爬虫
+  │   ├── tencent.py    # 腾讯财经爬虫
+  │   ├── netease.py    # 网易财经爬虫
+  │   └── ifeng.py      # 凤凰财经爬虫
+  ├── web/              # Web应用模块
+  │   ├── __init__.py
+  │   ├── routes.py     # 路由定义
+  │   └── views.py      # 视图函数
+  ├── utils/            # 工具模块
+  │   ├── logger.py     # 日志工具
+  │   ├── text_cleaner.py # 文本清洗工具
+  │   ├── proxy.py      # 代理管理
+  │   ├── ad_filter.py  # 广告过滤
+  │   └── sentiment.py  # 情感分析工具
+  ├── db/               # 数据库模块
+  │   └── database.py   # 数据库操作
+  ├── models/           # 数据模型
+  │   └── news.py       # 新闻数据模型
+  ├── tasks/            # 定时任务
+  │   └── scheduler.py  # 任务调度器
+  ├── templates/        # HTML模板
+  ├── static/           # 静态资源
+  ├── config.py         # 全局配置
+  └── __init__.py       # 应用初始化
 ```
 
 ## 安装依赖
@@ -49,60 +65,128 @@ pip install -r requirements.txt
 爬虫模式用于运行爬虫任务，支持多种爬虫类型。
 
 ```bash
-# 爬取东方财富网最近3天的财经和股票新闻
-python run.py crawler -s eastmoney -d 3 --categories 财经 股票
+# 基本使用
+python run.py crawler --source <来源名称> --days <天数>
 
-# 运行所有爬虫，爬取最近1天的新闻
-python run.py crawler -d 1
+# 爬取腾讯财经最近3天的新闻
+python run.py crawler --source 腾讯财经 --days 3
 
-# 使用代理爬取新浪财经的新闻
-python run.py crawler -s sina -p --use-proxy
+# 使用代理爬取新浪财经最近7天的新闻
+python run.py crawler --source 新浪财经 --days 7 --use-proxy
 ```
 
 ### 2. 调度模式
 
-调度模式用于定时运行爬虫任务。
+调度模式用于定时执行爬虫任务，可以设置爬虫类型和时间间隔。
 
 ```bash
-# 以守护进程方式运行调度器
-python run.py scheduler --daemon
+# 启动调度器
+python run.py scheduler
 
-# 列出所有可用的调度任务
-python run.py scheduler --list-tasks
-
-# 运行特定的调度任务
-python run.py scheduler --task eastmoney_daily
+# 使用特定配置启动调度器
+python run.py scheduler --config config.json
 ```
 
 ### 3. Web应用模式
 
-Web应用模式用于启动Web界面，查看和管理爬虫数据。
+Web应用模式提供了一个Web界面，可以查看爬取的新闻和爬虫运行状态。
 
 ```bash
 # 启动Web应用
 python run.py web
 
-# 指定主机和端口
-python run.py web --host 127.0.0.1 --port 8080
-
-# 开启调试模式
-python run.py web --debug
+# 指定端口启动Web应用
+python run.py web --port 8080
 ```
 
-### 直接运行爬虫
+## 数据库架构
 
-如果需要更精细的爬虫控制，也可以直接使用 `run_crawler.py`：
+系统使用两级数据库架构：
 
-```bash
-# 运行东方财富爬虫
-python run_crawler.py --source eastmoney --days 3
+1. **主数据库**: `finance_news.db` - 用于存储聚合的新闻数据
+2. **来源专用数据库**: 每个来源对应一个独立的数据库文件，如 `腾讯财经.db`、`新浪财经.db` 等
 
-# 运行所有爬虫
-python run_crawler.py --days 1
+### 文件命名约定
 
-# 使用代理
-python run_crawler.py --source sina --use-proxy
+来源专用数据库使用来源名称作为文件名，例如：
+- 腾讯财经 -> `腾讯财经.db`
+- 新浪财经 -> `新浪财经.db`
+- 东方财富 -> `东方财富.db`
+- 网易财经 -> `网易财经.db`
+- 凤凰财经 -> `凤凰财经.db`
+
+### 数据库实现细节
+
+#### 1. 为每个爬虫设置专用数据库路径
+
+在 `CrawlerManager` 类中，我们为每个爬虫实例设置了对应的数据库路径：
+
+```python
+# 为每个爬虫设置固定的数据库路径
+self._set_db_path(ifeng_crawler, "凤凰财经")
+self._set_db_path(sina_crawler, "新浪财经")
+self._set_db_path(tencent_crawler, "腾讯财经")
+self._set_db_path(netease_crawler, "网易财经")
+self._set_db_path(eastmoney_crawler, "东方财富")
 ```
+
+#### 2. 改进 NewsDatabase 类
+
+`NewsDatabase` 类支持以下功能：
+
+- 使用 `source_db_map` 属性，建立来源名称到数据库文件的映射
+- 支持按来源名称选择对应的数据库进行查询
+- 支持按来源统计新闻数量
+- 支持在所有数据库中查找指定ID的新闻
+- 从所有数据库中收集来源和分类数据
+
+## 爬虫系统改进
+
+### 存在的问题
+
+1. **代码重复**：各爬虫间存在大量重复代码，如HTTP请求、数据清洗等通用功能
+2. **错误处理不完善**：缺乏统一的异常处理机制，导致爬虫在遇到异常时容易崩溃
+3. **日志系统不健全**：日志记录不完整，难以追踪问题
+4. **配置分散**：配置信息散布在代码中，难以统一管理
+5. **扩展性差**：添加新爬虫需要重复实现大量基础功能
+6. **数据存储不统一**：数据存储逻辑与爬虫逻辑混合，不利于维护
+7. **过度依赖浏览器自动化**：部分爬虫依赖Selenium等浏览器自动化工具，资源消耗大且稳定性差
+
+### 改进方案
+
+1. **基类抽象**：创建`BaseCrawler`基类，封装通用功能
+2. **统一接口**：所有爬虫实现统一接口，便于调用和管理
+3. **完善错误处理**：添加全面的异常捕获和处理机制
+4. **增强日志系统**：实现详细的日志记录，包括调试、信息、警告和错误级别
+5. **配置集中化**：将配置信息集中管理，便于修改和维护
+6. **模块化设计**：将爬虫、数据处理、存储等功能模块化，降低耦合
+7. **增强可扩展性**：便于添加新的爬虫源
+8. **减少浏览器依赖**：尽可能使用轻量级请求库代替浏览器自动化
+
+## 项目优化建议
+
+### 文件组织整理
+
+1. **测试文件移动**：将`test_*.py`文件全部移动到`tests`目录
+2. **日志文件整理**：根目录下的`.log`文件应该移动到logs目录下对应的子目录
+3. **数据库文件移动**：将根目录的`*.db`文件移动到`data`或`db`目录
+
+### 运行脚本统一
+
+1. **统一入口**: 
+   - `run.py` - 主程序入口
+   - `run_crawler.py` - 爬虫统一入口
+   - `run_scheduler.py` - 调度任务入口
+
+2. **CLI模块化**: 创建专门的CLI目录管理命令行接口
+
+## 贡献
+
+欢迎贡献代码或提出改进建议！请提交Issue或Pull Request。
+
+## 许可
+
+本项目使用MIT许可证。请参考LICENSE文件。
 
 ## 爬虫模式的主要参数
 
@@ -439,3 +523,25 @@ MIT License
 详细说明可参阅 `docs/数据库连接说明.md` 文件中的"数据库文件存储优化"部分。
 
 ## 使用说明
+
+## 项目维护
+
+### 修复未知来源问题
+
+有时候系统可能会误抓取一些来源不明确的新闻，导致产生"未知来源"的记录。系统提供了以下方法处理这类问题：
+
+1. **使用管理界面**：在系统管理界面的"系统设置"中，提供了"更新未知来源"功能，可以根据URL特征自动识别并更新正确的来源。
+
+2. **运行修复脚本**：可以直接运行以下命令修复所有数据库中的未知来源记录：
+   ```bash
+   python -m app.utils.fix_unknown_sources
+   ```
+
+修复脚本会执行以下操作：
+- 扫描所有数据库中的未知来源记录
+- 根据URL特征自动推断并更新正确的来源
+- 对于无法自动识别的记录，根据数据库名称设置默认来源
+- 删除空的"未知来源"数据库文件
+- 创建备份以确保数据安全
+
+为避免产生未知来源记录，爬虫基类已增强源码验证，确保每个爬虫子类在初始化时正确设置`source`属性。爬虫管理器也会在启动时验证每个爬虫的来源设置，确保系统稳定运行。

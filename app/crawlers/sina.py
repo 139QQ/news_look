@@ -22,6 +22,8 @@ from app.crawlers.base import BaseCrawler
 from app.utils.logger import get_crawler_logger
 from app.utils.text_cleaner import clean_html, extract_keywords, decode_unicode_escape, decode_html_entities, decode_url_encoded
 from app.db.sqlite_manager import SQLiteManager
+from app.utils.ad_filter import AdFilter
+from app.utils.image_detector import ImageDetector
 
 # 使用专门的爬虫日志记录器
 logger = get_crawler_logger('sina')
@@ -48,7 +50,7 @@ class SinaCrawler(BaseCrawler):
     # 作者选择器
     AUTHOR_SELECTOR = 'span.source'
     
-    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False):
+    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False, **kwargs):
         """
         初始化新浪财经爬虫
         
@@ -78,7 +80,11 @@ class SinaCrawler(BaseCrawler):
         }
         
         # 初始化父类
-        super().__init__(db_manager, db_path, use_proxy, use_source_db)
+        super().__init__(db_manager, db_path, use_proxy, use_source_db, **kwargs)
+        
+        # 初始化广告过滤器
+        self.ad_filter = AdFilter(source_name=self.source)
+        self.image_detector = ImageDetector(cache_dir='./image_cache')
         
         # 如果提供了db_manager并且不是SQLiteManager类型，创建SQLiteManager
         if db_manager and not isinstance(db_manager, SQLiteManager):
@@ -144,18 +150,19 @@ class SinaCrawler(BaseCrawler):
             logger.error(f"处理页面编码时出错: {url}, 错误: {str(e)}")
             return response.text  # 出错时返回原始文本
     
-    def crawl(self, days=1, max_news=10):
+    def crawl(self, days=1, max_pages=3):
         """
-        爬取新浪财经的财经新闻
+        爬取新浪财经的新闻
         
         Args:
-            days: 爬取最近几天的新闻
-            max_news: 最大新闻数量
-        
-        Returns:
-            list: 爬取的新闻列表
+            days: 爬取的天数范围，默认为1天
+            max_pages: 每个分类最多爬取的页数，默认为3页
         """
-        logger.info(f"开始爬取新浪财经新闻，爬取天数: {days}")
+        logger.info(f"开始爬取{self.source}新闻，天数范围: {days}天，每个分类最多爬取: {max_pages}页")
+        
+        # 重置过滤计数
+        self.ad_filter.reset_filter_count()
+        self.image_detector.reset_ad_count()
         
         # 清空新闻数据列表
         self.news_data = []
@@ -257,7 +264,7 @@ class SinaCrawler(BaseCrawler):
             
             logger.info(f"成功保存 {saved_count}/{len(self.news_data)} 条新闻到数据库")
         
-        logger.info(f"新浪财经爬取完成，共爬取新闻: {len(self.news_data)} 条")
+        logger.info(f"爬取完成，共爬取新闻 {saved_count} 条，过滤广告 {self.ad_filter.get_filter_count()} 条，过滤广告图片 {self.image_detector.get_ad_count()} 张")
         return self.news_data
     
     def extract_news_links(self, html, category):
@@ -320,10 +327,15 @@ class SinaCrawler(BaseCrawler):
         # 检查URL是否为新浪财经的URL
         if 'sina.com.cn' not in url:
             return False
+            
+        # 检查URL是否是广告
+        if self.ad_filter.is_ad_url(url):
+            logger.info(f"过滤广告URL: {url}")
+            return False
         
         return True
     
-    def crawl_news_detail(self, url, category):
+    def crawl_news_detail(self, url, category=None):
         """
         爬取新闻详情
         
@@ -334,52 +346,30 @@ class SinaCrawler(BaseCrawler):
         Returns:
             dict: 新闻数据
         """
+        if not url or not self.is_valid_news_url(url):
+            return None
+        
+        # 检查是否为广告URL
+        if self.ad_filter.is_ad_url(url):
+            logger.info(f"过滤广告URL: {url}")
+            return None
+        
         try:
-            logger.info(f"爬取新闻详情: {url}")
-            
-            # 获取页面内容
-            html = self.fetch_page(url)
-            if not html:
-                logger.warning(f"获取新闻详情页面失败: {url}")
+            response = self.fetch_page(url)
+            if not response:
+                logger.warning(f"无法获取页面内容: {url}")
                 return None
             
-            # 解析页面
-            soup = BeautifulSoup(html, 'html.parser')
+            soup = BeautifulSoup(response, 'html.parser')
             
-            # 提取标题
-            title_elem = soup.select_one('h1.main-title')
-            if not title_elem:
-                title_elem = soup.select_one('h1.title')
-            
-            if not title_elem:
-                logger.warning(f"未找到标题: {url}")
-                return None
-            
-            title = title_elem.text.strip()
-            # 确保标题没有乱码
-            title = decode_html_entities(title)
-            title = decode_unicode_escape(title)
-            title = decode_url_encoded(title)
-            
+            # 获取标题
+            title = self.extract_title(soup)
             if not title:
-                logger.warning(f"标题为空: {url}")
+                logger.warning(f"无法找到标题: {url}")
                 return None
             
-            # 提取发布时间
-            pub_time = self.extract_pub_time(soup)
-            
-            # 提取作者/来源
-            author = self.extract_author(soup)
-            
-            # 尝试从URL推断来源
-            if not author or author == "未知":
-                domain = urlparse(url).netloc
-                if "finance.sina.com.cn" in domain:
-                    author = "新浪财经"
-                elif "sina.com.cn" in domain:
-                    author = "新浪新闻"
-                
-            # 提取正文
+            # 获取正文内容
+            content_html = ""
             content_tag = soup.select_one(self.CONTENT_SELECTOR)
             if not content_tag:
                 # 尝试其他可能的选择器
@@ -391,24 +381,55 @@ class SinaCrawler(BaseCrawler):
                 logger.warning(f"未找到正文: {url}")
                 return None
             
-            # 提取图片
-            images = self.extract_images(content_tag)
-            
-            # 提取正文内容
+            # 清理内容
             for script in content_tag.find_all('script'):
                 script.decompose()
             for style in content_tag.find_all('style'):
                 style.decompose()
             
             # 移除广告和无关元素
-            for div in content_tag.find_all('div', class_=lambda c: c and ('recommend' in c.lower() or 'footer' in c.lower() or 'ad' in c.lower() or 'bottom' in c.lower())):
+            for div in content_tag.find_all('div', class_=lambda c: c and ('recommend' in str(c).lower() or 'footer' in str(c).lower() or 'ad' in str(c).lower() or 'bottom' in str(c).lower())):
                 div.decompose()
             
+            # 保存处理后的HTML
+            content_html = str(content_tag)
             content = content_tag.get_text('\n').strip()
+            
             # 确保内容没有乱码
             content = decode_html_entities(content)
             content = decode_unicode_escape(content)
             content = decode_url_encoded(content)
+            
+            # 检查内容是否为广告
+            if self.ad_filter.is_ad_content(content, title=title, category=category):
+                logger.info(f"过滤广告内容: {title}, URL: {url}")
+                return None
+            
+            # 提取发布时间
+            pub_time = self.extract_pub_time(soup)
+            
+            # 提取作者/来源
+            author = self.extract_author(soup)
+            
+            # 提取图片并检测广告图片
+            image_urls = []
+            ad_images_removed = False
+            image_content_soup = BeautifulSoup(content_html, 'html.parser')
+            
+            for img in image_content_soup.find_all('img'):
+                img_url = img.get('src')
+                if img_url and img_url.startswith('http'):
+                    if self.image_detector.is_ad_image(img_url, context={'category': category}):
+                        logger.info(f"过滤广告图片: {img_url}")
+                        img.decompose()  # 从HTML中移除广告图片
+                        ad_images_removed = True
+                    else:
+                        image_urls.append(img_url)
+            
+            # 如果移除了广告图片，更新内容HTML和纯文本
+            if ad_images_removed:
+                content_html = str(image_content_soup)
+                content = image_content_soup.get_text('\n').strip()
             
             # 提取关键词
             keywords = extract_keywords(content)
@@ -424,20 +445,21 @@ class SinaCrawler(BaseCrawler):
                 'news_id': news_id,
                 'title': title,
                 'content': content,
+                'content_html': content_html,
                 'pub_time': pub_time,
                 'source': self.source,
                 'author': author,
                 'category': category,
                 'url': url,
-                'keywords': ','.join(keywords),
-                'images': ','.join(images),
-                'related_stocks': ','.join(related_stocks),
+                'keywords': ','.join(keywords) if keywords else '',
+                'images': ','.join(image_urls),
+                'related_stocks': ','.join(related_stocks) if related_stocks else '',
                 'sentiment': 0,
                 'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
             
             # 分析情感
-            if content:
+            if content and hasattr(self, 'sentiment_analyzer'):
                 try:
                     sentiment = self.sentiment_analyzer.analyze(title, content)
                     news_data['sentiment'] = sentiment
@@ -636,6 +658,105 @@ class SinaCrawler(BaseCrawler):
         except Exception as e:
             logger.error(f"保存新闻到数据库失败: {news.get('title', '未知标题')}, 错误: {str(e)}")
             return False
+
+    def extract_title(self, soup):
+        """
+        提取标题
+        
+        Args:
+            soup: BeautifulSoup对象
+        
+        Returns:
+            str: 标题
+        """
+        try:
+            # 尝试使用h1提取标题
+            title_tag = soup.find('h1')
+            if title_tag:
+                title = title_tag.get_text(strip=True)
+                if title:
+                    return title
+            
+            # 尝试使用meta标签提取标题
+            meta_tag = soup.select_one('meta[property="og:title"]')
+            if meta_tag and 'content' in meta_tag.attrs:
+                return meta_tag['content']
+            
+            # 尝试使用title标签提取标题
+            title_tag = soup.find('title')
+            if title_tag:
+                title = title_tag.get_text(strip=True)
+                if '_' in title:
+                    return title.split('_')[0].strip()
+                if '-' in title:
+                    return title.split('-')[0].strip()
+                return title
+            
+            return None
+        except Exception as e:
+            logger.warning(f"提取标题失败: {str(e)}")
+            return None
+    
+    def extract_content(self, soup):
+        """
+        提取内容
+        
+        Args:
+            soup: BeautifulSoup对象
+        
+        Returns:
+            str: 内容
+        """
+        try:
+            # 尝试使用内容选择器提取内容
+            content_tag = soup.select_one(self.CONTENT_SELECTOR)
+            if not content_tag:
+                # 尝试其他可能的选择器
+                content_tag = soup.select_one('div.article')
+                if not content_tag:
+                    content_tag = soup.select_one('#artibody')
+            
+            if not content_tag:
+                return None
+            
+            # 清理内容
+            for script in content_tag.find_all('script'):
+                script.decompose()
+            for style in content_tag.find_all('style'):
+                style.decompose()
+            
+            # 移除广告和无关元素
+            for div in content_tag.find_all('div', class_=lambda c: c and ('recommend' in str(c).lower() or 'footer' in str(c).lower() or 'ad' in str(c).lower() or 'bottom' in str(c).lower())):
+                div.decompose()
+            
+            content = content_tag.get_text('\n').strip()
+            # 确保内容没有乱码
+            content = decode_html_entities(content)
+            content = decode_unicode_escape(content)
+            content = decode_url_encoded(content)
+            
+            return content
+        except Exception as e:
+            logger.warning(f"提取内容失败: {str(e)}")
+            return None
+
+    def save_to_db(self):
+        """将爬取的新闻保存到数据库"""
+        if not self.db_manager:
+            logger.warning("未配置数据库管理器，无法保存数据")
+            return 0
+        
+        logger.info(f"开始保存{len(self.news_data)}条新闻到数据库...")
+        saved_count = 0
+        
+        for news in self.news_data:
+            if self.db_manager.insert_news(news):
+                saved_count += 1
+        
+        logger.info(f"成功保存 {saved_count}/{len(self.news_data)} 条新闻到数据库")
+        logger.info(f"爬取完成，共爬取新闻 {saved_count} 条，过滤广告 {self.ad_filter.get_filter_count()} 条，过滤广告图片 {self.image_detector.get_ad_count()} 张")
+        
+        return saved_count
 
 
 if __name__ == "__main__":

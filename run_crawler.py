@@ -101,7 +101,7 @@ def run_crawler(source, days, use_proxy, **kwargs):
             
             # 运行单个爬虫，传递db_path参数
             crawler = get_crawler(source, use_proxy=use_proxy, use_source_db=False, db_path=db_path)
-            logger.info(f"开始运行 {source} 爬虫，爬取最近 {days} 天的新闻")
+            logger.info("开始运行 %s 爬虫，爬取最近 %s 天的新闻", source, days)
             
             # 确保数据库表已创建
             if hasattr(crawler, 'db_manager') and hasattr(crawler.db_manager, 'init_db'):
@@ -112,7 +112,7 @@ def run_crawler(source, days, use_proxy, **kwargs):
                     else:
                         logger.warning("爬虫没有数据库连接")
                 except Exception as e:
-                    logger.error(f"初始化数据库表失败: {str(e)}")
+                    logger.error("初始化数据库表失败: %s", str(e))
             
             # 设置爬虫参数
             for key, value in kwargs.items():
@@ -121,7 +121,7 @@ def run_crawler(source, days, use_proxy, **kwargs):
             
             # 简化：只传递days参数给所有爬虫
             news_data = crawler.crawl(days=days)
-            logger.info(f"{source} 爬虫运行完成，共爬取 {len(news_data)} 条新闻")
+            logger.info("%s 爬虫运行完成，共爬取 %s 条新闻", source, len(news_data))
             
             # 确保新闻数据保存到数据库
             if news_data and hasattr(crawler, 'db_manager') and hasattr(crawler.db_manager, 'save_news'):
@@ -131,17 +131,17 @@ def run_crawler(source, days, use_proxy, **kwargs):
                         if crawler.db_manager.save_news(news):
                             saved_count += 1
                     except Exception as e:
-                        logger.error(f"保存新闻到数据库失败: {news.get('title', '未知标题')}, 错误: {str(e)}")
+                        logger.error("保存新闻到数据库失败: %s, 错误: %s", news.get('title', '未知标题'), str(e))
                 
-                logger.info(f"成功保存 {saved_count} 条新闻到数据库: {crawler.db_path}")
+                logger.info("成功保存 %s 条新闻到数据库: %s", saved_count, crawler.db_path)
             
             # 保存数据库连接
             if hasattr(crawler, 'conn') and crawler.conn:
                 try:
                     crawler.conn.commit()
-                    logger.info(f"已提交数据库事务")
+                    logger.info("已提交数据库事务")
                 except Exception as e:
-                    logger.error(f"提交数据库事务失败: {str(e)}")
+                    logger.error("提交数据库事务失败: %s", str(e))
             
         else:
             # 提取db_path参数
@@ -149,7 +149,7 @@ def run_crawler(source, days, use_proxy, **kwargs):
             
             # 运行所有爬虫
             crawlers = get_all_crawlers(use_proxy=use_proxy, db_path=db_path)
-            logger.info(f"开始运行所有爬虫，共 {len(crawlers)} 个，爬取最近 {days} 天的新闻")
+            logger.info("开始运行所有爬虫，共 %s 个，爬取最近 %s 天的新闻", len(crawlers), days)
             
             total_news = 0
             for crawler in crawlers:
@@ -162,9 +162,9 @@ def run_crawler(source, days, use_proxy, **kwargs):
                     
                     # 简化：只传递days参数给所有爬虫
                     crawler_logger = get_logger(crawler_source.lower())
-                    crawler_logger.info(f"开始运行 {crawler_source} 爬虫")
+                    crawler_logger.info("开始运行 %s 爬虫", crawler_source)
                     news_data = crawler.crawl(days=days)
-                    crawler_logger.info(f"{crawler_source} 爬虫运行完成，共爬取 {len(news_data)} 条新闻")
+                    crawler_logger.info("%s 爬虫运行完成，共爬取 %s 条新闻", crawler_source, len(news_data))
                     total_news += len(news_data)
                     
                     # 确保新闻数据保存到数据库
@@ -175,36 +175,36 @@ def run_crawler(source, days, use_proxy, **kwargs):
                                 if crawler.db_manager.save_news(news):
                                     saved_count += 1
                             except Exception as e:
-                                logger.error(f"保存新闻到数据库失败: {news.get('title', '未知标题')}, 错误: {str(e)}")
+                                logger.error("保存新闻到数据库失败: %s, 错误: %s", news.get('title', '未知标题'), str(e))
                         
-                        logger.info(f"成功保存 {saved_count} 条新闻到数据库: {crawler.db_path}")
+                        logger.info("成功保存 %s 条新闻到数据库: %s", saved_count, crawler.db_path)
                     
                     # 保存数据库连接
                     if hasattr(crawler, 'conn') and crawler.conn:
                         try:
                             crawler.conn.commit()
-                            logger.info(f"已提交数据库事务")
+                            logger.info("已提交数据库事务")
                         except Exception as e:
-                            logger.error(f"提交数据库事务失败: {str(e)}")
+                            logger.error("提交数据库事务失败: %s", str(e))
                     
                     # 随机延迟，避免频繁请求
                     time.sleep(random.uniform(1, kwargs.get('delay', 3)))
                     
                 except Exception as e:
                     crawler_logger = get_logger(crawler_source.lower())
-                    crawler_logger.error(f"运行 {crawler_source} 爬虫失败: {e}")
+                    crawler_logger.error("运行 %s 爬虫失败: %s", crawler_source, e)
                     crawler_logger.exception(e)
             
-            logger.info(f"所有爬虫运行完成，共爬取 {total_news} 条新闻")
+            logger.info("所有爬虫运行完成，共爬取 %s 条新闻", total_news)
     
     except Exception as e:
-        logger.error(f"爬虫运行异常: {e}")
+        logger.error("爬虫运行异常: %s", e)
         logger.exception(e)
     
     # 计算运行时间
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
-    logger.info(f"爬虫运行总耗时: {duration:.2f} 秒")
+    logger.info("爬虫运行总耗时: %.2f 秒", duration)
 
 def generate_db_path(source=None, db_dir=None):
     """生成数据库路径"""
@@ -280,9 +280,10 @@ def main():
         
         # 搜索可能的数据库文件
         db_files = []
+        current_date = datetime.now().strftime('%Y%m%d')
         for root, dirs, files in os.walk(os.getcwd()):
             for file in files:
-                if file.endswith('.db') and f'_{current_time}' in file:
+                if file.endswith('.db') and current_date in file:
                     db_files.append(os.path.join(root, file))
         
         if db_files:

@@ -15,11 +15,13 @@ from app.utils.logger import get_logger
 from app.utils.database import NewsDatabase
 from app.crawlers.base import BaseCrawler
 from app.crawlers.eastmoney import EastMoneyCrawler
+from app.crawlers.eastmoney_simple import EastMoneySimpleCrawler
 from app.crawlers.sina import SinaCrawler
 from app.crawlers.tencent import TencentCrawler
 from app.crawlers.netease import NeteaseCrawler
 from app.crawlers.ifeng import IfengCrawler
 import re
+import sqlite3
 
 logger = get_logger(__name__)
 
@@ -33,73 +35,211 @@ class CrawlerManager:
         Args:
             settings: 配置字典
         """
-        self.settings = settings or {}
+        # 首先从app.config获取设置，然后用传入的settings更新它（如果有）
+        config_settings = get_settings()
+        self.settings = {} 
+        # 确保将config_settings中的设置复制到self.settings字典中
+        for key, value in config_settings.settings.items():
+            self.settings[key] = value
+            
+        # 如果传入了settings，更新self.settings
+        if settings:
+            self.settings.update(settings)
+            
         self.crawlers = {}
         
         # 获取数据库目录
-        db_dir = self.settings.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
+        db_dir = self.settings.get('DB_DIR')
+        if not db_dir:
+            # 如果在设置中没有找到DB_DIR，使用默认值
+            db_dir = os.path.join(os.getcwd(), 'data', 'db')
+            
+        # 确保目录存在
         os.makedirs(db_dir, exist_ok=True)
+        logger.info(f"爬虫管理器使用数据库目录: {db_dir}")
         
+        # 将DB_DIR保存回设置
+        self.settings['DB_DIR'] = db_dir
+        
+        # 初始化线程相关属性
+        self.crawler_threads = {}
+        self.stop_flags = {}
+        
+        # 初始化数据库连接
+        try:
+            # 尝试使用传入的db_path连接数据库
+            self.db = NewsDatabase()
+        except Exception as e:
+            logger.error(f"连接数据库失败: {str(e)}")
+            self.db = None
+            
         # 导入所有爬虫类
         try:
             # 初始化所有爬虫
-            ifeng_crawler = IfengCrawler()
-            sina_crawler = SinaCrawler()
-            tencent_crawler = TencentCrawler()
-            netease_crawler = NeteaseCrawler()
-            eastmoney_crawler = EastMoneyCrawler()
-            
-            # 设置爬虫来源
-            ifeng_crawler.source = "凤凰财经"
-            sina_crawler.source = "新浪财经"
-            tencent_crawler.source = "腾讯财经"
-            netease_crawler.source = "网易财经"
-            eastmoney_crawler.source = "东方财富"
-            
-            # 为每个爬虫设置固定的数据库路径
-            self._set_db_path(ifeng_crawler, "凤凰财经")
-            self._set_db_path(sina_crawler, "新浪财经")
-            self._set_db_path(tencent_crawler, "腾讯财经")
-            self._set_db_path(netease_crawler, "网易财经")
-            self._set_db_path(eastmoney_crawler, "东方财富")
+            self._init_crawlers()
             
             # 添加到字典
-            self.crawlers["凤凰财经"] = ifeng_crawler
-            self.crawlers["新浪财经"] = sina_crawler
-            self.crawlers["腾讯财经"] = tencent_crawler
-            self.crawlers["网易财经"] = netease_crawler
-            self.crawlers["东方财富"] = eastmoney_crawler
+            self.crawlers["东方财富"] = self.eastmoney_crawler
+            self.crawlers["东方财富简版"] = self.eastmoney_simple_crawler
+            self.crawlers["新浪财经"] = self.sina_crawler
+            self.crawlers["腾讯财经"] = self.tencent_crawler
+            self.crawlers["网易财经"] = self.netease_crawler
+            self.crawlers["凤凰财经"] = self.ifeng_crawler
+            
+            # 初始化stop_flags
+            for name in self.crawlers.keys():
+                self.stop_flags[name] = threading.Event()
             
             logger.info(f"已初始化 {len(self.crawlers)} 个爬虫")
             
         except ImportError as e:
             logger.error(f"导入爬虫模块失败: {str(e)}")
     
-    def _set_db_path(self, crawler, source):
+    def _init_crawlers(self):
+        """初始化所有爬虫实例"""
+        try:
+            # 初始化各个爬虫，若指定了数据库目录则传入
+            self.eastmoney_crawler = EastMoneyCrawler(
+                use_proxy=self.settings.get('USE_PROXY', False),
+                use_source_db=True
+            )
+            self._set_db_path(self.eastmoney_crawler, "东方财富")
+            
+            self.eastmoney_simple_crawler = EastMoneySimpleCrawler(
+                use_proxy=self.settings.get('USE_PROXY', False),
+                use_source_db=True
+            )
+            # 修正东方财富简版爬虫的source属性，与主爬虫保持一致
+            if hasattr(self.eastmoney_simple_crawler, 'source') and self.eastmoney_simple_crawler.source != "东方财富":
+                self.eastmoney_simple_crawler.source = "东方财富"
+                logger.info(f"已修正东方财富简版爬虫的source属性为'东方财富'")
+            self._set_db_path(self.eastmoney_simple_crawler, "东方财富")
+            
+            self.sina_crawler = SinaCrawler(
+                use_proxy=self.settings.get('USE_PROXY', False),
+                use_source_db=True
+            )
+            self._set_db_path(self.sina_crawler, "新浪财经")
+            
+            self.tencent_crawler = TencentCrawler(
+                use_proxy=self.settings.get('USE_PROXY', False),
+                use_source_db=True
+            )
+            self._set_db_path(self.tencent_crawler, "腾讯财经")
+            
+            self.netease_crawler = NeteaseCrawler(
+                use_proxy=self.settings.get('USE_PROXY', False),
+                use_source_db=True
+            )
+            self._set_db_path(self.netease_crawler, "网易财经")
+            
+            self.ifeng_crawler = IfengCrawler(
+                use_proxy=self.settings.get('USE_PROXY', False),
+                use_source_db=True
+            )
+            self._set_db_path(self.ifeng_crawler, "凤凰财经")
+            
+            # 确保每个爬虫的source属性正确设置
+            self._verify_sources()
+            
+            # 打印初始化信息
+            logger.info("爬虫管理器初始化完成，可用爬虫:")
+            logger.info(f"- 东方财富 (EastmoneyCrawler): {self.eastmoney_crawler.db_path}")
+            logger.info(f"- 东方财富简版 (EastMoneySimpleCrawler): {self.eastmoney_simple_crawler.db_path}")
+            logger.info(f"- 新浪财经 (SinaCrawler): {self.sina_crawler.db_path}")
+            logger.info(f"- 腾讯财经 (TencentCrawler): {self.tencent_crawler.db_path}")
+            logger.info(f"- 网易财经 (NeteaseCrawler): {self.netease_crawler.db_path}")
+            logger.info(f"- 凤凰财经 (IfengCrawler): {self.ifeng_crawler.db_path}")
+            
+        except Exception as e:
+            logger.error(f"初始化爬虫失败: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise
+
+    def _set_db_path(self, crawler, source_name):
         """
         设置爬虫的数据库路径
         
         Args:
             crawler: 爬虫实例
-            source: 爬虫来源
+            source_name: 来源名称
         """
-        # 获取数据库目录
-        db_dir = self.settings.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
+        # 确保source属性被正确设置
+        if hasattr(crawler, 'source') and crawler.source == "未知来源":
+            crawler.source = source_name
+            logger.warning(f"爬虫 {crawler.__class__.__name__} 的source属性未设置，已设置为 {source_name}")
         
-        # 将来源转换为文件名安全的字符串
-        db_name = re.sub(r'[^\w]', '_', source.lower())
+        # 确保数据库目录存在
+        db_dir = self.settings.get('DB_DIR')
+        if not db_dir:
+            db_dir = os.path.join(os.getcwd(), 'data', 'db')
+        os.makedirs(db_dir, exist_ok=True)
         
-        # 生成固定的数据库路径
-        db_path = os.path.join(db_dir, f"{db_name}.db")
+        # 设置数据库路径
+        db_path = os.path.join(db_dir, f"{source_name}.db")
+        if hasattr(crawler, 'db_path'):
+            crawler.db_path = db_path
         
-        # 设置爬虫的数据库路径
-        crawler.db_path = db_path
+        # 如果数据库不存在，则创建数据库结构
+        if not os.path.exists(db_path):
+            logger.info(f"数据库 {db_path} 不存在，将创建")
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute('''
+                CREATE TABLE IF NOT EXISTS news (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT,
+                    content TEXT,
+                    url TEXT UNIQUE,
+                    publish_time TEXT,
+                    crawl_time TEXT,
+                    source TEXT,
+                    category TEXT,
+                    image_url TEXT,
+                    sentiment REAL,
+                    summary TEXT
+                )
+                ''')
+                conn.commit()
+                conn.close()
+                logger.info(f"成功创建数据库 {db_path}")
+            except Exception as e:
+                logger.error(f"创建数据库 {db_path} 失败: {str(e)}")
+    
+    def _verify_sources(self):
+        """验证所有爬虫的source属性是否正确设置，并统一来源名称格式"""
+        crawlers = {
+            'eastmoney_crawler': ('东方财富', self.eastmoney_crawler),
+            'eastmoney_simple_crawler': ('东方财富', self.eastmoney_simple_crawler),
+            'sina_crawler': ('新浪财经', self.sina_crawler),
+            'tencent_crawler': ('腾讯财经', self.tencent_crawler),
+            'netease_crawler': ('网易财经', self.netease_crawler),
+            'ifeng_crawler': ('凤凰财经', self.ifeng_crawler)
+        }
         
-        # 如果有sqlite_manager属性，也更新它的db_path
-        if hasattr(crawler, 'sqlite_manager'):
-            crawler.sqlite_manager.db_path = db_path
-        
-        logger.info(f"设置 {source} 爬虫的数据库路径: {db_path}")
+        for name, (expected_source, crawler) in crawlers.items():
+            if hasattr(crawler, 'source'):
+                current_source = crawler.source
+                # 标准化来源名称，处理常见变体
+                if current_source.endswith('网') and current_source != expected_source:
+                    # 例如："东方财富网" -> "东方财富"
+                    crawler.source = expected_source
+                    logger.info(f"已统一爬虫 {name} 的source属性从 '{current_source}' 改为 '{expected_source}'")
+                elif current_source != expected_source:
+                    logger.warning(f"爬虫 {name} 的source属性为 '{current_source}'，与预期的 '{expected_source}' 不符，已修正")
+                    crawler.source = expected_source
+            else:
+                logger.error(f"爬虫 {name} 没有source属性")
+                # 尝试设置source属性
+                try:
+                    crawler.source = expected_source
+                    logger.info(f"已为爬虫 {name} 设置source属性为 '{expected_source}'")
+                except Exception as e:
+                    logger.error(f"为爬虫 {name} 设置source属性失败: {str(e)}")
+                    
+        logger.info("已完成爬虫来源属性验证和统一格式化")
 
     def get_crawlers(self) -> List[BaseCrawler]:
         """获取所有爬虫"""
@@ -247,15 +387,15 @@ class CrawlerManager:
 
         crawler = self.crawlers[crawler_name]
 
-        # 设置参数
-        for key, value in params.items():
-            if hasattr(crawler, key):
-                setattr(crawler, key, value)
-
         # 运行爬虫
         try:
             logger.info(f"开始运行爬虫: {crawler_name}")
-            result = crawler.crawl(**params)
+            
+            # 提取days参数
+            days = params.get('days', 1)
+            
+            # 只传递days参数给爬虫的crawl方法
+            result = crawler.crawl(days=days)
             logger.info(f"爬虫 {crawler_name} 运行完成，共获取 {len(result)} 条新闻")
             
             # 创建新的数据库连接保存数据
@@ -274,6 +414,8 @@ class CrawlerManager:
             return len(result)
         except Exception as e:
             logger.error(f"运行爬虫 {crawler_name} 失败: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             crawler.error_count += 1
             return 0
 

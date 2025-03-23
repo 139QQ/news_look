@@ -45,8 +45,14 @@ class BaseCrawler:
             use_source_db: 是否使用来源专用数据库
             **kwargs: 其他参数
         """
-        # 属性初始化
-        self.source = kwargs.get('source', "未知来源")  # 子类需要覆盖此属性
+        # 属性初始化 - 确保source属性被正确设置
+        # 注意：子类必须在调用super().__init__之前设置self.source属性
+        # 否则将使用kwargs中的source或默认为"未知来源"
+        if not hasattr(self, 'source'):
+            self.source = kwargs.get('source', "未知来源")
+            if self.source == "未知来源":
+                logger.warning(f"{self.__class__.__name__}未设置source属性，将使用默认值'{self.source}'")
+        
         self.news_data = []  # 存储爬取的新闻数据
         self.use_proxy = use_proxy
         self.proxies = None
@@ -71,35 +77,42 @@ class BaseCrawler:
                 self.db_path = db_manager.db_path
             else:
                 self.db_path = 'unknown'
+            logger.info(f"使用提供的数据库管理器，数据库路径: {self.db_path}")
         else:
             # 初始化数据库
             self.db_manager = DatabaseManager()
             
+            # 获取数据库目录（优先使用配置中的，确保是绝对路径）
+            db_dir = self.settings.get('DB_DIR')
+            if not os.path.isabs(db_dir):
+                db_dir = os.path.join(os.getcwd(), db_dir)
+            
+            # 确保数据库目录存在
+            os.makedirs(db_dir, exist_ok=True)
+            
             # 如果使用来源专用数据库，则设置数据库路径
             if use_source_db:
                 if db_path is None:
-                    # 使用来源名称作为数据库名称
-                    db_dir = self.settings.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
-                    if not os.path.exists(db_dir):
-                        os.makedirs(db_dir, exist_ok=True)
-                    
                     # 使用来源名称作为数据库文件名
                     self.db_path = os.path.join(db_dir, f"{self.source}.db")
-                    logger.info(f"设置新的数据库文件: {self.db_path}")
+                    logger.info(f"使用来源专用数据库: {self.db_path}")
                 else:
+                    # 如果提供了路径但是相对路径，转换为绝对路径
+                    if not os.path.isabs(db_path):
+                        db_path = os.path.join(db_dir, db_path)
                     self.db_path = db_path
+                    logger.info(f"使用指定的数据库路径: {self.db_path}")
             else:
                 # 使用主数据库
                 if db_path is None:
-                    self.db_path = os.path.join('db', 'finance_news.db')
+                    self.db_path = os.path.join(db_dir, 'finance_news.db')
+                    logger.info(f"使用主数据库: {self.db_path}")
                 else:
+                    # 如果提供了路径但是相对路径，转换为绝对路径
+                    if not os.path.isabs(db_path):
+                        db_path = os.path.join(db_dir, db_path)
                     self.db_path = db_path
-            
-            # 确保数据库目录存在
-            if self.db_path and not isinstance(self.db_path, bool):
-                db_dir = os.path.dirname(self.db_path)
-                if db_dir:
-                    os.makedirs(db_dir, exist_ok=True)
+                    logger.info(f"使用指定的数据库路径: {self.db_path}")
             
             # 设置db_manager的db_path属性
             if not hasattr(self.db_manager, 'db_path'):
@@ -107,11 +120,21 @@ class BaseCrawler:
         
         # 初始化连接
         self.conn = None
-        if os.path.exists(self.db_path):
-            try:
-                # 初始化数据库连接
-                if hasattr(self.db_manager, 'get_connection'):
-                    self.conn = self.db_manager.get_connection(self.db_path)
+        try:
+            # 确保数据库目录存在
+            db_dir = os.path.dirname(self.db_path)
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+                logger.info(f"创建数据库目录: {db_dir}")
+            
+            if os.path.exists(self.db_path):
+                logger.info(f"连接到现有数据库: {self.db_path}")
+            else:
+                logger.info(f"创建新数据库: {self.db_path}")
+            
+            # 初始化数据库连接
+            if hasattr(self.db_manager, 'get_connection'):
+                self.conn = self.db_manager.get_connection(self.db_path)
                 
                 # 验证表是否存在，如果不存在则创建
                 cursor = self.conn.cursor()
@@ -119,24 +142,15 @@ class BaseCrawler:
                 if not cursor.fetchone():
                     logger.info(f"数据库表不存在，正在创建表结构: {self.db_path}")
                     self.db_manager.init_db(self.conn)
-            except Exception as e:
-                logger.error(f"连接数据库失败: {str(e)}")
-                # 尝试重新创建数据库
-                try:
-                    logger.info(f"尝试重新创建数据库: {self.db_path}")
-                    self.conn = self.db_manager.get_connection(self.db_path)
-                    self.db_manager.init_db(self.conn)
-                except Exception as e2:
-                    logger.error(f"重新创建数据库失败: {str(e2)}")
-        else:
+        except Exception as e:
+            logger.error(f"连接数据库失败: {str(e)}")
+            # 尝试重新创建数据库
             try:
-                logger.info(f"数据库文件不存在，创建新数据库: {self.db_path}")
-                # 确保目录存在
-                os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+                logger.info(f"尝试重新创建数据库: {self.db_path}")
                 self.conn = self.db_manager.get_connection(self.db_path)
                 self.db_manager.init_db(self.conn)
-            except Exception as e:
-                logger.error(f"创建数据库失败: {str(e)}")
+            except Exception as e2:
+                logger.error(f"重新创建数据库失败: {str(e2)}")
         
         # 初始化Selenium相关属性
         self.use_selenium = False

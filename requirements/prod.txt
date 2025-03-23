@@ -2,9 +2,23 @@
 -r base.txt
 
 # Web框架
-fastapi>=0.68.0
-uvicorn>=0.15.0
+Flask>=2.2.2
+Flask-SQLAlchemy>=3.0.2
+werkzeug>=2.2.2
+jinja2>=3.1.2
 gunicorn>=20.1.0
+flask-cors>=3.0.10
+Flask-RESTful>=0.3.9
+
+# 数据分析
+pandas>=1.5.0
+matplotlib>=3.6.0
+scikit-learn>=1.1.2
+seaborn>=0.12.0
+
+# 浏览器自动化
+selenium>=4.7.2
+webdriver-manager>=3.8.5
 
 # 数据库
 alembic>=1.7.5
@@ -22,9 +36,9 @@ passlib>=1.7.4
 python-multipart>=0.0.5
 
 # 性能优化
-uvloop>=0.16.0
+ujson>=5.5.0
+uvloop>=0.17.0; platform_system != "Windows"
 httptools>=0.5.0
-ujson>=5.4.0
 
 # 部署
 docker>=6.1.2

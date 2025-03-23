@@ -13,4 +13,16 @@ chardet>=5.1.0
 certifi>=2022.9.24
 idna>=3.4
 cryptography>=38.0.1
-pyOpenSSL>=22.1.0 
+pyOpenSSL>=22.1.0
+
+# 图像识别相关库（必需）
+Pillow>=9.2.0
+numpy>=1.23.3
+
+# 图像识别相关库（可选）
+opencv-python>=4.6.0
+
+# TensorFlow是可选的依赖，根据系统环境选择安装方式:
+# 完整版: pip install tensorflow>=2.10.0
+# 仅CPU版: pip install tensorflow-cpu>=2.10.0
+# 兼容版: pip install tensorflow==2.9.0 

@@ -680,7 +680,7 @@ class TencentCrawler(BaseCrawler):
             # 只保留可能是新闻链接的元素
             for link in all_links:
                 href = link.get('href', '')
-                if self.is_valid_news_url(href):
+                    if self.is_valid_news_url(href):
                     link_elements.append(link)
             
             # 方法2：查找特定新闻卡片中的链接
@@ -706,9 +706,9 @@ class TencentCrawler(BaseCrawler):
                 if href.startswith('/'):
                     href = f"https://news.qq.com{href}"
                 # 检查URL是否有效
-                if self.is_valid_news_url(href):
+                        if self.is_valid_news_url(href):
                     if href not in news_links:
-                        news_links.append(href)
+                            news_links.append(href)
             
             logger.info(f"从分类 '{category}' 页面提取到 {len(news_links)} 个新闻链接")
         except Exception as e:
@@ -814,7 +814,7 @@ class TencentCrawler(BaseCrawler):
         # 检查URL是否是腾讯APP下载页
         if 'download.qq.com' in url or 'dldir1.qq.com' in url:
             logger.debug(f"检测到APP下载页URL: {url}")
-            return True
+                return True
         
         return False
     
@@ -871,7 +871,7 @@ class TencentCrawler(BaseCrawler):
         # 检查URL是否为广告
         if self.ad_filter.is_ad_url(url):
             logger.info(f"URL已被识别为广告，跳过: {url}")
-            return None
+                return None
             
         # 使用广告过滤器检查URL
         if any(pattern in url for pattern in self.AD_URL_PATTERNS):
@@ -906,7 +906,7 @@ class TencentCrawler(BaseCrawler):
                 if self.ad_filter.is_ad_content(content_element.text):
                     logger.info(f"内容被识别为广告，跳过: {url}")
                     self.ad_filter.increment_filter_count()
-                    return None
+                return None
             
                 # 处理图片，过滤广告图片
                 img_tags = content_element.find_all('img')
@@ -916,7 +916,7 @@ class TencentCrawler(BaseCrawler):
                         logger.info(f"检测到广告图片，已移除: {img_url}")
                         img.decompose()
             
-                # 提取发布时间
+            # 提取发布时间
                 pub_time_element = soup.select_one(self.TIME_SELECTOR)
                 pub_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 if pub_time_element:
@@ -927,7 +927,7 @@ class TencentCrawler(BaseCrawler):
                     except:
                         logger.warning(f"解析发布时间失败，使用当前时间")
             
-                # 提取作者
+            # 提取作者
                 author_element = soup.select_one(self.AUTHOR_SELECTOR)
                 author = author_element.text.strip() if author_element else "腾讯财经"
                 
@@ -935,12 +935,12 @@ class TencentCrawler(BaseCrawler):
                 content_html = str(content_element)
                 content_text = clean_html(content_html)
             
-                # 构建新闻数据
-                news_data = {
+            # 构建新闻数据
+            news_data = {
                     'url': url,
-                    'title': title,
-                    'source': self.source,
-                    'category': category,
+                'title': title,
+                'source': self.source,
+                'category': category,
                     'content': content_text,
                     'content_html': content_html,
                     'pub_time': pub_time,
@@ -948,14 +948,14 @@ class TencentCrawler(BaseCrawler):
                     'crawl_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
                 
-                return news_data
-
-            except Exception as e:
+            return news_data
+                
+        except Exception as e:
                 logger.error(f"爬取新闻失败 (尝试 {retry+1}/{max_retries}): {str(e)}")
                 if retry == max_retries - 1:
                     logger.error(f"达到最大重试次数，放弃爬取: {url}")
         
-        return None
+            return None
     
     def parse_date(self, date_str):
         """
@@ -1301,7 +1301,7 @@ class TencentCrawler(BaseCrawler):
                 
                 # 随机休眠，避免反爬
                 self.random_sleep(3, 5)
-            except Exception as e:
+        except Exception as e:
                 logger.error(f"从列表页 {list_page} 提取链接失败: {str(e)}")
                 continue
         

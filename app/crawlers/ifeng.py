@@ -20,6 +20,8 @@ from app.crawlers.base import BaseCrawler
 from app.utils.logger import get_crawler_logger
 from app.utils.text_cleaner import clean_html, extract_keywords
 from app.db.sqlite_manager import SQLiteManager
+from app.utils.ad_filter import AdFilter  # 导入广告过滤器模块
+from app.utils.image_detector import ImageDetector  # 导入图像识别模块
 
 # 使用专门的爬虫日志记录器
 logger = get_crawler_logger('ifeng')
@@ -46,7 +48,7 @@ class IfengCrawler(BaseCrawler):
     # 作者选择器
     AUTHOR_SELECTOR = 'span.ss03'
     
-    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False):
+    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False, **kwargs):
         """
         初始化凤凰财经爬虫
         
@@ -57,7 +59,12 @@ class IfengCrawler(BaseCrawler):
             use_source_db: 是否使用来源专用数据库
         """
         self.source = "凤凰财经"
-        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db)
+        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db, **kwargs)
+        
+        # 初始化广告过滤器
+        self.ad_filter = AdFilter(source_name=self.source)
+        # 初始化图像识别模块
+        self.image_detector = ImageDetector(cache_dir='./image_cache')
         
         # 如果提供了db_manager并且不是SQLiteManager类型，创建SQLiteManager
         if db_manager and not isinstance(db_manager, SQLiteManager):
@@ -90,6 +97,11 @@ class IfengCrawler(BaseCrawler):
         
         # 清空新闻数据列表
         self.news_data = []
+        
+        # 重置广告过滤计数
+        self.ad_filter.reset_filter_count()
+        # 重置图像广告过滤计数
+        self.image_detector.reset_ad_count()
         
         # 计算开始日期
         start_date = datetime.now() - timedelta(days=days)
@@ -125,6 +137,11 @@ class IfengCrawler(BaseCrawler):
                     # 保存新闻数据
                     self.save_news_to_db(news_data)
                     self.news_data.append(news_data)
+                    
+                    # 如果已经获取足够数量的新闻，停止爬取
+                    if len(self.news_data) >= max_news:
+                        logger.info(f"已经爬取 {len(self.news_data)} 条新闻，达到最大数量 {max_news}")
+                        break
         except Exception as e:
             logger.error(f"从首页爬取新闻失败: {str(e)}")
         
@@ -161,33 +178,18 @@ class IfengCrawler(BaseCrawler):
                     # 保存新闻数据
                     self.save_news_to_db(news_data)
                     self.news_data.append(news_data)
+                    
+                    # 如果已经获取足够数量的新闻，停止爬取
+                    if len(self.news_data) >= max_news:
+                        logger.info(f"已经爬取 {len(self.news_data)} 条新闻，达到最大数量 {max_news}")
+                        break
+                
+                # 随机休眠，避免被反爬
+                self.random_sleep(2, 5)
             except Exception as e:
                 logger.error(f"爬取分类 '{category}' 失败: {str(e)}")
         
-        # 爬取结束后，确保数据被保存到数据库
-        if hasattr(self, 'news_data') and self.news_data:
-            saved_count = 0
-            for news in self.news_data:
-                if self.save_news_to_db(news):
-                    saved_count += 1
-            
-            logger.info(f"成功保存 {saved_count}/{len(self.news_data)} 条新闻到数据库")
-        
-        # 统计爬取结果
-        logger.info(f"凤凰财经爬虫运行完成，耗时: {(datetime.now() - (datetime.now() - timedelta(seconds=1))).total_seconds() + 1:.2f}秒")
-        logger.info(f"共爬取 {len(self.news_data)} 条新闻")
-        
-        # 按分类统计
-        category_counts = {}
-        for news in self.news_data:
-            category = news['category']
-            if category not in category_counts:
-                category_counts[category] = 0
-            category_counts[category] += 1
-        
-        for category, count in category_counts.items():
-            logger.info(f"分类 '{category}' 爬取: {count} 条新闻")
-        
+        logger.info(f"凤凰财经爬取完成，共爬取新闻: {len(self.news_data)} 条，过滤广告: {self.ad_filter.get_filter_count()} 条，过滤广告图片: {self.image_detector.get_ad_count()} 张")
         return self.news_data
     
     def extract_news_links_from_home(self, html, category):
@@ -195,7 +197,7 @@ class IfengCrawler(BaseCrawler):
         从首页提取新闻链接
         
         Args:
-            html: 首页HTML内容
+            html: 页面HTML
             category: 新闻分类
         
         Returns:
@@ -205,7 +207,7 @@ class IfengCrawler(BaseCrawler):
         try:
             soup = BeautifulSoup(html, 'html.parser')
             
-            # 查找所有可能的新闻链接
+            # 提取所有链接
             for a_tag in soup.find_all('a', href=True):
                 href = a_tag['href']
                 
@@ -221,49 +223,6 @@ class IfengCrawler(BaseCrawler):
         
         return news_links
     
-    def extract_news_links(self, html, category):
-        """
-        从分类页面提取新闻链接
-        
-        Args:
-            html: 分类页面HTML内容
-            category: 新闻分类
-        
-        Returns:
-            list: 新闻链接列表
-        """
-        news_links = []
-        try:
-            soup = BeautifulSoup(html, 'html.parser')
-            
-            # 查找新闻列表
-            news_list = soup.select('div.news_list ul li')
-            if not news_list:
-                logger.warning("未找到新闻列表，尝试查找所有可能的新闻链接")
-                # 如果找不到特定的新闻列表，尝试提取所有可能的新闻链接
-                for a_tag in soup.find_all('a', href=True):
-                    href = a_tag['href']
-                    
-                    # 过滤非新闻链接
-                    if self.is_valid_news_url(href):
-                        news_links.append(href)
-            else:
-                # 从新闻列表中提取链接
-                for item in news_list:
-                    a_tag = item.find('a', href=True)
-                    if a_tag:
-                        href = a_tag['href']
-                        if self.is_valid_news_url(href):
-                            news_links.append(href)
-            
-            # 去重
-            news_links = list(set(news_links))
-            
-        except Exception as e:
-            logger.error(f"从分类页面提取新闻链接失败: {str(e)}")
-        
-        return news_links
-    
     def is_valid_news_url(self, url):
         """
         判断URL是否为有效的新闻链接
@@ -274,6 +233,15 @@ class IfengCrawler(BaseCrawler):
         Returns:
             bool: 是否为有效的新闻链接
         """
+        # 检查URL是否为空
+        if not url:
+            return False
+            
+        # 检查URL是否为广告
+        if self.ad_filter.is_ad_url(url):
+            logger.info(f"过滤广告URL: {url}")
+            return False
+            
         # 凤凰财经新闻URL通常包含以下特征
         patterns = [
             r'https?://finance\.ifeng\.com/\w/\d+/\d+_\d+\.shtml',
@@ -286,6 +254,37 @@ class IfengCrawler(BaseCrawler):
                 return True
         
         return False
+    
+    def extract_news_links(self, html, category):
+        """
+        从分类页面提取新闻链接
+        
+        Args:
+            html: 页面HTML
+            category: 新闻分类
+        
+        Returns:
+            list: 新闻链接列表
+        """
+        news_links = []
+        try:
+            soup = BeautifulSoup(html, 'html.parser')
+            
+            # 提取所有链接
+            for a_tag in soup.find_all('a', href=True):
+                href = a_tag['href']
+                
+                # 过滤非新闻链接
+                if self.is_valid_news_url(href):
+                    news_links.append(href)
+            
+            # 去重
+            news_links = list(set(news_links))
+            
+        except Exception as e:
+            logger.error(f"从分类页面提取新闻链接失败: {category}, 错误: {str(e)}")
+        
+        return news_links
     
     def crawl_news_detail(self, url, category):
         """
@@ -309,63 +308,87 @@ class IfengCrawler(BaseCrawler):
             soup = BeautifulSoup(html, 'html.parser')
             
             # 提取标题
-            title = ""
-            title_tag = soup.select_one('title')
-            if title_tag:
-                title_text = title_tag.text.strip()
-                # 移除网站名称
-                if '_凤凰财经' in title_text:
-                    title = title_text.split('_凤凰财经')[0].strip()
-                elif '_凤凰网' in title_text:
-                    title = title_text.split('_凤凰网')[0].strip()
-                else:
-                    title = title_text
+            title_elem = soup.select_one('h1')
+            if not title_elem:
+                logger.warning(f"未找到标题: {url}")
+                return None
             
-            # 如果从title标签中提取失败，尝试从h1标签中提取
+            title = title_elem.text.strip()
             if not title:
-                title_tag = soup.select_one('h1.topic')
-                if not title_tag:
-                    title_tag = soup.select_one('h1')
+                logger.warning(f"标题为空: {url}")
+                return None
                 
-                if title_tag:
-                    title = title_tag.text.strip()
-            
-            if not title:
-                logger.warning(f"提取标题失败: {url}")
+            # 检查标题是否含有广告关键词
+            if self.ad_filter.is_ad_content(title, title=title, category=category):
+                logger.info(f"标题包含广告关键词，跳过: {title}")
                 return None
-            
-            logger.debug(f"提取到标题: {title}")
-            
-            # 提取内容
-            content_tag = soup.select_one(self.CONTENT_SELECTOR)
-            if not content_tag:
-                # 尝试其他选择器
-                content_tag = soup.select_one('div.article-content')
-                if not content_tag:
-                    content_tag = soup.select_one('div.article_content')
-                    if not content_tag:
-                        content_tag = soup.select_one('div.content')
-            
-            if not content_tag:
-                logger.warning(f"提取内容失败: {url}")
-                return None
-            
-            # 清理HTML内容
-            content = clean_html(str(content_tag))
             
             # 提取发布时间
             pub_time = self.extract_pub_time(soup)
-            if not pub_time:
-                pub_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
-            # 提取作者
+            # 提取作者/来源
             author = self.extract_author(soup)
             
-            # 提取关键词
-            keywords = extract_keywords(title + ' ' + content)
+            # 提取正文
+            content_tag = soup.select_one(self.CONTENT_SELECTOR)
+            if not content_tag:
+                # 尝试其他可能的选择器
+                content_tag = soup.select_one('div.article_content')
+                if not content_tag:
+                    content_tag = soup.select_one('#main_content')
             
-            # 提取图片
-            images = self.extract_images(content_tag)
+            if not content_tag:
+                logger.warning(f"未找到正文: {url}")
+                return None
+            
+            # 清理内容前保存原始HTML用于后续处理
+            content_html = str(content_tag)
+            
+            # 提取正文内容
+            for script in content_tag.find_all('script'):
+                script.decompose()
+            for style in content_tag.find_all('style'):
+                style.decompose()
+            
+            # 移除广告和无关元素
+            for div in content_tag.find_all('div', class_=lambda c: c and ('recommend' in str(c).lower() or 'footer' in str(c).lower() or 'ad' in str(c).lower() or 'bottom' in str(c).lower())):
+                div.decompose()
+            
+            content = content_tag.get_text('\n').strip()
+            
+            # 检查内容是否含有广告关键词
+            if self.ad_filter.is_ad_content(content, title=title, category=category):
+                logger.info(f"内容包含广告关键词，跳过: {title}")
+                return None
+            
+            # 提取图片并检测广告图片
+            image_urls = []
+            ad_images_removed = False
+            image_content_soup = BeautifulSoup(content_html, 'html.parser')
+            
+            for img in image_content_soup.find_all('img'):
+                img_url = img.get('src')
+                if not img_url:
+                    img_url = img.get('data-original')
+                
+                if img_url:
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
+                    
+                    if self.image_detector.is_ad_image(img_url, context={'category': category}):
+                        logger.info(f"过滤广告图片: {img_url}")
+                        img.decompose()  # 从HTML中移除广告图片
+                        ad_images_removed = True
+                    else:
+                        image_urls.append(img_url)
+            
+            # 如果移除了广告图片，更新内容HTML和纯文本
+            if ad_images_removed:
+                content_html = str(image_content_soup)
+                content = image_content_soup.get_text('\n').strip()
+            
+            # 提取关键词
+            keywords = extract_keywords(content)
             
             # 提取相关股票
             related_stocks = self.extract_related_stocks(soup)
@@ -374,23 +397,29 @@ class IfengCrawler(BaseCrawler):
             news_id = self.generate_news_id(url, title)
             
             # 分析情感
-            sentiment = self.sentiment_analyzer.analyze(title, content)
+            sentiment = 0
+            if hasattr(self, 'sentiment_analyzer'):
+                try:
+                    sentiment = self.sentiment_analyzer.analyze(title, content)
+                except Exception as e:
+                    logger.error(f"情感分析失败: {str(e)}")
             
             # 构建新闻数据
             news_data = {
                 'id': news_id,
                 'title': title,
                 'content': content,
+                'content_html': content_html,
                 'pub_time': pub_time,
                 'author': author,
                 'source': self.source,
                 'url': url,
-                'keywords': ','.join(keywords),
+                'keywords': ','.join(keywords) if keywords else '',
                 'sentiment': sentiment,
                 'crawl_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'category': category,
-                'images': ','.join(images),
-                'related_stocks': ','.join(related_stocks)
+                'images': ','.join(image_urls),
+                'related_stocks': ','.join(related_stocks) if related_stocks else ''
             }
             
             logger.debug(f"爬取新闻详情成功: {title}")
@@ -411,29 +440,22 @@ class IfengCrawler(BaseCrawler):
         """
         try:
             time_tag = soup.select_one(self.TIME_SELECTOR)
-            if time_tag:
-                time_text = time_tag.text.strip()
-                # 提取时间字符串
-                time_match = re.search(r'\d{4}年\d{2}月\d{2}日\s+\d{2}:\d{2}', time_text)
-                if time_match:
-                    time_str = time_match.group(0)
-                    # 转换为标准格式
-                    time_str = time_str.replace('年', '-').replace('月', '-').replace('日', '')
-                    return time_str + ':00'
+            if not time_tag:
+                return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
-            # 尝试其他方式提取时间
-            meta_tag = soup.select_one('meta[name="publishdate"]')
-            if meta_tag and 'content' in meta_tag.attrs:
-                return meta_tag['content']
+            time_text = time_tag.text.strip()
             
-            meta_tag = soup.select_one('meta[property="article:published_time"]')
-            if meta_tag and 'content' in meta_tag.attrs:
-                return meta_tag['content']
+            # 使用正则表达式提取时间
+            time_pattern = r'(\d{4})年(\d{2})月(\d{2})日\s+(\d{2}):(\d{2})'
+            match = re.search(time_pattern, time_text)
+            if match:
+                year, month, day, hour, minute = match.groups()
+                return f"{year}-{month}-{day} {hour}:{minute}:00"
             
-            logger.warning(f"未找到发布时间，使用当前时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            # 如果没有匹配到时间，使用当前时间
             return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         except Exception as e:
-            logger.error(f"提取发布时间失败: {str(e)}")
+            logger.warning(f"提取发布时间失败: {str(e)}")
             return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     def extract_author(self, soup):
@@ -448,22 +470,20 @@ class IfengCrawler(BaseCrawler):
         """
         try:
             author_tag = soup.select_one(self.AUTHOR_SELECTOR)
-            if author_tag:
-                author_text = author_tag.text.strip()
-                # 提取作者名
-                author_match = re.search(r'来源[：:]\s*([^\s]+)', author_text)
-                if author_match:
-                    return author_match.group(1)
-                return author_text
+            if not author_tag:
+                return "凤凰财经"
             
-            # 尝试其他方式提取作者
-            meta_tag = soup.select_one('meta[name="author"]')
-            if meta_tag and 'content' in meta_tag.attrs:
-                return meta_tag['content']
+            author_text = author_tag.text.strip()
             
-            return "凤凰财经"
+            # 使用正则表达式提取来源
+            source_pattern = r'来源：(.*)'
+            match = re.search(source_pattern, author_text)
+            if match:
+                return match.group(1).strip()
+            
+            return author_text or "凤凰财经"
         except Exception as e:
-            logger.error(f"提取作者失败: {str(e)}")
+            logger.warning(f"提取作者失败: {str(e)}")
             return "凤凰财经"
     
     def extract_images(self, content_tag):
@@ -478,13 +498,18 @@ class IfengCrawler(BaseCrawler):
         """
         images = []
         try:
-            for img_tag in content_tag.find_all('img', src=True):
-                src = img_tag['src']
-                if src.startswith('//'):
-                    src = 'https:' + src
-                images.append(src)
+            img_tags = content_tag.select('img')
+            for img_tag in img_tags:
+                src = img_tag.get('src')
+                if not src:
+                    src = img_tag.get('data-original')
+                
+                if src:
+                    if src.startswith('//'):
+                        src = 'https:' + src
+                    images.append(src)
         except Exception as e:
-            logger.error(f"提取图片失败: {str(e)}")
+            logger.warning(f"提取图片失败: {str(e)}")
         
         return images
     
@@ -500,19 +525,14 @@ class IfengCrawler(BaseCrawler):
         """
         related_stocks = []
         try:
-            # 查找股票代码
-            stock_pattern = r'(\d{6})[\.，,\s]+([^\s,.，,]{2,})'
-            content_text = soup.get_text()
-            
-            for match in re.finditer(stock_pattern, content_text):
-                stock_code = match.group(1)
-                stock_name = match.group(2)
-                related_stocks.append(f"{stock_code}:{stock_name}")
-            
-            # 去重
-            related_stocks = list(set(related_stocks))
+            # 尝试从页面提取相关股票信息
+            stock_tags = soup.select('a.stock')
+            for stock_tag in stock_tags:
+                stock_code = stock_tag.text.strip()
+                if stock_code:
+                    related_stocks.append(stock_code)
         except Exception as e:
-            logger.error(f"提取相关股票失败: {str(e)}")
+            logger.warning(f"提取相关股票失败: {str(e)}")
         
         return related_stocks
     
@@ -528,8 +548,8 @@ class IfengCrawler(BaseCrawler):
             str: 新闻ID
         """
         # 使用URL和标题的组合生成唯一ID
-        id_str = f"{url}_{title}"
-        return hashlib.md5(id_str.encode('utf-8')).hexdigest()
+        text = url + title
+        return hashlib.md5(text.encode('utf-8')).hexdigest()
     
     def random_sleep(self, min_seconds=1, max_seconds=3):
         """
@@ -540,6 +560,7 @@ class IfengCrawler(BaseCrawler):
             max_seconds: 最大休眠时间（秒）
         """
         sleep_time = random.uniform(min_seconds, max_seconds)
+        logger.debug(f"随机休眠 {sleep_time:.2f} 秒")
         time.sleep(sleep_time)
     
     def save_news_to_db(self, news):
@@ -547,18 +568,27 @@ class IfengCrawler(BaseCrawler):
         保存新闻到数据库
         
         Args:
-            news: 新闻数据字典
+            news: 新闻数据
             
         Returns:
             bool: 是否保存成功
         """
         try:
-            # 如果有sqlite_manager属性则使用它保存
             if hasattr(self, 'sqlite_manager') and self.sqlite_manager:
                 return self.sqlite_manager.save_news(news)
-            
-            # 否则使用父类的save_news方法保存到内存中
             return super().save_news(news)
         except Exception as e:
-            logger.error(f"保存新闻到数据库失败: {news.get('title', '未知标题')}, 错误: {str(e)}")
-            return False 
+            logger.error(f"保存新闻到数据库失败: {str(e)}")
+            return False
+
+
+if __name__ == "__main__":
+    # 测试爬虫
+    crawler = IfengCrawler(use_proxy=False, use_source_db=True)
+    news_list = crawler.crawl(days=1, max_news=5)
+    print(f"爬取到新闻数量: {len(news_list)}")
+    for news in news_list:
+        print(f"标题: {news['title']}")
+        print(f"发布时间: {news['pub_time']}")
+        print(f"来源: {news['source']}")
+        print("-" * 50) 

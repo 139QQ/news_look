@@ -51,27 +51,30 @@ class NewsDatabase:
         """
         settings = get_settings()
         
-        # 确保DB_DIR存在
-        self.db_dir = settings.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
-        if not os.path.exists(self.db_dir):
-            os.makedirs(self.db_dir, exist_ok=True)
+        # 确保DB_DIR存在且为绝对路径
+        self.db_dir = settings.get('DB_DIR')
+        if not os.path.isabs(self.db_dir):
+            self.db_dir = os.path.join(os.getcwd(), self.db_dir)
             
-        # 检查项目根目录下的db目录
-        proj_db_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'db')
-        if os.path.exists(proj_db_dir):
-            self.db_dir = proj_db_dir
+        logger.info(f"初始化数据库连接，数据库目录: {self.db_dir}")
+        
+        if not os.path.exists(self.db_dir):
+            logger.info(f"数据库目录不存在，创建目录: {self.db_dir}")
+            os.makedirs(self.db_dir, exist_ok=True)
             
         # 如果指定了db_path，直接使用
         if db_path:
+            # 如果是相对路径，转换为绝对路径
+            if not os.path.isabs(db_path):
+                db_path = os.path.join(self.db_dir, db_path)
             self.db_path = db_path
+            logger.info(f"使用指定的数据库路径: {self.db_path}")
         else:
-            # 默认使用news.db
-            self.db_path = os.path.join(self.db_dir, 'news.db')
+            # 默认使用finance_news.db作为主数据库
+            self.db_path = os.path.join(self.db_dir, 'finance_news.db')
             
-            # 查找finance_news.db（可能是主数据库）
-            finance_db = os.path.join(self.db_dir, 'finance_news.db')
-            if os.path.exists(finance_db):
-                self.db_path = finance_db
+            # 查找finance_news.db（主数据库）
+            if os.path.exists(self.db_path):
                 logger.info(f"找到主数据库: {self.db_path}")
             else:
                 # 查找任何.db文件
@@ -81,17 +84,48 @@ class NewsDatabase:
                     newest_db = max(db_files, key=os.path.getmtime)
                     self.db_path = newest_db
                     logger.info(f"使用最新的数据库: {self.db_path}")
+                else:
+                    logger.warning(f"未找到任何数据库文件，将创建新数据库: {self.db_path}")
         
         logger.info(f"初始化数据库连接: {self.db_path}")
         
         # 收集所有要查询的数据库
         self.all_db_paths = []
+        
+        # 收集来源专用数据库映射
+        self.source_db_map = {}
+        
+        # 查找所有.db文件
+        db_files = glob.glob(os.path.join(self.db_dir, '*.db'))
+        
+        # 构建来源到数据库的映射
+        for db_file in db_files:
+            file_name = os.path.basename(db_file)
+            source_name = os.path.splitext(file_name)[0]
+            
+            # 如果不是finance_news.db，则认为是来源专用数据库
+            if file_name != 'finance_news.db' and file_name != 'main_news.db':
+                self.source_db_map[source_name] = db_file
+                logger.info(f"找到来源 '{source_name}' 的专用数据库: {db_file}")
+        
         if use_all_dbs:
-            # 查找所有.db文件
-            self.all_db_paths = glob.glob(os.path.join(self.db_dir, '*.db'))
+            # 使用所有数据库文件，包括来源专用数据库
+            self.all_db_paths = db_files
             logger.info(f"找到 {len(self.all_db_paths)} 个数据库文件")
+            
+            # 如果没有找到数据库文件，使用默认数据库
+            if not self.all_db_paths:
+                self.all_db_paths = [self.db_path]
         else:
             self.all_db_paths = [self.db_path]
+            
+        # 列出所有将要使用的数据库文件
+        for db_path in self.all_db_paths:
+            if os.path.exists(db_path):
+                file_size = os.path.getsize(db_path) / 1024
+                logger.info(f"数据库文件: {db_path} ({file_size:.1f} KB)")
+            else:
+                logger.warning(f"数据库文件不存在: {db_path}")
             
         if settings.get('db_type', 'sqlite') == 'sqlite':
             self.engine = create_engine(f'sqlite:///{self.db_path}')
@@ -160,10 +194,34 @@ class NewsDatabase:
                     url = news_data['url']
                     if 'eastmoney.com' in url:
                         source = '东方财富网'
-                    elif 'sina.com' in url:
+                    elif 'sina.com' in url or 'sina.cn' in url:
                         source = '新浪财经'
-                    elif 'finance.qq.com' in url:
+                    elif 'qq.com' in url or 'finance.qq.com' in url or 'news.qq.com' in url:
                         source = '腾讯财经'
+                    elif '163.com' in url or 'money.163.com' in url:
+                        source = '网易财经'
+                    elif 'ifeng.com' in url:
+                        source = '凤凰财经'
+                    elif 'jrj.com' in url:
+                        source = '金融界'
+                    elif 'cs.com.cn' in url:
+                        source = '中国证券网'
+                    elif 'hexun.com' in url:
+                        source = '和讯网'
+                    elif 'cnstock.com' in url:
+                        source = '中证网'
+                    elif 'xinhuanet.com' in url:
+                        source = '新华网'
+                    elif 'people.com.cn' in url:
+                        source = '人民网'
+                    elif 'cctv.com' in url:
+                        source = 'CCTV'
+                    elif 'stcn.com' in url:
+                        source = '证券时报网'
+                    elif '21jingji.com' in url:
+                        source = '21世纪经济报道'
+                    elif 'caixin.com' in url:
+                        source = '财新网'
                 
             # 创建新闻对象
             news = News(
@@ -205,22 +263,23 @@ class NewsDatabase:
         results = []
         
         try:
-            # 如果指定了来源，尝试使用对应的数据库
+            # 确定要查询的数据库
             db_paths = []
-            if source:
-                # 尝试找到与来源匹配的数据库
-                source_db = os.path.join(self.db_dir, f"{source}.db")
+            
+            # 如果指定了来源，优先使用对应的专用数据库
+            if source and source in self.source_db_map:
+                source_db = self.source_db_map[source]
                 if os.path.exists(source_db):
                     db_paths.append(source_db)
-                    logger.info(f"使用来源特定数据库: {source_db}")
+                    logger.info(f"使用来源 '{source}' 的专用数据库: {source_db}")
                 else:
-                    logger.warning(f"找不到来源特定数据库 {source_db}，回退到默认数据库")
+                    logger.warning(f"找不到来源 '{source}' 的专用数据库，回退到默认数据库")
                     db_paths = self.all_db_paths
             else:
+                # 如果未指定来源或找不到对应专用数据库，则查询所有数据库
                 db_paths = self.all_db_paths
+                logger.info(f"未指定来源或找不到专用数据库，使用所有数据库: {db_paths}")
                 
-            logger.info(f"查询数据库: {db_paths}")
-            
             # 检查数据库文件是否存在
             valid_db_paths = []
             for db_path in db_paths:
@@ -232,6 +291,9 @@ class NewsDatabase:
             if not valid_db_paths:
                 logger.error(f"没有找到有效的数据库文件")
                 return []
+            
+            # 记录已处理的新闻URL，避免重复
+            processed_urls = set()
                 
             # 遍历数据库文件查询
             for db_path in valid_db_paths:
@@ -249,12 +311,12 @@ class NewsDatabase:
                     conditions = []
                     params = []
                     
-                    if source and source != db_source:
+                    if source:
                         conditions.append("source = ?")
                         params.append(source)
                     
                     if keyword:
-                        # 先从标题中搜索
+                        # 从标题和内容中搜索
                         conditions.append("(title LIKE ? OR content LIKE ?)")
                         params.extend([f'%{keyword}%', f'%{keyword}%'])
                     
@@ -270,8 +332,8 @@ class NewsDatabase:
                         query += " WHERE " + " AND ".join(conditions)
                     
                     # 添加排序和分页
-                    query += " ORDER BY pub_time DESC LIMIT ? OFFSET ?"
-                    params.extend([limit, offset])
+                    # 注意：这里不添加LIMIT和OFFSET，因为我们需要合并结果后再分页
+                    query += " ORDER BY pub_time DESC"
                     
                     logger.info(f"执行查询: {query} 参数: {params}")
                     
@@ -283,6 +345,14 @@ class NewsDatabase:
                         
                         for row in rows:
                             news = dict(row)
+                            
+                            # 检查URL是否已处理，避免重复
+                            if 'url' in news and news['url'] in processed_urls:
+                                continue
+                                
+                            # 添加到已处理URL集合
+                            if 'url' in news:
+                                processed_urls.add(news['url'])
                             
                             # 处理关键词字段
                             if 'keywords' in news and news['keywords']:
@@ -328,6 +398,13 @@ class NewsDatabase:
                     conn.close()
                 except Exception as db_error:
                     logger.error(f"处理数据库 {db_path} 时出错: {str(db_error)}")
+            
+            # 按发布时间排序合并后的结果
+            results.sort(key=lambda x: x.get('pub_time', ''), reverse=True)
+            
+            # 应用分页
+            return results[offset:offset+limit]
+            
         except Exception as e:
             logger.error(f"查询新闻失败: {str(e)}")
             
@@ -381,47 +458,123 @@ class NewsDatabase:
         conn.commit()
     
     def get_news_count(self, keyword=None, days=None, source=None):
-        """获取新闻数量"""
+        """
+        获取新闻数量
+        
+        Args:
+            keyword: 搜索关键词（可选）
+            days: 最近几天的新闻（可选）
+            source: 新闻来源（可选）
+            
+        Returns:
+            int: 符合条件的新闻总数
+        """
         total_count = 0
         
-        # 尝试从所有数据库查询
-        for db_path in self.all_db_paths:
-            try:
-                conn = sqlite3.connect(db_path)
-                cursor = conn.cursor()
-                
-                # 构建查询条件
-                conditions = []
-                params = []
-                
-                if keyword:
-                    conditions.append("(title LIKE ? OR content LIKE ?)")
-                    params.extend([f"%{keyword}%", f"%{keyword}%"])
-                
-                if days:
-                    start_time = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
-                    conditions.append("(pub_time >= ? OR crawl_time >= ?)")
-                    params.extend([start_time, start_time])
-                
-                if source:
-                    conditions.append("source = ?")
-                    params.append(source)
-                
-                # 构建SQL查询
-                sql = "SELECT COUNT(*) FROM news"
-                if conditions:
-                    sql += " WHERE " + " AND ".join(conditions)
-                
-                # 执行查询
-                cursor.execute(sql, params)
-                count = cursor.fetchone()[0]
-                total_count += count
-                
-                conn.close()
-            except Exception as e:
-                logger.error(f"查询数据库 {db_path} 计数失败: {str(e)}")
-                import traceback
-                logger.error(traceback.format_exc())
+        try:
+            # 确定要查询的数据库
+            db_paths = []
+            
+            # 如果指定了来源，优先使用对应的专用数据库
+            if source and source in self.source_db_map:
+                source_db = self.source_db_map[source]
+                if os.path.exists(source_db):
+                    db_paths.append(source_db)
+                    logger.info(f"计数使用来源 '{source}' 的专用数据库: {source_db}")
+                else:
+                    logger.warning(f"计数找不到来源 '{source}' 的专用数据库，回退到默认数据库")
+                    db_paths = self.all_db_paths
+            else:
+                # 如果未指定来源或找不到对应专用数据库，则查询所有数据库
+                db_paths = self.all_db_paths
+                logger.info(f"计数未指定来源或找不到专用数据库，使用所有数据库: {db_paths}")
+            
+            # 检查数据库文件是否存在
+            valid_db_paths = []
+            for db_path in db_paths:
+                if os.path.exists(db_path):
+                    valid_db_paths.append(db_path)
+                else:
+                    logger.warning(f"数据库文件不存在: {db_path}")
+            
+            if not valid_db_paths:
+                logger.error(f"没有找到有效的数据库文件")
+                return 0
+            
+            # 记录已统计的URL，避免重复计数
+            counted_urls = set()
+            
+            # 尝试从所有数据库查询
+            for db_path in valid_db_paths:
+                try:
+                    # 尝试从数据库文件名中提取来源
+                    db_source = os.path.basename(db_path).replace('.db', '')
+                    logger.info(f"从数据库 {db_path} 中计数，来源: {db_source}")
+                    
+                    conn = sqlite3.connect(db_path)
+                    cursor = conn.cursor()
+                    
+                    # 判断news表是否存在
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='news'")
+                    if not cursor.fetchone():
+                        # 表不存在，创建表结构
+                        logger.warning(f"数据库 {db_path} 中news表不存在，尝试创建表")
+                        try:
+                            self._create_tables(conn)
+                            logger.info(f"成功创建表结构")
+                        except Exception as create_err:
+                            logger.error(f"创建表失败: {str(create_err)}")
+                            conn.close()
+                            continue
+                    
+                    # 如果是计数URL去重，需要先获取所有URL
+                    if source or keyword or days:
+                        # 构建查询条件
+                        conditions = []
+                        params = []
+                        
+                        if source:
+                            conditions.append("source = ?")
+                            params.append(source)
+                        
+                        if keyword:
+                            conditions.append("(title LIKE ? OR content LIKE ?)")
+                            params.extend([f"%{keyword}%", f"%{keyword}%"])
+                        
+                        if days:
+                            start_time = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+                            conditions.append("pub_time >= ?")
+                            params.append(start_time)
+                        
+                        # 先获取所有匹配的URL进行去重
+                        sql = "SELECT url FROM news"
+                        if conditions:
+                            sql += " WHERE " + " AND ".join(conditions)
+                        
+                        cursor.execute(sql, params)
+                        for url_row in cursor.fetchall():
+                            url = url_row[0]
+                            if url and url not in counted_urls:
+                                counted_urls.add(url)
+                                total_count += 1
+                    else:
+                        # 如果没有筛选条件，直接计数（但仍需去重）
+                        cursor.execute("SELECT url FROM news")
+                        for url_row in cursor.fetchall():
+                            url = url_row[0]
+                            if url and url not in counted_urls:
+                                counted_urls.add(url)
+                                total_count += 1
+                    
+                    conn.close()
+                except Exception as e:
+                    logger.error(f"查询数据库 {db_path} 计数失败: {str(e)}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+            
+            logger.info(f"查询结果: 共 {total_count} 条符合条件的新闻")
+        except Exception as e:
+            logger.error(f"获取新闻数量失败: {str(e)}")
         
         return total_count
     
@@ -429,20 +582,54 @@ class NewsDatabase:
         """获取所有新闻来源"""
         sources = set()
         
-        # 尝试从所有数据库查询
-        for db_path in self.all_db_paths:
-            try:
-                conn = sqlite3.connect(db_path)
-                cursor = conn.cursor()
-                
-                cursor.execute("SELECT DISTINCT source FROM news")
-                for row in cursor.fetchall():
-                    if row[0]:  # 排除空值
-                        sources.add(row[0])
-                
-                conn.close()
-            except Exception as e:
-                logger.error(f"查询数据库 {db_path} 来源失败: {str(e)}")
+        try:
+            # 检查数据库文件是否存在
+            valid_db_paths = []
+            for db_path in self.all_db_paths:
+                if os.path.exists(db_path):
+                    valid_db_paths.append(db_path)
+                else:
+                    logger.warning(f"数据库文件不存在: {db_path}")
+            
+            if not valid_db_paths:
+                logger.error(f"没有找到有效的数据库文件")
+                return []
+            
+            # 尝试从所有数据库查询
+            for db_path in valid_db_paths:
+                try:
+                    conn = sqlite3.connect(db_path)
+                    cursor = conn.cursor()
+                    
+                    # 判断news表是否存在
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='news'")
+                    if not cursor.fetchone():
+                        # 表不存在，跳过此数据库
+                        logger.warning(f"数据库 {db_path} 中news表不存在，跳过")
+                        conn.close()
+                        continue
+                    
+                    cursor.execute("SELECT DISTINCT source FROM news")
+                    for row in cursor.fetchall():
+                        if row[0]:  # 排除空值
+                            sources.add(row[0])
+                    
+                    # 从文件名中提取来源名称
+                    source_from_filename = os.path.splitext(os.path.basename(db_path))[0]
+                    # 如果不是主数据库，添加到来源列表
+                    if source_from_filename not in ['finance_news', 'main_news']:
+                        sources.add(source_from_filename)
+                    
+                    conn.close()
+                except Exception as e:
+                    logger.error(f"查询数据库 {db_path} 来源失败: {str(e)}")
+            
+            # 优先使用专用数据库名称作为来源
+            for source_name in self.source_db_map.keys():
+                if source_name not in ['finance_news', 'main_news']:
+                    sources.add(source_name)
+        except Exception as e:
+            logger.error(f"获取新闻来源失败: {str(e)}")
         
         return sorted(list(sources))
     
@@ -450,20 +637,43 @@ class NewsDatabase:
         """获取所有分类"""
         categories = set()
         
-        # 尝试从所有数据库查询
-        for db_path in self.all_db_paths:
-            try:
-                conn = sqlite3.connect(db_path)
-                cursor = conn.cursor()
-                
-                cursor.execute("SELECT DISTINCT category FROM news")
-                for row in cursor.fetchall():
-                    if row[0]:  # 排除空值
-                        categories.add(row[0])
-                
-                conn.close()
-            except Exception as e:
-                logger.error(f"查询数据库 {db_path} 分类失败: {str(e)}")
+        try:
+            # 检查数据库文件是否存在
+            valid_db_paths = []
+            for db_path in self.all_db_paths:
+                if os.path.exists(db_path):
+                    valid_db_paths.append(db_path)
+                else:
+                    logger.warning(f"数据库文件不存在: {db_path}")
+            
+            if not valid_db_paths:
+                logger.error(f"没有找到有效的数据库文件")
+                return []
+            
+            # 尝试从所有数据库查询
+            for db_path in valid_db_paths:
+                try:
+                    conn = sqlite3.connect(db_path)
+                    cursor = conn.cursor()
+                    
+                    # 判断news表是否存在
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='news'")
+                    if not cursor.fetchone():
+                        # 表不存在，跳过此数据库
+                        logger.warning(f"数据库 {db_path} 中news表不存在，跳过")
+                        conn.close()
+                        continue
+                    
+                    cursor.execute("SELECT DISTINCT category FROM news")
+                    for row in cursor.fetchall():
+                        if row[0]:  # 排除空值
+                            categories.add(row[0])
+                    
+                    conn.close()
+                except Exception as e:
+                    logger.error(f"查询数据库 {db_path} 分类失败: {str(e)}")
+        except Exception as e:
+            logger.error(f"获取新闻分类失败: {str(e)}")
         
         return sorted(list(categories))
     
@@ -481,31 +691,153 @@ class NewsDatabase:
         Returns:
             dict: 新闻数据，如果未找到则返回None
         """
-        # 尝试从所有数据库查询
-        for db_path in self.all_db_paths:
-            try:
-                conn = sqlite3.connect(db_path)
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                
-                # 查询指定ID的新闻
-                cursor.execute("SELECT * FROM news WHERE id = ?", (news_id,))
-                row = cursor.fetchone()
-                
-                if row:
-                    # 转换为字典
-                    news = {}
-                    for i, column in enumerate(cursor.description):
-                        news[column[0]] = row[i]
+        try:
+            # 确定要查询的数据库列表
+            db_paths = self.all_db_paths
+            
+            # 检查数据库文件是否存在
+            valid_db_paths = []
+            for db_path in db_paths:
+                if os.path.exists(db_path):
+                    valid_db_paths.append(db_path)
+                else:
+                    logger.warning(f"数据库文件不存在: {db_path}")
+            
+            if not valid_db_paths:
+                logger.error(f"没有找到有效的数据库文件")
+                return None
+            
+            # 尝试从所有数据库查询
+            for db_path in valid_db_paths:
+                try:
+                    # 尝试从数据库文件名中提取来源
+                    db_source = os.path.basename(db_path).replace('.db', '')
+                    logger.debug(f"在数据库 {db_path} 中查询新闻ID: {news_id}")
+                    
+                    conn = sqlite3.connect(db_path)
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+                    
+                    # 判断news表是否存在
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='news'")
+                    if not cursor.fetchone():
+                        # 表不存在，跳过此数据库
+                        logger.warning(f"数据库 {db_path} 中news表不存在，跳过")
+                        conn.close()
+                        continue
+                    
+                    # 查询指定ID的新闻
+                    cursor.execute("SELECT * FROM news WHERE id = ?", (news_id,))
+                    row = cursor.fetchone()
+                    
+                    if row:
+                        # 转换为字典
+                        news = {}
+                        for i, column in enumerate(cursor.description):
+                            news[column[0]] = row[i]
+                        
+                        # 处理JSON字段
+                        try:
+                            if 'keywords' in news and news['keywords']:
+                                news['keywords'] = json.loads(news['keywords'])
+                            if 'images' in news and news['images']:
+                                news['images'] = json.loads(news['images'])
+                            if 'related_stocks' in news and news['related_stocks']:
+                                news['related_stocks'] = json.loads(news['related_stocks'])
+                        except json.JSONDecodeError:
+                            # 如果JSON解析失败，保持原始字符串
+                            pass
+                        
+                        conn.close()
+                        logger.info(f"在数据库 {db_path} 中找到新闻ID: {news_id}")
+                        return news  # 找到后立即返回
                     
                     conn.close()
-                    return news  # 找到后立即返回
-                     
-                conn.close()
-            except Exception as e:
-                logger.error(f"查询新闻详情失败: {str(e)}")
+                except Exception as e:
+                    logger.error(f"查询新闻详情失败: {str(e)}")
+            
+            logger.warning(f"在所有数据库中未找到新闻ID: {news_id}")
+            return None  # 所有数据库都未找到，返回None
+        except Exception as e:
+            logger.error(f"获取新闻详情失败: {str(e)}")
+            return None
+
+    def update_unknown_sources(self):
+        """
+        更新数据库中所有未知来源的新闻，根据URL推断正确的数据源
         
-        return None  # 所有数据库都未找到，返回None
+        Returns:
+            int: 更新的记录数量
+        """
+        try:
+            logger.info("开始更新未知来源的新闻数据...")
+            
+            # 查询所有未知来源的新闻
+            unknown_news = self.session.query(News).filter(
+                (News.source == '未知来源') | 
+                (News.source == '') | 
+                (News.source == None)
+            ).all()
+            
+            if not unknown_news:
+                logger.info("没有找到未知来源的新闻")
+                return 0
+                
+            updated_count = 0
+            
+            for news in unknown_news:
+                if not news.url:
+                    continue
+                    
+                url = news.url.lower()
+                new_source = None
+                
+                # 根据URL推断来源
+                if 'eastmoney.com' in url:
+                    new_source = '东方财富网'
+                elif 'sina.com' in url or 'sina.cn' in url:
+                    new_source = '新浪财经'
+                elif 'qq.com' in url or 'finance.qq.com' in url or 'news.qq.com' in url:
+                    new_source = '腾讯财经'
+                elif '163.com' in url or 'money.163.com' in url:
+                    new_source = '网易财经'
+                elif 'ifeng.com' in url:
+                    new_source = '凤凰财经'
+                elif 'jrj.com' in url:
+                    new_source = '金融界'
+                elif 'cs.com.cn' in url:
+                    new_source = '中国证券网'
+                elif 'hexun.com' in url:
+                    new_source = '和讯网'
+                elif 'cnstock.com' in url:
+                    new_source = '中证网'
+                elif 'xinhuanet.com' in url:
+                    new_source = '新华网'
+                elif 'people.com.cn' in url:
+                    new_source = '人民网'
+                elif 'cctv.com' in url:
+                    new_source = 'CCTV'
+                elif 'stcn.com' in url:
+                    new_source = '证券时报网'
+                elif '21jingji.com' in url:
+                    new_source = '21世纪经济报道'
+                elif 'caixin.com' in url:
+                    new_source = '财新网'
+                
+                if new_source:
+                    news.source = new_source
+                    updated_count += 1
+            
+            if updated_count > 0:
+                self.session.commit()
+                logger.info(f"成功更新 {updated_count} 条未知来源的新闻")
+            
+            return updated_count
+            
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"更新未知来源失败: {str(e)}")
+            return 0
 
 class DatabaseManager:
     """数据库管理器，提供数据库连接和初始化功能"""

@@ -618,6 +618,47 @@ def register_routes(app):
             'counts': news_counts
         })
     
+    @app.route('/admin/update-sources', methods=['GET', 'POST'])
+    def admin_update_sources():
+        """管理界面：更新未知来源的新闻"""
+        message = None
+        updated_count = 0
+        
+        if request.method == 'POST':
+            try:
+                # 创建数据库连接
+                db = NewsDatabase(use_all_dbs=True)
+                
+                # 更新未知来源
+                updated_count = db.update_unknown_sources()
+                
+                if updated_count > 0:
+                    message = f"成功更新 {updated_count} 条未知来源的新闻数据"
+                    flash(message, 'success')
+                else:
+                    message = "没有需要更新的未知来源新闻数据"
+                    flash(message, 'info')
+                
+            except Exception as e:
+                message = f"更新失败: {str(e)}"
+                flash(message, 'danger')
+                logger.error(f"更新未知来源失败: {str(e)}")
+        
+        # 获取未知来源的新闻数量
+        try:
+            db = NewsDatabase(use_all_dbs=True)
+            unknown_count = db.get_news_count(source='未知来源') + db.get_news_count(source='')
+        except Exception as e:
+            unknown_count = 0
+            logger.error(f"获取未知来源新闻数量失败: {str(e)}")
+        
+        return render_template(
+            'admin/update_sources.html',
+            message=message,
+            updated_count=updated_count,
+            unknown_count=unknown_count
+        )
+    
     @app.errorhandler(404)
     def page_not_found(e):
         """404页面"""

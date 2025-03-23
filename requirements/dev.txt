@@ -22,4 +22,9 @@ line-profiler>=3.5.1
 
 # 开发工具
 pre-commit>=2.20.0
-pytest-cov>=3.0.0 
+pytest-cov>=3.0.0
+
+# 图像识别开发工具
+pytesseract>=0.3.10
+matplotlib>=3.6.0
+tensorflow-datasets>=4.7.0 

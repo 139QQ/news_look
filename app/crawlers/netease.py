@@ -20,6 +20,8 @@ from app.crawlers.base import BaseCrawler
 from app.utils.logger import get_crawler_logger
 from app.utils.text_cleaner import clean_html, extract_keywords
 from app.db.sqlite_manager import SQLiteManager
+from app.utils.ad_filter import AdFilter  # 导入广告过滤器模块
+from app.utils.image_detector import ImageDetector  # 导入图像识别模块
 
 # 使用专门的爬虫日志记录器
 logger = get_crawler_logger('netease')
@@ -46,7 +48,7 @@ class NeteaseCrawler(BaseCrawler):
     # 作者选择器
     AUTHOR_SELECTOR = 'div.post_time_source span'
     
-    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False):
+    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False, **kwargs):
         """
         初始化网易财经爬虫
         
@@ -57,7 +59,12 @@ class NeteaseCrawler(BaseCrawler):
             use_source_db: 是否使用来源专用数据库
         """
         self.source = "网易财经"
-        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db)
+        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db, **kwargs)
+        
+        # 初始化广告过滤器
+        self.ad_filter = AdFilter(source_name=self.source)
+        # 初始化图像检测器
+        self.image_detector = ImageDetector(cache_dir='./image_cache')
         
         # 如果提供了db_manager并且不是SQLiteManager类型，创建SQLiteManager
         if db_manager and not isinstance(db_manager, SQLiteManager):
@@ -90,6 +97,11 @@ class NeteaseCrawler(BaseCrawler):
         
         # 清空新闻数据列表
         self.news_data = []
+        
+        # 重置广告过滤计数
+        self.ad_filter.reset_filter_count()
+        # 重置广告图片过滤计数
+        self.image_detector.reset_ad_count()
         
         # 计算开始日期
         start_date = datetime.now() - timedelta(days=days)
@@ -156,38 +168,23 @@ class NeteaseCrawler(BaseCrawler):
                             logger.debug(f"新闻日期 {news_date} 早于开始日期 {start_date}，跳过")
                             continue
                     except Exception as e:
-                        logger.warning(f"解析新闻日期失败: {news_data['pub_time']}, 错误: {str(e)}")
+                        logger.warning(f"解析新闻日期失败: {news_data['pub_time']}")
                     
                     # 保存新闻数据
                     self.save_news_to_db(news_data)
                     self.news_data.append(news_data)
+                    
+                # 如果已经获取足够数量的新闻，停止爬取
+                if len(self.news_data) >= max_news:
+                    logger.info(f"已经爬取 {len(self.news_data)} 条新闻，达到最大数量 {max_news}")
+                    break
+                
+                # 随机休眠，避免被反爬
+                self.random_sleep(2, 5)
             except Exception as e:
                 logger.error(f"爬取分类 '{category}' 失败: {str(e)}")
         
-        # 爬取结束后，确保数据被保存到数据库
-        if hasattr(self, 'news_data') and self.news_data:
-            saved_count = 0
-            for news in self.news_data:
-                if self.save_news_to_db(news):
-                    saved_count += 1
-            
-            logger.info(f"成功保存 {saved_count}/{len(self.news_data)} 条新闻到数据库")
-        
-        # 统计爬取结果
-        logger.info(f"网易财经爬虫运行完成，耗时: {(datetime.now() - (datetime.now() - timedelta(seconds=1))).total_seconds() + 1:.2f}秒")
-        logger.info(f"共爬取 {len(self.news_data)} 条新闻")
-        
-        # 按分类统计
-        category_counts = {}
-        for news in self.news_data:
-            category = news['category']
-            if category not in category_counts:
-                category_counts[category] = 0
-            category_counts[category] += 1
-        
-        for category, count in category_counts.items():
-            logger.info(f"分类 '{category}' 爬取: {count} 条新闻")
-        
+        logger.info(f"网易财经爬取完成，共爬取新闻: {len(self.news_data)} 条，过滤广告: {self.ad_filter.get_filter_count()} 条，过滤广告图片: {self.image_detector.get_ad_count()} 张")
         return self.news_data
     
     def extract_news_links_from_home(self, html, category):
@@ -195,7 +192,7 @@ class NeteaseCrawler(BaseCrawler):
         从首页提取新闻链接
         
         Args:
-            html: 首页HTML内容
+            html: 页面HTML
             category: 新闻分类
         
         Returns:
@@ -205,11 +202,9 @@ class NeteaseCrawler(BaseCrawler):
         try:
             soup = BeautifulSoup(html, 'html.parser')
             
-            # 查找所有可能的新闻链接
+            # 提取所有链接
             for a_tag in soup.find_all('a', href=True):
                 href = a_tag['href']
-                
-                # 过滤非新闻链接
                 if self.is_valid_news_url(href):
                     news_links.append(href)
             
@@ -226,7 +221,7 @@ class NeteaseCrawler(BaseCrawler):
         从分类页面提取新闻链接
         
         Args:
-            html: 分类页面HTML内容
+            html: 页面HTML
             category: 新闻分类
         
         Returns:
@@ -236,15 +231,17 @@ class NeteaseCrawler(BaseCrawler):
         try:
             soup = BeautifulSoup(html, 'html.parser')
             
-            # 查找新闻列表
-            news_list = soup.select('div.news_list li')
+            # 根据分类不同，可能需要不同的选择器
+            news_list = soup.select('ul.news_list li')
             if not news_list:
-                logger.warning("未找到新闻列表，尝试查找所有可能的新闻链接")
-                # 如果找不到特定的新闻列表，尝试提取所有可能的新闻链接
+                news_list = soup.select('div.data_row')
+            if not news_list:
+                news_list = soup.select('div.news_item')
+            
+            if not news_list:
+                # 如果没有找到特定的新闻列表，尝试提取所有链接
                 for a_tag in soup.find_all('a', href=True):
                     href = a_tag['href']
-                    
-                    # 过滤非新闻链接
                     if self.is_valid_news_url(href):
                         news_links.append(href)
             else:
@@ -274,6 +271,14 @@ class NeteaseCrawler(BaseCrawler):
         Returns:
             bool: 是否为有效的新闻链接
         """
+        if not url:
+            return False
+            
+        # 检查URL是否为广告
+        if self.ad_filter.is_ad_url(url):
+            logger.info(f"过滤广告URL: {url}")
+            return False
+            
         # 网易财经新闻URL通常包含以下特征
         patterns = [
             r'https?://money\.163\.com/\d+/\d+/\d+/\w+\.html',
@@ -300,58 +305,45 @@ class NeteaseCrawler(BaseCrawler):
         """
         logger.info(f"爬取新闻详情: {url}")
         try:
-            # 获取新闻页面内容
+            # 判断URL是否为广告
+            if self.ad_filter.is_ad_url(url):
+                logger.info(f"跳过广告URL: {url}")
+                return None
+                
             html = self.fetch_page(url)
             if not html:
+                logger.warning(f"无法获取页面内容: {url}")
                 return None
-            
-            # 解析HTML
+                
             soup = BeautifulSoup(html, 'html.parser')
             
             # 提取标题
-            title = ""
-            title_tag = soup.select_one('title')
-            if title_tag:
-                title_text = title_tag.text.strip()
-                # 移除网站名称
-                if '_网易财经' in title_text:
-                    title = title_text.split('_网易财经')[0].strip()
-                elif '_网易' in title_text:
-                    title = title_text.split('_网易')[0].strip()
-                else:
-                    title = title_text
-            
-            # 如果从title标签中提取失败，尝试从h1标签中提取
-            if not title:
-                title_tag = soup.select_one('h1.post_title')
-                if not title_tag:
-                    title_tag = soup.select_one('h1')
+            title_tag = soup.find('h1')
+            if not title_tag:
+                logger.warning(f"无法找到标题标签: {url}")
+                return None
                 
-                if title_tag:
-                    title = title_tag.text.strip()
-            
+            title = title_tag.get_text(strip=True)
             if not title:
-                logger.warning(f"提取标题失败: {url}")
+                logger.warning(f"标题为空: {url}")
                 return None
-            
-            logger.debug(f"提取到标题: {title}")
-            
+                
             # 提取内容
-            content_tag = soup.select_one(self.CONTENT_SELECTOR)
-            if not content_tag:
-                # 尝试其他选择器
-                content_tag = soup.select_one('div.post_text')
-                if not content_tag:
-                    content_tag = soup.select_one('div.article-body')
-                    if not content_tag:
-                        content_tag = soup.select_one('div.article-content')
-            
-            if not content_tag:
-                logger.warning(f"提取内容失败: {url}")
+            content_div = soup.select_one(self.CONTENT_SELECTOR)
+            if not content_div:
+                logger.warning(f"无法找到内容选择器: {url}")
                 return None
+                
+            # 保存原始HTML以便处理图片
+            content_html = str(content_div)
             
-            # 清理HTML内容
-            content = clean_html(str(content_tag))
+            # 清理HTML
+            content = clean_html(str(content_div))
+            
+            # 判断内容是否为广告
+            if self.ad_filter.is_ad_content(content, title=title, category=category):
+                logger.info(f"跳过广告内容: {title}")
+                return None
             
             # 提取发布时间
             pub_time = self.extract_pub_time(soup)
@@ -361,11 +353,31 @@ class NeteaseCrawler(BaseCrawler):
             # 提取作者
             author = self.extract_author(soup)
             
+            # 检测和过滤广告图片
+            image_content_soup = BeautifulSoup(content_html, 'html.parser')
+            image_urls = []
+            ad_images_removed = False
+            
+            for img in image_content_soup.find_all('img'):
+                img_url = img.get('src')
+                if img_url:
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
+                        
+                    if self.image_detector.is_ad_image(img_url, context={'category': category}):
+                        logger.info(f"过滤广告图片: {img_url}")
+                        img.decompose()  # 从HTML中移除广告图片
+                        ad_images_removed = True
+                    else:
+                        image_urls.append(img_url)
+            
+            # 如果移除了广告图片，更新内容HTML和纯文本
+            if ad_images_removed:
+                content_html = str(image_content_soup)
+                content = clean_html(content_html)
+            
             # 提取关键词
             keywords = extract_keywords(title + ' ' + content)
-            
-            # 提取图片
-            images = self.extract_images(content_tag)
             
             # 提取相关股票
             related_stocks = self.extract_related_stocks(soup)
@@ -374,23 +386,29 @@ class NeteaseCrawler(BaseCrawler):
             news_id = self.generate_news_id(url, title)
             
             # 分析情感
-            sentiment = self.sentiment_analyzer.analyze(title, content)
+            sentiment = 0
+            if hasattr(self, 'sentiment_analyzer'):
+                try:
+                    sentiment = self.sentiment_analyzer.analyze(title, content)
+                except Exception as e:
+                    logger.error(f"情感分析失败: {str(e)}")
             
             # 构建新闻数据
             news_data = {
                 'id': news_id,
                 'title': title,
                 'content': content,
+                'content_html': content_html,
                 'pub_time': pub_time,
                 'author': author,
                 'source': self.source,
                 'url': url,
-                'keywords': ','.join(keywords),
+                'keywords': ','.join(keywords) if keywords else '',
                 'sentiment': sentiment,
                 'crawl_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'category': category,
-                'images': ','.join(images),
-                'related_stocks': ','.join(related_stocks)
+                'images': ','.join(image_urls),
+                'related_stocks': ','.join(related_stocks) if related_stocks else ''
             }
             
             logger.debug(f"爬取新闻详情成功: {title}")
@@ -499,23 +517,17 @@ class NeteaseCrawler(BaseCrawler):
         Returns:
             list: 相关股票列表
         """
-        related_stocks = []
+        stocks = []
         try:
-            # 查找股票代码
-            stock_pattern = r'(\d{6})[\.，,\s]+([^\s,.，,]{2,})'
-            content_text = soup.get_text()
-            
-            for match in re.finditer(stock_pattern, content_text):
-                stock_code = match.group(1)
-                stock_name = match.group(2)
-                related_stocks.append(f"{stock_code}:{stock_name}")
-            
-            # 去重
-            related_stocks = list(set(related_stocks))
+            stock_tags = soup.select('a.stock_code')
+            for tag in stock_tags:
+                stock_code = tag.text.strip()
+                if stock_code and re.match(r'^\d{6}$', stock_code):
+                    stocks.append(stock_code)
         except Exception as e:
             logger.error(f"提取相关股票失败: {str(e)}")
         
-        return related_stocks
+        return stocks
     
     def generate_news_id(self, url, title):
         """
@@ -529,8 +541,8 @@ class NeteaseCrawler(BaseCrawler):
             str: 新闻ID
         """
         # 使用URL和标题的组合生成唯一ID
-        id_str = f"{url}_{title}"
-        return hashlib.md5(id_str.encode('utf-8')).hexdigest()
+        combined = url + title
+        return hashlib.md5(combined.encode('utf-8')).hexdigest()
     
     def random_sleep(self, min_seconds=1, max_seconds=3):
         """
@@ -541,6 +553,7 @@ class NeteaseCrawler(BaseCrawler):
             max_seconds: 最大休眠时间（秒）
         """
         sleep_time = random.uniform(min_seconds, max_seconds)
+        logger.debug(f"随机休眠 {sleep_time:.2f} 秒")
         time.sleep(sleep_time)
     
     def save_news_to_db(self, news):
@@ -548,18 +561,27 @@ class NeteaseCrawler(BaseCrawler):
         保存新闻到数据库
         
         Args:
-            news: 新闻数据字典
+            news: 新闻数据
             
         Returns:
             bool: 是否保存成功
         """
         try:
-            # 如果有sqlite_manager属性则使用它保存
             if hasattr(self, 'sqlite_manager') and self.sqlite_manager:
                 return self.sqlite_manager.save_news(news)
-            
-            # 否则使用父类的save_news方法保存到内存中
             return super().save_news(news)
         except Exception as e:
-            logger.error(f"保存新闻到数据库失败: {news.get('title', '未知标题')}, 错误: {str(e)}")
-            return False 
+            logger.error(f"保存新闻到数据库失败: {str(e)}")
+            return False
+
+
+if __name__ == "__main__":
+    # 测试爬虫
+    crawler = NeteaseCrawler(use_proxy=False, use_source_db=True)
+    news_list = crawler.crawl(days=1, max_news=5)
+    print(f"爬取到新闻数量: {len(news_list)}")
+    for news in news_list:
+        print(f"标题: {news['title']}")
+        print(f"发布时间: {news['pub_time']}")
+        print(f"来源: {news['source']}")
+        print("-" * 50) 

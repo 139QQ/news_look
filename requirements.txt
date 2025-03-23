@@ -31,3 +31,10 @@ certifi>=2022.9.24
 idna>=3.4
 cryptography>=38.0.1
 pyOpenSSL>=22.1.0
+Pillow>=9.2.0
+opencv-python>=4.6.0
+
+# TensorFlow是可选的依赖，根据系统环境选择安装方式:
+# 完整版: pip install tensorflow>=2.10.0
+# 仅CPU版: pip install tensorflow-cpu>=2.10.0
+# 兼容版: pip install tensorflow==2.9.0

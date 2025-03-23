@@ -18,23 +18,20 @@
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.path == url_for('index') %}active{% endif %}" href="{{ url_for('index') }}">
-                            <i class="bi bi-house-door"></i> 首页
+            <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+                <div class="navbar-nav ml-auto">
+                    <a class="nav-item nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">首页</a>
+                    <a class="nav-item nav-link {% if request.endpoint == 'crawler' %}active{% endif %}" href="{{ url_for('crawler') }}">爬虫</a>
+                    <a class="nav-item nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">控制台</a>
+                    <div class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {% if request.endpoint and request.endpoint.startswith('admin_') %}active{% endif %}" href="#" id="adminDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            管理工具
                         </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/dashboard') %}active{% endif %}" href="{{ url_for('dashboard') }}">
-                            <i class="bi bi-graph-up"></i> 数据统计
-                        </a>
-                    </li>
-                </ul>
-                <form class="d-flex" action="{{ url_for('index') }}" method="get">
-                    <input class="form-control me-2" type="search" name="keyword" placeholder="搜索新闻..." value="{{ request.args.get('keyword', '') }}">
-                    <button class="btn btn-light" type="submit"><i class="bi bi-search"></i></button>
-                </form>
+                        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="adminDropdown">
+                            <a class="dropdown-item {% if request.endpoint == 'admin_update_sources' %}active{% endif %}" href="{{ url_for('admin_update_sources') }}">更新未知来源</a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </nav>

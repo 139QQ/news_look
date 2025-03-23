@@ -29,7 +29,7 @@ logger = get_crawler_logger('eastmoney')
 class EastMoneyCrawler(BaseCrawler):
     """东方财富网爬虫，用于爬取东方财富网的财经新闻"""
     
-    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False):
+    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False, **kwargs):
         """
         初始化东方财富网爬虫
         
@@ -38,13 +38,10 @@ class EastMoneyCrawler(BaseCrawler):
             db_path: 数据库路径，如果为None则使用默认路径
             use_proxy: 是否使用代理
             use_source_db: 是否使用来源专用数据库
+            **kwargs: 其他参数
         """
-        # 基本属性
-        self.source = "东方财富网"
-        self.name = "eastmoney"
-        
-        # 调用父类的初始化方法
-        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db)
+        self.source = "东方财富"
+        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db, **kwargs)
         
         self.status = 'idle'
         self.last_run = None
@@ -82,18 +79,18 @@ class EastMoneyCrawler(BaseCrawler):
         ]
         
         # 如果提供了db_manager并且不是SQLiteManager类型，创建SQLiteManager
-        if db_manager and not isinstance(db_manager, SQLiteManager):
-            if hasattr(db_manager, 'db_path'):
-                self.sqlite_manager = SQLiteManager(db_manager.db_path)
+        if self.db_manager and not isinstance(self.db_manager, SQLiteManager):
+            if hasattr(self.db_manager, 'db_path'):
+                self.sqlite_manager = SQLiteManager(self.db_manager.db_path)
             else:
                 # 使用传入的db_path或默认路径
-                self.sqlite_manager = SQLiteManager(db_path or self.db_path)
-        elif not db_manager:
+                self.sqlite_manager = SQLiteManager(self.db_path or self.db_path)
+        elif not self.db_manager:
             # 如果没有提供db_manager，创建SQLiteManager
-            self.sqlite_manager = SQLiteManager(db_path or self.db_path)
+            self.sqlite_manager = SQLiteManager(self.db_path or self.db_path)
         else:
             # 否则使用提供的db_manager
-            self.sqlite_manager = db_manager
+            self.sqlite_manager = self.db_manager
         
         logger.info(f"东方财富网爬虫初始化完成，数据库路径: {self.db_path}")
     

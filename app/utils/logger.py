@@ -14,6 +14,9 @@ from datetime import datetime
 import traceback
 import importlib.util
 
+# 创建日志记录器缓存，防止重复创建
+_logger_cache = {}
+
 # 尝试导入配置文件
 try:
     from app.config import LOG_CONFIG, BASE_DIR
@@ -70,6 +73,10 @@ def get_log_dir():
     os.makedirs(log_dir, exist_ok=True)
     return log_dir
 
+def is_logger_configured(logger):
+    """检查日志记录器是否已经配置过"""
+    return hasattr(logger, '_configured') and logger._configured
+
 def configure_logger(name=None, level=None, log_file=None, module=None, 
                     max_bytes=None, backup_count=None, propagate=False):
     """
@@ -87,6 +94,13 @@ def configure_logger(name=None, level=None, log_file=None, module=None,
     Returns:
         logger: 日志记录器
     """
+    global _logger_cache
+    
+    # 从缓存中获取，避免重复创建
+    cache_key = name or 'root'
+    if cache_key in _logger_cache:
+        return _logger_cache[cache_key]
+    
     # 获取日志级别
     if level is None:
         level = get_log_level()
@@ -98,7 +112,8 @@ def configure_logger(name=None, level=None, log_file=None, module=None,
         logger = logging.getLogger()
     
     # 防止重复配置
-    if logger.handlers and getattr(logger, '_configured', False):
+    if is_logger_configured(logger):
+        _logger_cache[cache_key] = logger
         return logger
     
     # 设置日志级别
@@ -125,9 +140,9 @@ def configure_logger(name=None, level=None, log_file=None, module=None,
     if log_file is None:
         log_dir = get_log_dir()
         if module:
-            log_file = os.path.join(log_dir, f"{module}_{datetime.now().strftime('%Y%m%d')}.log")
+            log_file = os.path.join(log_dir, f"{module}.log")
         else:
-            log_file = os.path.join(log_dir, f"app_{datetime.now().strftime('%Y%m%d')}.log")
+            log_file = os.path.join(log_dir, f"app.log")
     
     if max_bytes is None:
         max_bytes = LOG_CONFIG.get('max_size', 10 * 1024 * 1024)  # 默认10MB
@@ -152,15 +167,13 @@ def configure_logger(name=None, level=None, log_file=None, module=None,
     # 标记为已配置
     setattr(logger, '_configured', True)
     
+    # 将日志记录器放入缓存
+    _logger_cache[cache_key] = logger
+    
     return logger
 
-# 兼容旧版API
-def setup_logger(name=None, level=None, module=None, max_bytes=None, backup_count=None):
-    """
-    设置日志记录器 (兼容旧版API)
-    """
-    return configure_logger(name=name, level=level, module=module, 
-                            max_bytes=max_bytes, backup_count=backup_count)
+# 配置根日志记录器以避免其他模块的日志重复输出
+root_logger = configure_logger(level=get_log_level())
 
 def get_logger(name):
     """
@@ -172,8 +185,12 @@ def get_logger(name):
     Returns:
         logging.Logger: 日志记录器
     """
+    # 检查缓存
+    if name in _logger_cache:
+        return _logger_cache[name]
+    
     logger = logging.getLogger(name)
-    if not logger.handlers:
+    if not is_logger_configured(logger):
         return configure_logger(name=name)
     return logger
 
@@ -187,34 +204,51 @@ def get_crawler_logger(name):
     Returns:
         logging.Logger: 爬虫专用日志记录器
     """
+    cache_key = f'crawler.{name}'
+    if cache_key in _logger_cache:
+        return _logger_cache[cache_key]
+    
     return configure_logger(
-        name=f'crawler.{name}',
-        module=name,
-        level=get_log_level()
+        name=cache_key,
+        module=f"crawler_{name}",
+        level=get_log_level(),
+        propagate=False
     )
 
 def get_api_logger():
     """获取API专用日志记录器"""
+    if 'api' in _logger_cache:
+        return _logger_cache['api']
+    
     return configure_logger(
         name="api",
         module="api",
-        level=get_log_level()
+        level=get_log_level(),
+        propagate=False
     )
 
 def get_web_logger():
     """获取Web服务器专用日志记录器"""
+    if 'web' in _logger_cache:
+        return _logger_cache['web']
+    
     return configure_logger(
         name="web",
         module="web",
-        level=get_log_level()
+        level=get_log_level(),
+        propagate=False
     )
 
 def get_db_logger():
     """获取数据库专用日志记录器"""
+    if 'database' in _logger_cache:
+        return _logger_cache['database']
+    
     return configure_logger(
         name="database",
         module="database",
-        level=get_log_level()
+        level=get_log_level(),
+        propagate=False
     )
 
 def log_exception(logger, e, message="发生异常"):
@@ -248,7 +282,4 @@ def log_debug(message, logger_name='finance_news'):
 
 def log_critical(message, logger_name='finance_news'):
     """记录严重错误"""
-    get_logger(logger_name).critical(message)
-
-# 在导入模块时初始化根日志记录器
-root_logger = configure_logger(level=get_log_level()) 
+    get_logger(logger_name).critical(message) 

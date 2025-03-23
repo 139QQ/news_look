@@ -18,26 +18,28 @@ from datetime import datetime, timedelta
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
+from app.crawlers.base import BaseCrawler
+from app.utils.logger import get_crawler_logger
 
 # 设置基本日志配置
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger('eastmoney_simple')
+logger = get_crawler_logger('eastmoney_simple')
 
-class EastMoneySimpleCrawler:
+class EastMoneySimpleCrawler(BaseCrawler):
     """东方财富网爬虫简化版，使用requests库直接爬取新闻内容"""
     
-    def __init__(self, db_manager=None):
+    def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False, **kwargs):
         """
         初始化爬虫
         
         Args:
             db_manager: 数据库管理器对象
+            db_path: 数据库路径，如果为None则使用默认路径
+            use_proxy: 是否使用代理
+            use_source_db: 是否使用来源专用数据库
+            **kwargs: 其他参数
         """
-        self.db_manager = db_manager
-        self.source = "东方财富网"
+        self.source = "东方财富"
+        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db, **kwargs)
         
         # 主要分类及其URL
         self.category_urls = {

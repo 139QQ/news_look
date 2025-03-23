@@ -10,12 +10,14 @@ import logging
 import schedule
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
+import importlib
+from typing import Dict, List, Tuple, Union
 
-from app.utils.logger import setup_logger
+from app.utils.logger import configure_logger
 from app.crawlers import run_crawlers
 
-logger = setup_logger()
+logger = configure_logger()
 
 def run_crawler_task():
     """运行爬虫任务"""
@@ -118,3 +120,11 @@ def start_scheduler(config_path=None):
     scheduler_thread.start()
     
     return schedule 
+
+class SchedulerManager:
+    """定时任务管理器"""
+    
+    def __init__(self, config: Dict = None):
+        """初始化调度器管理器"""
+        # 配置日志
+        self.logger = configure_logger(name='scheduler', module='scheduler') 

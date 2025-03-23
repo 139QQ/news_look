@@ -1,0 +1,62 @@
+{% extends "layout.html" %}
+
+{% block title %}更新未知来源{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">未知来源新闻更新工具</h4>
+                </div>
+                <div class="card-body">
+                    {% if message %}
+                    <div class="alert alert-{{ 'success' if updated_count > 0 else 'info' }}">
+                        {{ message }}
+                    </div>
+                    {% endif %}
+
+                    <p class="lead">当前数据库中有 <span class="badge badge-warning">{{ unknown_count }}</span> 条未知来源的新闻。</p>
+                    <p>此工具可以根据新闻URL自动推断并更新正确的来源信息。系统将根据URL特征识别以下来源：</p>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            <ul class="list-group">
+                                <li class="list-group-item">东方财富网</li>
+                                <li class="list-group-item">新浪财经</li>
+                                <li class="list-group-item">腾讯财经</li>
+                                <li class="list-group-item">网易财经</li>
+                                <li class="list-group-item">凤凰财经</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <ul class="list-group">
+                                <li class="list-group-item">金融界</li>
+                                <li class="list-group-item">中国证券网</li>
+                                <li class="list-group-item">和讯网</li>
+                                <li class="list-group-item">中证网</li>
+                                <li class="list-group-item">新华网</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <ul class="list-group">
+                                <li class="list-group-item">人民网</li>
+                                <li class="list-group-item">CCTV</li>
+                                <li class="list-group-item">证券时报网</li>
+                                <li class="list-group-item">21世纪经济报道</li>
+                                <li class="list-group-item">财新网</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <form method="post" class="mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">开始更新未知来源</button>
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary btn-lg ml-2">返回首页</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
