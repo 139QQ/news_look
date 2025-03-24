@@ -1,6 +1,7 @@
 ---
 description: Cursor rules derived by SpecStory from the project AI interaction history
 globs: *
+alwaysApply: false
 ---
 
 ## PROJECT OVERVIEW
@@ -70,7 +71,7 @@ NewsLook
 
 ## REFERENCE EXAMPLES
 
-*   [Example of a function with type annotations](#example-a-function-with-type-annotations)
+*   [Example of a function with type annotations](mdc:#example-a-function-with-type-annotations)
 
 
 ## PROJECT DOCUMENTATION & CONTEXT SYSTEM
@@ -81,7 +82,7 @@ NewsLook
 *   Document all functions and classes.
 *   Use diagrams to illustrate complex systems.
 *   Regularly update the project documentation to reflect changes in the codebase.
-*   [Database Connection Details](docs/数据库连接说明.md)
+*   [Database Connection Details](mdc:docs/数据库连接说明.md)
 
 
 ## DEBUGGING

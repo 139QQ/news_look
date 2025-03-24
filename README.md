@@ -545,3 +545,221 @@ MIT License
 - 创建备份以确保数据安全
 
 为避免产生未知来源记录，爬虫基类已增强源码验证，确保每个爬虫子类在初始化时正确设置`source`属性。爬虫管理器也会在启动时验证每个爬虫的来源设置，确保系统稳定运行。
+
+# NewsLook 项目目录优化
+
+## 项目介绍
+
+NewsLook 是一个财经新闻爬虫系统，设计用于从各大财经网站（如新浪财经、腾讯财经、东方财富等）收集新闻数据。系统采用模块化设计，支持爬虫模式、调度器模式和Web应用模式三种运行方式。
+
+## 目录结构优化
+
+为了提高项目的可维护性和扩展性，我们对目录结构进行了优化，主要变化如下：
+
+1. **标准化目录结构**：采用符合Python项目最佳实践的目录结构
+2. **统一配置管理**：新增配置管理系统，支持配置文件、环境变量和命令行参数
+3. **优化脚本组织**：按功能对脚本进行分类，提高可维护性
+4. **规范化依赖管理**：为不同环境创建独立的依赖文件
+5. **文档结构化**：按类型组织文档，方便查找
+
+### 新的目录结构
+
+```
+NewsLook/
+├── newslook/                # 主源代码包
+│   ├── api/                 # API 接口模块
+│   ├── crawlers/            # 爬虫模块
+│   ├── tasks/               # 任务调度模块
+│   ├── utils/               # 工具函数
+│   ├── web/                 # Web 应用
+│   ├── __init__.py          # 包初始化文件
+│   └── config.py            # 统一配置管理
+├── data/                    # 数据存储
+│   └── db/                  # 数据库文件
+│       └── backup/          # 数据库备份子目录
+├── docs/                    # 文档
+│   ├── api/                 # API 文档
+│   ├── database/            # 数据库文档
+│   ├── development/         # 开发指南
+│   └── user/                # 用户手册
+├── scripts/                 # 工具脚本
+│   ├── backup/              # 备份脚本
+│   ├── database/            # 数据库维护脚本
+│   ├── deployment/          # 部署脚本
+│   └── utils/               # 实用工具脚本
+├── tests/                   # 测试目录
+│   ├── unit/                # 单元测试
+│   ├── integration/         # 集成测试
+│   └── data/                # 测试数据
+├── static/                  # 静态文件（已迁移到newslook/web/static/）
+├── templates/               # 模板文件（已迁移到newslook/web/templates/）
+├── requirements/            # 依赖管理
+│   ├── base.txt             # 基础依赖
+│   ├── dev.txt              # 开发环境依赖
+│   ├── prod.txt             # 生产环境依赖
+│   └── test.txt             # 测试环境依赖
+├── .gitignore               # Git 忽略文件
+├── setup.py                 # 项目安装配置
+├── README.md                # 项目说明文档
+├── CHANGELOG.md             # 版本变更记录
+├── LICENSE                  # 许可证文件
+├── Makefile                 # 项目管理命令
+├── run.py                   # 主运行入口
+└── config.ini               # 全局配置文件
+```
+
+## 迁移指南
+
+我们提供了自动化迁移工具，帮助您将现有项目迁移到新的目录结构。
+
+### 迁移步骤
+
+1. **准备工作**：
+   
+   确保您有当前项目的完整备份，或者所有更改已提交到版本控制系统。
+
+2. **执行迁移预检**：
+
+   ```bash
+   python scripts/migrate_structure.py --dry-run
+   ```
+
+   此命令会显示将要执行的所有操作，但不会实际执行。请仔细检查输出，确认所有操作是否符合预期。
+
+3. **执行实际迁移**：
+
+   ```bash
+   python scripts/migrate_structure.py
+   ```
+
+   此命令将执行实际的目录结构迁移操作。
+
+4. **创建配置文件**：
+
+   ```bash
+   python scripts/utils/create_config.py
+   ```
+
+   此命令将创建默认的配置文件。
+
+5. **验证迁移结果**：
+
+   检查新的目录结构是否符合预期，并测试系统的各项功能。
+
+6. **更新导入语句**：
+
+   由于目录结构发生了变化，您可能需要更新代码中的导入语句。主要变化是：
+
+   - `app.crawlers.*` → `newslook.crawlers.*`
+   - `app.utils.*` → `newslook.utils.*`
+   - `app.tasks.*` → `newslook.tasks.*`
+   - `app.web.*` → `newslook.web.*`
+   - `api.*` → `newslook.api.*`
+
+## 配置系统使用指南
+
+新的配置系统支持从配置文件、环境变量和命令行参数获取配置，按照以下优先级：
+
+1. 命令行参数（最高优先级）
+2. 环境变量
+3. 配置文件
+4. 默认值
+
+### 配置文件
+
+配置文件位于项目根目录的 `config.ini`，包括以下主要配置项：
+
+```ini
+[Database]
+DB_DIR = data/db
+BACKUP_DIR = data/db/backup
+
+[Crawler]
+USER_AGENT = Mozilla/5.0 ...
+REQUEST_TIMEOUT = 30
+MAX_RETRIES = 3
+DEFAULT_ENCODING = utf-8
+
+[Sources]
+ENABLED_SOURCES = 新浪财经,腾讯财经,东方财富,网易财经,凤凰财经
+DEFAULT_DAYS = 3
+
+[Web]
+HOST = 0.0.0.0
+PORT = 8000
+DEBUG = False
+SECRET_KEY = newslook_secret_key_change_this_in_production
+
+[Logging]
+LOG_LEVEL = INFO
+LOG_FILE = logs/newslook.log
+
+[Scheduler]
+INTERVAL = 3600
+CRAWL_TIMES = 06:00,12:00,18:00,00:00
+```
+
+### 环境变量
+
+环境变量格式为 `NEWSLOOK_<SECTION>_<OPTION>`，例如：
+
+- `NEWSLOOK_DATABASE_DB_DIR`
+- `NEWSLOOK_WEB_PORT`
+- `NEWSLOOK_LOGGING_LOG_LEVEL`
+
+### 命令行参数
+
+常用命令行参数：
+
+```bash
+# 通用参数
+--config            指定配置文件路径
+--db-dir            指定数据库目录
+--log-level         指定日志级别
+
+# 爬虫模式
+python run.py crawler [--source SOURCE] [--days DAYS]
+
+# 调度器模式
+python run.py scheduler [--interval INTERVAL]
+
+# Web应用模式
+python run.py web [--host HOST] [--port PORT] [--debug]
+```
+
+## 脚本工具
+
+### 数据库工具
+
+- **未知来源更新工具**：`python scripts/database/update_unknown_sources.py`
+- **未知来源检查工具**：`python scripts/database/check_unknown_sources.py`
+- **未知来源数据库合并工具**：`python scripts/database/merge_unknown_source.py`
+
+### 配置工具
+
+- **配置文件生成工具**：`python scripts/utils/create_config.py`
+
+## 开发注意事项
+
+1. 请使用相对导入语句，确保代码在任何环境下都能正常运行
+2. 所有新增的Python包和模块都应添加 `__init__.py` 文件
+3. 使用 `newslook.config` 模块获取配置，而不是硬编码配置
+4. 按照功能将脚本放在对应的子目录中
+5. 为新增功能编写单元测试
+
+详细开发指南请参阅 `docs/development/` 目录下的文档。
+
+## 数据库维护
+
+数据库文件存储在 `data/db` 目录下，每个来源使用独立的数据库文件：
+
+- `finance_news.db` - 主数据库
+- `腾讯财经.db` - 腾讯财经新闻数据库
+- `新浪财经.db` - 新浪财经新闻数据库
+- `东方财富.db` - 东方财富新闻数据库
+- `网易财经.db` - 网易财经新闻数据库
+- `凤凰财经.db` - 凤凰财经新闻数据库
+
+数据库备份存储在 `data/db/backup` 目录。
+
+详细数据库维护指南请参阅 `docs/database/` 目录下的文档。

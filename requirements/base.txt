@@ -1,12 +1,29 @@
-# 基础依赖包
+# 项目依赖
+-r requirements/base.txt
+
+# 注意：根据具体环境选择安装以下依赖文件之一：
+# 开发环境：pip install -r requirements/dev.txt
+# 测试环境：pip install -r requirements/test.txt
+# 生产环境：pip install -r requirements/prod.txt
+
 requests>=2.28.1
 beautifulsoup4>=4.11.1
+selenium>=4.7.2
+webdriver-manager>=3.8.5
 lxml>=4.9.1
+jieba>=0.42.1
+nltk>=3.7
+colorlog>=6.7.0
 python-dateutil>=2.8.2
 tqdm>=4.64.1
 SQLAlchemy>=1.4.41
 colorama>=0.4.5
 fake-useragent>=1.1.1
+numpy>=1.23.3
+pandas>=1.5.0
+matplotlib>=3.6.0
+scikit-learn>=1.1.2
+seaborn>=0.12.0
 pytz>=2022.4
 urllib3>=1.26.12
 chardet>=5.1.0
@@ -14,15 +31,10 @@ certifi>=2022.9.24
 idna>=3.4
 cryptography>=38.0.1
 pyOpenSSL>=22.1.0
-
-# 图像识别相关库（必需）
 Pillow>=9.2.0
-numpy>=1.23.3
-
-# 图像识别相关库（可选）
 opencv-python>=4.6.0
 
 # TensorFlow是可选的依赖，根据系统环境选择安装方式:
 # 完整版: pip install tensorflow>=2.10.0
 # 仅CPU版: pip install tensorflow-cpu>=2.10.0
-# 兼容版: pip install tensorflow==2.9.0 
+# 兼容版: pip install tensorflow==2.9.0
