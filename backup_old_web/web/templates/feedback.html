@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}用户反馈 - 金融新闻爬虫系统{% endblock %}
+
+{% block content %}
+<div class="container" id="main-content">
+    <div class="feedback-container">
+        <h1 class="page-title">用户反馈</h1>
+        <p class="feedback-intro">感谢您使用我们的金融新闻爬虫系统。您的反馈对我们非常重要，它将帮助我们不断改进系统功能和用户体验。</p>
+        
+        <div class="feedback-tabs">
+            <a href="{{ url_for('feedback') }}" class="tab-link active">提交反馈</a>
+            <a href="{{ url_for('feedback_status') }}" class="tab-link">查询状态</a>
+        </div>
+        
+        <div class="feedback-form-container">
+            <form id="feedbackForm" class="feedback-form" aria-labelledby="feedback-form-title" method="post" action="{{ url_for('feedback') }}">
+                <h2 id="feedback-form-title" class="form-section-title">提交您的反馈</h2>
+                
+                {% if success_message %}
+                <div class="alert alert-success" role="alert">
+                    {{ success_message }}
+                </div>
+                {% endif %}
+                
+                {% if error_message %}
+                <div class="alert alert-error" role="alert">
+                    {{ error_message }}
+                </div>
+                {% endif %}
+                
+                <div class="form-group">
+                    <label for="feedbackType" class="form-label">反馈类型</label>
+                    <select id="feedbackType" name="feedback_type" class="form-select" required aria-required="true">
+                        <option value="">请选择反馈类型</option>
+                        <option value="bug">问题报告</option>
+                        <option value="feature">功能建议</option>
+                        <option value="improvement">改进意见</option>
+                        <option value="other">其他</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="feedbackTitle" class="form-label">标题</label>
+                    <input type="text" id="feedbackTitle" name="title" class="form-input" placeholder="请简要描述您的反馈" required aria-required="true">
+                </div>
+                
+                <div class="form-group">
+                    <label for="feedbackContent" class="form-label">详细内容</label>
+                    <textarea id="feedbackContent" name="content" class="form-textarea" rows="5" placeholder="请详细描述您的反馈内容..." required aria-required="true"></textarea>
+                    <div class="character-counter"><span id="charCount">0</span>/500</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="userEmail" class="form-label">电子邮箱 (可选)</label>
+                    <input type="email" id="userEmail" name="email" class="form-input" placeholder="您的电子邮箱，方便我们回复您">
+                    <small class="form-text">我们不会将您的邮箱用于其他目的</small>
+                </div>
+                
+                <div class="form-group">
+                    <div class="form-check">
+                        <input type="checkbox" id="urgentFlag" name="urgent" class="form-checkbox">
+                        <label for="urgentFlag" class="form-check-label">这是一个紧急问题</label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <div class="form-check">
+                        <input type="checkbox" id="termsAgree" name="terms_agree" class="form-checkbox" required aria-required="true">
+                        <label for="termsAgree" class="form-check-label">我同意<a href="#" class="text-link">隐私政策</a>和<a href="#" class="text-link">用户条款</a></label>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary submit-btn">提交反馈</button>
+                    <button type="reset" class="btn btn-secondary reset-btn">重置</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="feedback-faq">
+            <h2 class="form-section-title">常见问题</h2>
+            <div class="accordion" id="faqAccordion">
+                <div class="accordion-item">
+                    <h3 class="accordion-header">
+                        <button class="accordion-button" type="button" aria-expanded="false" aria-controls="faq1">
+                            我的反馈会得到回复吗？
+                        </button>
+                    </h3>
+                    <div id="faq1" class="accordion-content">
+                        <p>如果您在反馈中提供了电子邮箱，我们会尽快回复您。对于紧急问题，我们会优先处理。</p>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <h3 class="accordion-header">
+                        <button class="accordion-button" type="button" aria-expanded="false" aria-controls="faq2">
+                            如何跟踪我的反馈状态？
+                        </button>
+                    </h3>
+                    <div id="faq2" class="accordion-content">
+                        <p>提交反馈后，您会收到一个跟踪ID。您可以使用此ID在<a href="{{ url_for('feedback_status') }}" class="text-link">反馈状态</a>页面查询处理进度。</p>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <h3 class="accordion-header">
+                        <button class="accordion-button" type="button" aria-expanded="false" aria-controls="faq3">
+                            我可以修改已提交的反馈吗？
+                        </button>
+                    </h3>
+                    <div id="faq3" class="accordion-content">
+                        <p>目前不支持直接修改已提交的反馈。如需补充信息，请提交新的反馈并注明之前的跟踪ID。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 字符计数器
+        const textarea = document.getElementById('feedbackContent');
+        const charCount = document.getElementById('charCount');
+        
+        textarea.addEventListener('input', function() {
+            const count = this.value.length;
+            charCount.textContent = count;
+            
+            if (count > 500) {
+                charCount.classList.add('text-error');
+                textarea.classList.add('input-error');
+            } else {
+                charCount.classList.remove('text-error');
+                textarea.classList.remove('input-error');
+            }
+        });
+        
+        // 手风琴功能
+        const accordionButtons = document.querySelectorAll('.accordion-button');
+        
+        accordionButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const expanded = this.getAttribute('aria-expanded') === 'true';
+                
+                // 关闭所有其他面板
+                accordionButtons.forEach(btn => {
+                    if (btn !== this) {
+                        btn.setAttribute('aria-expanded', 'false');
+                        const panel = document.getElementById(btn.getAttribute('aria-controls'));
+                        panel.style.maxHeight = null;
+                    }
+                });
+                
+                // 切换当前面板
+                this.setAttribute('aria-expanded', !expanded);
+                const panel = document.getElementById(this.getAttribute('aria-controls'));
+                
+                if (!expanded) {
+                    panel.style.maxHeight = panel.scrollHeight + 'px';
+                } else {
+                    panel.style.maxHeight = null;
+                }
+            });
+            
+            // 键盘支持
+            button.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.click();
+                }
+            });
+        });
+        
+        // 表单验证
+        const form = document.getElementById('feedbackForm');
+        
+        form.addEventListener('submit', function(e) {
+            // 简单验证
+            let valid = true;
+            const requiredFields = form.querySelectorAll('[required]');
+            
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    field.classList.add('input-error');
+                    valid = false;
+                } else {
+                    field.classList.remove('input-error');
+                }
+            });
+            
+            const textarea = document.getElementById('feedbackContent');
+            if (textarea.value.length > 500) {
+                textarea.classList.add('input-error');
+                valid = false;
+            }
+            
+            if (!valid) {
+                e.preventDefault();
+                
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'alert alert-error';
+                errorMessage.setAttribute('role', 'alert');
+                errorMessage.textContent = '请检查表单中的错误并重新提交';
+                
+                // 检查是否已经存在错误消息
+                const existingError = form.querySelector('.alert-error');
+                if (!existingError) {
+                    form.insertBefore(errorMessage, form.firstChild);
+                }
+                
+                // 3秒后隐藏错误消息
+                setTimeout(() => {
+                    errorMessage.style.opacity = '0';
+                    setTimeout(() => {
+                        errorMessage.remove();
+                    }, 300);
+                }, 3000);
+            }
+        });
+    });
+</script>
+{% endblock %} 

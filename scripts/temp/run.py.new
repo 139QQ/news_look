@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+NewsLook 主入口脚本
+
+用法:
+    python run.py crawler [--source SOURCE] [--days DAYS]
+    python run.py scheduler [--interval INTERVAL]
+    python run.py web [--host HOST] [--port PORT] [--debug]
+    python run.py --help
+
+选项:
+    --help          显示帮助信息
+    --config        指定配置文件路径
+    --db-dir        指定数据库目录
+    --log-level     指定日志级别
+
+爬虫模式:
+    --source        指定新闻来源（不指定则爬取所有来源）
+    --days          爬取最近几天的新闻（默认为1天）
+
+调度器模式:
+    --interval      调度间隔，单位为秒（默认3600秒）
+
+Web应用模式:
+    --host          Web服务器地址（默认0.0.0.0）
+    --port          Web服务器端口（默认8000）
+    --debug         启用调试模式
+"""
+
+import os
+import sys
+import logging
+from newslook.config import config_manager, create_default_config
+
+# 确保创建日志目录
+os.makedirs("logs", exist_ok=True)
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("logs/newslook.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("run")
+
+def init_config():
+    """初始化配置"""
+    # 创建默认配置文件（如果不存在）
+    if not os.path.exists("config.ini"):
+        create_default_config()
+    
+    # 解析命令行参数
+    args = config_manager.parse_args()
+    
+    # 设置日志级别
+    log_level = config_manager.get("Logging", "LOG_LEVEL", "INFO")
+    if args.log_level:
+        log_level = args.log_level
+    
+    numeric_level = getattr(logging, log_level.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError(f'Invalid log level: {log_level}')
+    
+    logging.getLogger().setLevel(numeric_level)
+    
+    logger.info(f"运行模式: {args.command}")
+    return args
+
+def run_crawler(args):
+    """运行爬虫模式"""
+    from newslook.crawlers import CrawlerManager
+    
+    source = args.source
+    days = args.days if args.days else config_manager.get_int("Sources", "DEFAULT_DAYS", 1)
+    
+    logger.info(f"爬虫模式启动: 来源={source or '所有'}, 天数={days}")
+    
+    # 获取配置
+    settings = config_manager.get_all_settings()
+    
+    # 创建并运行爬虫管理器
+    crawler_manager = CrawlerManager(settings)
+    result = crawler_manager.run(source=source, days=days)
+    
+    logger.info(f"爬虫运行完成: 共爬取 {result['total']} 条新闻")
+    return result
+
+def run_scheduler(args):
+    """运行调度器模式"""
+    from newslook.tasks import Scheduler
+    
+    interval = args.interval if args.interval else config_manager.get_int("Scheduler", "INTERVAL", 3600)
+    
+    logger.info(f"调度器模式启动: 间隔={interval}秒")
+    
+    # 获取配置
+    settings = config_manager.get_all_settings()
+    
+    # 创建并运行调度器
+    scheduler = Scheduler(settings, interval=interval)
+    scheduler.start()
+    
+    return {"status": "running", "interval": interval}
+
+def run_web(args):
+    """运行Web应用模式"""
+    from newslook.web import create_app
+    
+    host = args.host or config_manager.get("Web", "HOST", "0.0.0.0")
+    port = args.port or config_manager.get_int("Web", "PORT", 8000)
+    debug = args.debug or config_manager.get_bool("Web", "DEBUG", False)
+    
+    logger.info(f"Web应用模式启动: host={host}, port={port}, debug={debug}")
+    
+    # 获取配置
+    settings = config_manager.get_all_settings()
+    
+    # 创建并运行Web应用
+    app = create_app(settings)
+    app.run(host=host, port=port, debug=debug)
+    
+    return {"status": "running", "host": host, "port": port}
+
+def main():
+    """主函数"""
+    try:
+        # 初始化配置
+        args = init_config()
+        
+        # 根据命令选择运行模式
+        if args.command == "crawler":
+            run_crawler(args)
+        elif args.command == "scheduler":
+            run_scheduler(args)
+        elif args.command == "web":
+            run_web(args)
+        else:
+            logger.error(f"未知命令: {args.command}")
+            print(__doc__)
+            sys.exit(1)
+    
+    except KeyboardInterrupt:
+        logger.info("程序被用户中断")
+        sys.exit(0)
+    except Exception as e:
+        logger.exception(f"程序运行出错: {str(e)}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main() 

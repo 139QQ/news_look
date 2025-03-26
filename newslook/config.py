@@ -14,12 +14,8 @@ import argparse
 from typing import Dict, Any, Optional, Union
 import logging
 
-# 日志设置
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger("config")
+# 移动logging导入位置，确保在系统环境初始化完成之后再导入
+# 这里暂时不导入get_logger，稍后处理
 
 class ConfigManager:
     """配置管理类，负责读取和管理所有配置项"""
@@ -34,6 +30,11 @@ class ConfigManager:
         self.config = configparser.ConfigParser()
         self.config_loaded = False
         self.config_file = config_file or self._find_config_file()
+        
+        # 创建一个临时的日志记录器
+        self.logger = logging.getLogger("config")
+        
+        # 加载配置
         self.load_config()
         
         # 命令行参数
@@ -70,12 +71,12 @@ class ConfigManager:
         # 按优先级检查文件是否存在
         for location in possible_locations:
             if os.path.isfile(location):
-                logger.info(f"找到配置文件: {location}")
+                print(f"找到配置文件: {location}")
                 return location
         
         # 没有找到，返回默认位置
         default_location = "./config.ini"
-        logger.warning(f"未找到配置文件，将使用默认位置: {default_location}")
+        print(f"未找到配置文件，将使用默认位置: {default_location}")
         return default_location
     
     def load_config(self) -> bool:
@@ -89,13 +90,13 @@ class ConfigManager:
             if os.path.isfile(self.config_file):
                 self.config.read(self.config_file, encoding='utf-8')
                 self.config_loaded = True
-                logger.info(f"成功加载配置文件: {self.config_file}")
+                print(f"成功加载配置文件: {self.config_file}")
                 return True
             else:
-                logger.warning(f"配置文件不存在: {self.config_file}")
+                print(f"配置文件不存在: {self.config_file}")
                 return False
         except Exception as e:
-            logger.error(f"加载配置文件出错: {str(e)}")
+            print(f"加载配置文件出错: {str(e)}")
             return False
     
     def parse_args(self, args=None):
@@ -207,7 +208,7 @@ class ConfigManager:
         try:
             return int(value)
         except (ValueError, TypeError):
-            logger.warning(f"配置项 {section}.{option} 值 '{value}' 不是有效的整数，使用默认值 {fallback}")
+            self.logger.warning(f"配置项 {section}.{option} 值 '{value}' 不是有效的整数，使用默认值 {fallback}")
             return fallback
     
     def get_float(self, section: str, option: str, fallback: Optional[float] = None) -> Optional[float]:
@@ -218,7 +219,7 @@ class ConfigManager:
         try:
             return float(value)
         except (ValueError, TypeError):
-            logger.warning(f"配置项 {section}.{option} 值 '{value}' 不是有效的浮点数，使用默认值 {fallback}")
+            self.logger.warning(f"配置项 {section}.{option} 值 '{value}' 不是有效的浮点数，使用默认值 {fallback}")
             return fallback
     
     def get_bool(self, section: str, option: str, fallback: Optional[bool] = None) -> Optional[bool]:
@@ -241,7 +242,7 @@ class ConfigManager:
             return [item.strip() for item in value.split(delimiter)]
         if isinstance(value, list):
             return value
-        logger.warning(f"配置项 {section}.{option} 值 '{value}' 无法转换为列表，使用默认值 {fallback}")
+        self.logger.warning(f"配置项 {section}.{option} 值 '{value}' 无法转换为列表，使用默认值 {fallback}")
         return fallback or []
     
     def get_db_dir(self) -> str:
@@ -263,7 +264,7 @@ class ConfigManager:
     def create_default_config(self) -> bool:
         """创建默认配置文件（如果不存在）"""
         if os.path.exists(self.config_file):
-            logger.info(f"配置文件已存在: {self.config_file}")
+            self.logger.info(f"配置文件已存在: {self.config_file}")
             return False
         
         try:
@@ -308,15 +309,29 @@ class ConfigManager:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 config.write(f)
             
-            logger.info(f"已创建默认配置文件: {self.config_file}")
+            self.logger.info(f"已创建默认配置文件: {self.config_file}")
             
             # 重新加载配置
             self.load_config()
             
             return True
         except Exception as e:
-            logger.error(f"创建默认配置文件失败: {str(e)}")
+            self.logger.error(f"创建默认配置文件失败: {str(e)}")
             return False
+
+    def update_settings(self, key, value):
+        """更新配置项"""
+        for section in self.config.sections():
+            for option in self.config[section]:
+                if option.upper() == key.upper():
+                    self.config[section][option] = str(value)
+                    return True
+        
+        # 如果找不到匹配的配置项，可以添加到默认节
+        if 'DEFAULT' not in self.config:
+            self.config['DEFAULT'] = {}
+        self.config['DEFAULT'][key] = str(value)
+        return True
 
 
 # 创建全局配置管理器实例
@@ -341,4 +356,46 @@ def get_all_settings() -> Dict[str, Dict[str, Any]]:
 
 def create_default_config() -> bool:
     """创建默认配置文件"""
-    return config_manager.create_default_config() 
+    return config_manager.create_default_config()
+
+def get_settings():
+    """获取所有配置设置"""
+    settings = config_manager.get_all_settings() or {}
+    
+    # 确保DB_DIR设置存在且是绝对路径
+    if 'DB_DIR' not in settings or not settings['DB_DIR']:
+        # 优先使用环境变量
+        if 'DB_DIR' in os.environ and os.environ['DB_DIR']:
+            db_dir = os.environ['DB_DIR']
+        else:
+            # 默认使用项目根目录下的data/db目录
+            db_dir = os.path.join(os.getcwd(), 'data', 'db')
+        
+        # 确保是绝对路径
+        if not os.path.isabs(db_dir):
+            db_dir = os.path.join(os.getcwd(), db_dir)
+            
+        settings['DB_DIR'] = db_dir
+        logger.info(f"使用数据库目录: {db_dir}")
+        
+        # 确保目录存在
+        if not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+            logger.info(f"创建数据库目录: {db_dir}")
+    
+    return settings
+
+# 在所有代码加载完毕后，再初始化日志系统，避免循环导入问题
+try:
+    from newslook.utils.logger import get_logger
+    # 更新日志记录器为正确的日志器
+    logger = get_logger("config")
+    
+    # 更新ConfigManager实例的logger
+    config_manager.logger = logger
+except ImportError:
+    logger = logging.getLogger("config")
+    logger.warning("无法导入newslook.utils.logger，使用基本日志记录器")
+except Exception as e:
+    logger = logging.getLogger("config")
+    logger.error(f"初始化日志记录器时出错: {str(e)}") 

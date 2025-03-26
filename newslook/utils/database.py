@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Float, ForeignKey, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from app.config import get_settings
-from app.utils.logger import get_logger
+from newslook.config import get_settings
+from newslook.utils.logger import get_logger
 import uuid
 
 # 设置日志记录器
@@ -53,6 +53,13 @@ class NewsDatabase:
         
         # 确保DB_DIR存在且为绝对路径
         self.db_dir = settings.get('DB_DIR')
+        
+        # 检查db_dir是否为None或为空
+        if not self.db_dir:
+            logger.warning("配置中的DB_DIR为空，使用默认路径")
+            self.db_dir = os.path.join(os.getcwd(), 'data', 'db')
+            
+        # 确保是绝对路径
         if not os.path.isabs(self.db_dir):
             self.db_dir = os.path.join(os.getcwd(), self.db_dir)
             
@@ -292,6 +299,8 @@ class NewsDatabase:
                 logger.error(f"没有找到有效的数据库文件")
                 return []
             
+            logger.info(f"开始从 {len(valid_db_paths)} 个数据库文件查询新闻")
+            
             # 记录已处理的新闻URL，避免重复
             processed_urls = set()
                 
@@ -403,7 +412,9 @@ class NewsDatabase:
             results.sort(key=lambda x: x.get('pub_time', ''), reverse=True)
             
             # 应用分页
-            return results[offset:offset+limit]
+            paginated_results = results[offset:offset+limit]
+            logger.info(f"查询返回结果总数: {len(results)}，分页后返回: {len(paginated_results)}")
+            return paginated_results
             
         except Exception as e:
             logger.error(f"查询新闻失败: {str(e)}")
@@ -457,7 +468,7 @@ class NewsDatabase:
         
         conn.commit()
     
-    def get_news_count(self, keyword=None, days=None, source=None):
+    def get_news_count(self, keyword=None, days=None, source=None, category=None, start_date=None, end_date=None):
         """
         获取新闻数量
         
@@ -465,6 +476,9 @@ class NewsDatabase:
             keyword: 搜索关键词（可选）
             days: 最近几天的新闻（可选）
             source: 新闻来源（可选）
+            category: 新闻分类（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
             
         Returns:
             int: 符合条件的新闻总数
@@ -577,6 +591,102 @@ class NewsDatabase:
             logger.error(f"获取新闻数量失败: {str(e)}")
         
         return total_count
+    
+    def get_daily_counts(self, start_date, end_date):
+        """
+        获取指定日期范围内每日新闻数量
+        
+        Args:
+            start_date: 开始日期
+            end_date: 结束日期
+            
+        Returns:
+            list: 包含每日新闻数量的列表，每个元素为包含日期和新闻数量的字典
+        """
+        daily_counts = []
+        
+        # 确保start_date和end_date是datetime对象
+        if isinstance(start_date, str):
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        if isinstance(end_date, str):
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+            
+        # 生成日期范围
+        current_date = start_date
+        while current_date <= end_date:
+            date_str = current_date.strftime('%Y-%m-%d')
+            
+            # 统计当天的新闻数量
+            total_count = 0
+            counted_urls = set()
+            
+            for db_path in self.all_db_paths:
+                try:
+                    conn = sqlite3.connect(db_path)
+                    cursor = conn.cursor()
+                    
+                    # 查询当天的新闻数量
+                    cursor.execute("SELECT url FROM news WHERE pub_time LIKE ?", (f"{date_str}%",))
+                    for url_row in cursor.fetchall():
+                        url = url_row[0]
+                        if url and url not in counted_urls:
+                            counted_urls.add(url)
+                            total_count += 1
+                            
+                    conn.close()
+                except Exception as e:
+                    logger.error(f"查询日期统计失败: {str(e)}")
+            
+            daily_counts.append({
+                'date': date_str,
+                'count': total_count
+            })
+            
+            current_date += timedelta(days=1)
+            
+        return daily_counts
+        
+    def get_popular_keywords(self, limit=20):
+        """
+        获取热门关键词
+        
+        Args:
+            limit: 返回的关键词数量
+            
+        Returns:
+            list: 包含关键词和出现次数的列表
+        """
+        keywords_count = {}
+        
+        # 统计所有数据库中的关键词
+        for db_path in self.all_db_paths:
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                
+                # 查询所有新闻的关键词
+                cursor.execute("SELECT keywords FROM news WHERE keywords IS NOT NULL AND keywords != ''")
+                for row in cursor.fetchall():
+                    try:
+                        if row[0]:
+                            keywords = json.loads(row[0])
+                            for keyword in keywords:
+                                if keyword in keywords_count:
+                                    keywords_count[keyword] += 1
+                                else:
+                                    keywords_count[keyword] = 1
+                    except Exception as e:
+                        logger.error(f"处理关键词失败: {str(e)}")
+                
+                conn.close()
+            except Exception as e:
+                logger.error(f"查询关键词统计失败: {str(e)}")
+        
+        # 按出现次数排序
+        sorted_keywords = sorted(keywords_count.items(), key=lambda x: x[1], reverse=True)
+        
+        # 返回前limit个关键词
+        return [{'keyword': k, 'count': v} for k, v in sorted_keywords[:limit]]
     
     def get_sources(self):
         """获取所有新闻来源"""
@@ -695,6 +805,8 @@ class NewsDatabase:
             # 确定要查询的数据库列表
             db_paths = self.all_db_paths
             
+            logger.info(f"开始查询新闻ID: {news_id}，将在 {len(db_paths)} 个数据库中搜索")
+            
             # 检查数据库文件是否存在
             valid_db_paths = []
             for db_path in db_paths:
@@ -707,12 +819,14 @@ class NewsDatabase:
                 logger.error(f"没有找到有效的数据库文件")
                 return None
             
+            logger.info(f"将在 {len(valid_db_paths)} 个有效数据库中搜索新闻ID: {news_id}")
+            
             # 尝试从所有数据库查询
             for db_path in valid_db_paths:
                 try:
                     # 尝试从数据库文件名中提取来源
                     db_source = os.path.basename(db_path).replace('.db', '')
-                    logger.debug(f"在数据库 {db_path} 中查询新闻ID: {news_id}")
+                    logger.info(f"在数据库 {db_path} 中查询新闻ID: {news_id}")
                     
                     conn = sqlite3.connect(db_path)
                     conn.row_factory = sqlite3.Row
@@ -726,9 +840,25 @@ class NewsDatabase:
                         conn.close()
                         continue
                     
+                    # 获取表中记录数量
+                    cursor.execute("SELECT COUNT(*) FROM news")
+                    count = cursor.fetchone()[0]
+                    logger.info(f"数据库 {db_path} 中有 {count} 条新闻记录")
+                    
+                    if count == 0:
+                        logger.warning(f"数据库 {db_path} 中没有新闻记录，跳过")
+                        conn.close()
+                        continue
+                    
                     # 查询指定ID的新闻
                     cursor.execute("SELECT * FROM news WHERE id = ?", (news_id,))
                     row = cursor.fetchone()
+                    
+                    if not row:
+                        # 尝试使用LIKE查询，可能存在ID格式不一致的情况
+                        logger.info(f"在数据库 {db_path} 中未找到精确匹配的新闻ID: {news_id}，尝试模糊匹配")
+                        cursor.execute("SELECT * FROM news WHERE id LIKE ?", (f"%{news_id}%",))
+                        row = cursor.fetchone()
                     
                     if row:
                         # 转换为字典
@@ -739,14 +869,31 @@ class NewsDatabase:
                         # 处理JSON字段
                         try:
                             if 'keywords' in news and news['keywords']:
-                                news['keywords'] = json.loads(news['keywords'])
+                                if isinstance(news['keywords'], str):
+                                    try:
+                                        news['keywords'] = json.loads(news['keywords'])
+                                    except json.JSONDecodeError:
+                                        # 如果不是有效的JSON，尝试按逗号分割
+                                        news['keywords'] = [k.strip() for k in news['keywords'].split(',') if k.strip()]
+                                        
                             if 'images' in news and news['images']:
-                                news['images'] = json.loads(news['images'])
+                                if isinstance(news['images'], str):
+                                    try:
+                                        news['images'] = json.loads(news['images'])
+                                    except json.JSONDecodeError:
+                                        # 如果不是有效的JSON，尝试按逗号分割
+                                        news['images'] = [img.strip() for img in news['images'].split(',') if img.strip()]
+                                        
                             if 'related_stocks' in news and news['related_stocks']:
-                                news['related_stocks'] = json.loads(news['related_stocks'])
-                        except json.JSONDecodeError:
-                            # 如果JSON解析失败，保持原始字符串
-                            pass
+                                if isinstance(news['related_stocks'], str):
+                                    try:
+                                        news['related_stocks'] = json.loads(news['related_stocks'])
+                                    except json.JSONDecodeError:
+                                        # 如果不是有效的JSON，尝试按逗号分割
+                                        news['related_stocks'] = [s.strip() for s in news['related_stocks'].split(',') if s.strip()]
+                        except Exception as e:
+                            # 如果处理JSON时出错，记录错误但继续执行
+                            logger.error(f"处理新闻JSON字段失败: {str(e)}")
                         
                         conn.close()
                         logger.info(f"在数据库 {db_path} 中找到新闻ID: {news_id}")
@@ -754,13 +901,40 @@ class NewsDatabase:
                     
                     conn.close()
                 except Exception as e:
-                    logger.error(f"查询新闻详情失败: {str(e)}")
+                    logger.error(f"查询新闻详情失败: {str(e)}, 数据库: {db_path}")
             
+            # 移除自动返回最新新闻的逻辑，改为显示明确的错误提示
             logger.warning(f"在所有数据库中未找到新闻ID: {news_id}")
-            return None  # 所有数据库都未找到，返回None
+            
+            # 返回一个明确的"新闻不存在"对象，而不是随机替代新闻
+            not_found_news = {
+                'id': str(uuid.uuid4()),
+                'title': '新闻不存在',
+                'content': f'您请求的新闻ID {news_id} 不存在或已被删除。请返回首页浏览其他新闻。',
+                'source': '系统提示',
+                'pub_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'crawl_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'url': '#',
+                'keywords': ['新闻不存在', '查询失败'],
+                'images': []
+            }
+            return not_found_news
         except Exception as e:
             logger.error(f"获取新闻详情失败: {str(e)}")
-            return None
+            
+            # 返回一个默认的错误新闻对象而不是None
+            error_news = {
+                'id': str(uuid.uuid4()),
+                'title': '获取新闻详情时出错',
+                'content': f'获取新闻ID {news_id} 时发生错误: {str(e)}。请联系系统管理员或稍后再试。',
+                'source': '系统错误',
+                'pub_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'crawl_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'url': '#',
+                'keywords': ['系统错误', '获取失败'],
+                'images': []
+            }
+            return error_news
 
     def update_unknown_sources(self):
         """

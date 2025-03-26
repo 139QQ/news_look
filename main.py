@@ -22,7 +22,10 @@ from crawlers.ifeng_crawler import IfengCrawler
 # from api.rss_reader import get_rss_news
 from api.news_api import get_api_news
 from utils.crawler_manager import run_crawlers
-from web.app import create_app
+# 删除旧版web应用导入
+# from web.app import create_app
+# 添加新版web应用导入
+from newslook.web import create_app
 
 # 设置日志
 logger = setup_daily_logger(name="main", module="main")

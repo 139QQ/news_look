@@ -1,0 +1,110 @@
+:root {
+  /* 主色调 - 蓝色系统 */
+  --primary-50: #e3f2fd;
+  --primary-100: #bbdefb;
+  --primary-200: #90caf9;
+  --primary-300: #64b5f6;
+  --primary-400: #42a5f5;
+  --primary-500: #2196f3; /* 统一主色调 */
+  --primary-600: #1e88e5;
+  --primary-700: #1976d2;
+  --primary-800: #1565c0;
+  --primary-900: #0d47a1;
+  
+  /* 中性色 - 灰色系统 */
+  --neutral-50: #f8f9fa;
+  --neutral-100: #f1f3f5;
+  --neutral-200: #e9ecef;
+  --neutral-300: #dee2e6;
+  --neutral-400: #ced4da;
+  --neutral-500: #adb5bd;
+  --neutral-600: #868e96;
+  --neutral-700: #495057;
+  --neutral-800: #343a40;
+  --neutral-900: #212529;
+  
+  /* 功能色 */
+  --success: #4caf50;
+  --success-light: #a5d6a7;
+  --success-dark: #388e3c;
+  
+  --warning: #ff9800;
+  --warning-light: #ffcc80;
+  --warning-dark: #f57c00;
+  
+  --error: #f44336;
+  --error-light: #ef9a9a;
+  --error-dark: #d32f2f;
+  
+  --info: #2196f3;
+  --info-light: #90caf9;
+  --info-dark: #1976d2;
+  
+  /* 文字颜色 */
+  --text-primary: #212529;
+  --text-secondary: #495057;
+  --text-tertiary: #868e96;
+  --text-light: #f8f9fa;
+  
+  /* 背景色 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #f1f3f5;
+  
+  /* 暗色模式颜色 */
+  --dark-bg-primary: #212529;
+  --dark-bg-secondary: #343a40;
+  --dark-bg-tertiary: #495057;
+  --dark-text-primary: #f8f9fa;
+  --dark-text-secondary: #e9ecef;
+  --dark-text-tertiary: #adb5bd;
+  --dark-card: #343a40;
+  --dark-border: #495057;
+  
+  /* 间距 - 保持一致的8px倍数 */
+  --spacing-xxs: 4px;
+  --spacing-xs: 8px;
+  --spacing-sm: 16px;
+  --spacing-md: 24px;
+  --spacing-lg: 32px;
+  --spacing-xl: 48px;
+  --spacing-xxl: 64px;
+  
+  /* 圆角 */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-circle: 50%;
+  
+  /* 阴影 */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+  --shadow-xl: 0 15px 25px rgba(0,0,0,0.15);
+  
+  /* 字体 */
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-xxl: 24px;
+  
+  /* 行高 */
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-loose: 1.75;
+  
+  /* 过渡 */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+  --transition-slow: 0.4s ease;
+  
+  /* 边框 */
+  --border-width-thin: 1px;
+  --border-width-normal: 2px;
+  --border-width-thick: 3px;
+  --border-color: var(--neutral-300);
+} 

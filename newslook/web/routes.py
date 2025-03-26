@@ -12,9 +12,9 @@ import psutil
 import platform
 from datetime import datetime, timedelta
 from flask import render_template, request, redirect, url_for, flash, jsonify, send_from_directory
-from app.utils.database import NewsDatabase
-from app.utils.logger import get_logger
-from app.config import get_settings
+from newslook.utils.database import NewsDatabase
+from newslook.utils.logger import get_logger
+from newslook.config import get_settings
 import sqlite3
 
 logger = get_logger(__name__)
@@ -42,49 +42,78 @@ def register_routes(app):
         # 每页显示的新闻数量
         per_page = 10
         
+        logger.info(f"首页请求: 关键词={keyword}, 来源={source}, 天数={days}, 页码={page}")
+        
         # 查询数据库 - 始终使用所有可用的数据库
         db = NewsDatabase(use_all_dbs=True)
-        news_list = db.query_news(
-            keyword=keyword if keyword else None,
-            days=days,
-            source=source if source else None,
-            limit=per_page,
-            offset=(page - 1) * per_page
-        )
         
-        # 获取总数
-        total_count = db.get_news_count(
-            keyword=keyword if keyword else None,
-            days=days,
-            source=source if source else None
-        )
-        
-        # 获取新闻来源列表
-        sources = db.get_sources()
-        
-        # 获取统计数据
-        today = datetime.now().date()
-        today_count = db.get_news_count(days=1)
-        source_count = len(sources)
-        categories = db.get_categories()
-        category_count = len(categories)
-        
-        # 计算总页数
-        total_pages = (total_count + per_page - 1) // per_page
-        
-        return render_template('index.html',
-                             news_list=news_list,
-                             total_news=total_count,
-                             today_news=today_count,
-                             source_count=source_count,
-                             category_count=category_count,
-                             total_pages=total_pages,
-                             current_page=page,
-                             keyword=keyword,
-                             source=source,
-                             days=days,
-                             view_mode=view_mode,
-                             sources=sources)
+        try:
+            # 获取新闻列表
+            news_list = db.query_news(
+                keyword=keyword if keyword else None,
+                days=days,
+                source=source if source else None,
+                limit=per_page,
+                offset=(page - 1) * per_page
+            )
+            
+            logger.info(f"查询到 {len(news_list)} 条新闻")
+            
+            # 获取总数
+            total_count = db.get_news_count(
+                keyword=keyword if keyword else None,
+                days=days,
+                source=source if source else None
+            )
+            
+            logger.info(f"符合条件的新闻总数: {total_count}")
+            
+            # 获取新闻来源列表
+            sources = db.get_sources()
+            logger.info(f"获取到 {len(sources)} 个新闻来源")
+            
+            # 获取统计数据
+            today = datetime.now().date()
+            today_count = db.get_news_count(days=1)
+            source_count = len(sources)
+            categories = db.get_categories()
+            
+            # 获取热门关键词
+            top_keywords = db.get_popular_keywords(limit=10)
+            
+            # 计算总页数
+            total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+            
+            return render_template('index.html',
+                                news_list=news_list,
+                                keyword=keyword,
+                                source=source,
+                                days=days,
+                                page=page,
+                                total_pages=total_pages,
+                                total_count=total_count,
+                                sources=sources,
+                                today_count=today_count,
+                                source_count=source_count,
+                                categories=categories,
+                                top_keywords=top_keywords,
+                                view_mode=view_mode)
+        except Exception as e:
+            logger.error(f"首页处理出错: {str(e)}")
+            return render_template('index.html',
+                                news_list=[],
+                                keyword=keyword,
+                                source=source,
+                                days=days,
+                                page=page,
+                                total_pages=1,
+                                total_count=0,
+                                sources=[],
+                                today_count=0,
+                                source_count=0,
+                                categories=[],
+                                top_keywords=[],
+                                view_mode=view_mode)
     
     @app.route('/crawler_status')
     def crawler_status():
@@ -134,6 +163,103 @@ def register_routes(app):
                              crawlers=crawlers,
                              system_info=system_info,
                              sources=sources)
+    
+    @app.route('/dashboard')
+    def dashboard():
+        """数据统计页面"""
+        # 获取时间范围参数
+        start_date = request.args.get('start_date', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+        end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+        
+        try:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+        except ValueError:
+            start_date = datetime.now() - timedelta(days=30)
+            end_date = datetime.now()
+        
+        # 查询数据库
+        db = NewsDatabase(use_all_dbs=True)
+        
+        # 获取总统计数据
+        total_news = db.get_news_count()
+        today_news = db.get_news_count(days=1)
+        week_news = db.get_news_count(days=7)
+        month_news = db.get_news_count(days=30)
+        
+        # 获取来源统计
+        sources = db.get_sources()
+        source_counts = []
+        for source in sources:
+            count = db.get_news_count(source=source)
+            source_counts.append({'name': source, 'count': count})
+        
+        # 按新闻数量排序
+        source_counts.sort(key=lambda x: x['count'], reverse=True)
+        
+        # 获取日期趋势数据
+        trend_data = db.get_daily_counts(start_date, end_date)
+        trend_dates = [item['date'] for item in trend_data]
+        trend_counts = [item['count'] for item in trend_data]
+        
+        # 获取热门关键词
+        keywords = db.get_popular_keywords(limit=20)
+        
+        # 获取分类统计
+        categories = db.get_categories()
+        category_counts = []
+        for category in categories:
+            count = db.get_news_count(category=category)
+            category_counts.append({'name': category, 'count': count})
+        
+        # 按新闻数量排序
+        category_counts.sort(key=lambda x: x['count'], reverse=True)
+        
+        # 准备图表数据
+        source_data = {
+            'labels': [item['name'] for item in source_counts[:10]],
+            'counts': [item['count'] for item in source_counts[:10]]
+        }
+        
+        keyword_data = {
+            'labels': [item['keyword'] for item in keywords[:10]],
+            'counts': [item['count'] for item in keywords[:10]]
+        }
+        
+        # 准备源数据标签和数据
+        source_labels = [item['name'] for item in source_counts[:10]]
+        source_data_values = [item['count'] for item in source_counts[:10]]
+        
+        # 准备趋势图数据标签
+        trend_labels = trend_dates
+        trend_data_values = trend_counts
+        
+        # 添加情感分析数据（临时数据，实际应从数据库获取）
+        positive_count = int(total_news * 0.3)  # 假设30%为积极
+        neutral_count = int(total_news * 0.5)   # 假设50%为中性
+        negative_count = total_news - positive_count - neutral_count  # 剩余为消极
+        
+        return render_template('dashboard.html',
+                             total_news=total_news,
+                             today_news=today_news,
+                             week_news=week_news,
+                             month_news=month_news,
+                             sources=sources,
+                             source_counts=source_counts,
+                             start_date=start_date.strftime('%Y-%m-%d'),
+                             end_date=end_date.strftime('%Y-%m-%d'),
+                             trend_dates=trend_dates,
+                             trend_counts=trend_counts,
+                             trend_labels=trend_labels,
+                             trend_data=trend_data_values,
+                             source_data=source_data,
+                             keyword_data=keyword_data,
+                             source_labels=source_labels,
+                             source_data_values=source_data_values,
+                             positive_count=positive_count,
+                             neutral_count=neutral_count,
+                             negative_count=negative_count,
+                             categories=categories)
     
     @app.route('/data_analysis')
     def data_analysis():
@@ -224,6 +350,48 @@ def register_routes(app):
         return render_template('settings.html',
                              settings=settings,
                              system_info=system_info)
+    
+    @app.route('/test')
+    def test_page():
+        """测试页面（仅用于测试编码）"""
+        return render_template('test.html')
+    
+    @app.route('/api/test')
+    def test_api():
+        """测试API（仅用于测试编码）"""
+        from flask import jsonify
+        return jsonify({
+            'status': 'success',
+            'message': '这是中文测试',
+            'data': {
+                'chinese': '中文',
+                'number': 123,
+                'english': 'abc',
+                'sources': ['新浪财经', '腾讯财经', '东方财富']
+            }
+        })
+    
+    @app.route('/test_direct')
+    def test_direct():
+        """直接返回HTML（测试编码）"""
+        html_content = """
+        <!DOCTYPE html>
+        <html lang="zh-CN">
+        <head>
+            <meta charset="UTF-8">
+            <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+            <title>直接测试页面</title>
+        </head>
+        <body>
+            <h1>这是一个测试页面</h1>
+            <p>测试中文显示</p>
+            <p>测试数字: 1234567890</p>
+            <p>测试英文: abcdefg</p>
+        </body>
+        </html>
+        """
+        from flask import Response
+        return Response(html_content, mimetype='text/html; charset=utf-8')
     
     # API路由
     @app.route('/api/crawlers/<name>/start', methods=['POST'])
@@ -325,41 +493,94 @@ def register_routes(app):
     @app.route('/news/<news_id>')
     def news_detail(news_id):
         """新闻详情页面"""
-        # 始终使用所有可用的数据库
-        db = NewsDatabase(use_all_dbs=True)
+        logger.info(f"访问新闻详情，ID: {news_id}")
         
-        # 获取新闻详情
-        news = db.get_news_by_id(news_id)
-        
-        if not news:
-            flash('新闻不存在或已被删除', 'danger')
-            return redirect(url_for('index'))
+        try:
+            # 始终使用所有可用的数据库
+            db = NewsDatabase(use_all_dbs=True)
             
-        # 查询相关新闻
-        related_news = []
-        if 'keywords' in news and news['keywords']:
-            try:
-                # 从关键词中提取查询条件
-                if isinstance(news['keywords'], str):
-                    try:
-                        keywords = json.loads(news['keywords'])
-                    except:
-                        keywords = news['keywords'].split(',')
-                else:
-                    keywords = news['keywords']
+            # 尝试查询前记录一下检查所有数据库路径
+            db_paths = db.all_db_paths if hasattr(db, 'all_db_paths') else []
+            logger.info(f"将在以下数据库中查询新闻ID {news_id}: {', '.join(db_paths)}")
+            
+            # 获取新闻详情
+            news = db.get_news_by_id(news_id)
+            
+            # 检查是否是"新闻不存在"提示对象
+            if news and news.get('title') == '新闻不存在':
+                flash('新闻不存在或已被删除', 'danger')
+                logger.warning(f"返回新闻不存在对象，重定向到首页")
+                return redirect(url_for('index'))
                 
-                if keywords:
-                    # 使用第一个关键词查询
-                    keyword = keywords[0] if isinstance(keywords, list) else keywords
-                    related_news = db.query_news(
-                        keyword=keyword,
-                        limit=5,
-                        source=news.get('source')
-                    )
-            except Exception as e:
-                logger.error(f"查询相关新闻失败: {str(e)}")
-        
-        return render_template('news_detail.html', news=news, related_news=related_news)
+            # 如果news为None，也显示不存在提示
+            if not news:
+                logger.warning(f"新闻不存在，ID: {news_id}，重定向到首页")
+                flash('新闻不存在或已被删除', 'danger')
+                return redirect(url_for('index'))
+                
+            logger.info(f"成功获取新闻详情: {news.get('title', '无标题')}, 来源: {news.get('source', '未知')}")
+            
+            # 检查必要的字段是否存在
+            required_fields = ['title', 'content', 'pub_time']
+            for field in required_fields:
+                if field not in news or not news[field]:
+                    if field == 'content':
+                        # 如果内容为空，添加一个提示信息
+                        news['content'] = "该新闻暂无详细内容，请点击查看原文获取更多信息。"
+                    else:
+                        # 其他必要字段为空，添加默认值
+                        news[field] = f"未知{field}" if field != 'pub_time' else datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    logger.warning(f"新闻缺少{field}字段，已添加默认值")
+            
+            # 查询相关新闻
+            related_news = []
+            source_to_use = news.get('source')
+            
+            if 'keywords' in news and news['keywords']:
+                try:
+                    # 从关键词中提取查询条件
+                    if isinstance(news['keywords'], str):
+                        try:
+                            keywords = json.loads(news['keywords'])
+                        except:
+                            keywords = news['keywords'].split(',')
+                    else:
+                        keywords = news['keywords']
+                    
+                    logger.info(f"新闻关键词: {keywords}")
+                    
+                    if keywords:
+                        # 使用第一个关键词查询
+                        keyword = keywords[0] if isinstance(keywords, list) else keywords
+                        # 确保查询相关新闻时只获取同一来源的新闻，避免混淆
+                        logger.info(f"查询相关新闻，使用关键词: {keyword}, 来源: {source_to_use}")
+                        related_news = db.query_news(
+                            keyword=keyword,
+                            limit=5,
+                            source=source_to_use
+                        )
+                        logger.info(f"获取到 {len(related_news)} 条相关新闻")
+                        for i, rel_news in enumerate(related_news):
+                            logger.info(f"相关新闻 {i+1}: {rel_news.get('title', '无标题')}")
+                except Exception as e:
+                    logger.error(f"查询相关新闻失败: {str(e)}")
+                    logger.exception(e)
+            
+            # 确保图片字段正确处理
+            if 'images' in news and news['images']:
+                if isinstance(news['images'], str):
+                    try:
+                        news['images'] = json.loads(news['images'])
+                    except:
+                        news['images'] = [img.strip() for img in news['images'].split(',') if img.strip()]
+                    logger.info(f"处理新闻图片: {news['images']}")
+            
+            return render_template('news_detail.html', news=news, related_news=related_news)
+        except Exception as e:
+            logger.error(f"处理新闻详情页面出错: {str(e)}")
+            logger.exception(e)
+            flash(f'查看新闻详情时发生错误: {str(e)}', 'danger')
+            return redirect(url_for('index'))
     
     @app.route('/stats')
     def stats():

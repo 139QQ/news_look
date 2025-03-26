@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}爬虫状态 - 财经新闻爬虫系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2 class="mb-4">爬虫状态</h2>
+        
+        <!-- 爬虫状态卡片 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">今日爬取</h5>
+                        <p class="card-text display-6">{{ today_count }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">本周爬取</h5>
+                        <p class="card-text display-6">{{ week_count }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">本月爬取</h5>
+                        <p class="card-text display-6">{{ month_count }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">总新闻数</h5>
+                        <p class="card-text display-6">{{ total_count }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 爬虫任务列表 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">爬虫任务</h5>
+                <button class="btn btn-primary" onclick="startAllCrawlers()">
+                    <i class="bi bi-play-fill"></i> 启动所有爬虫
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>爬虫名称</th>
+                                <th>状态</th>
+                                <th>上次运行</th>
+                                <th>下次运行</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for crawler in crawlers %}
+                            <tr>
+                                <td>{{ crawler.name }}</td>
+                                <td>
+                                    <span class="badge bg-{{ crawler.status_color }}">
+                                        {{ crawler.status }}
+                                    </span>
+                                </td>
+                                <td>{{ crawler.last_run }}</td>
+                                <td>{{ crawler.next_run }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary" onclick="startCrawler('{{ crawler.name }}')">
+                                        <i class="bi bi-play-fill"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="stopCrawler('{{ crawler.name }}')">
+                                        <i class="bi bi-stop-fill"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近日志 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">最近日志</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>时间</th>
+                                <th>爬虫</th>
+                                <th>级别</th>
+                                <th>消息</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_logs %}
+                            <tr>
+                                <td>{{ log.timestamp }}</td>
+                                <td>{{ log.crawler }}</td>
+                                <td>
+                                    <span class="badge bg-{{ log.level_color }}">
+                                        {{ log.level }}
+                                    </span>
+                                </td>
+                                <td>{{ log.message }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function startCrawler(name) {
+    fetch(`/api/crawlers/${name}/start`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('启动爬虫失败：' + data.message);
+        }
+    });
+}
+
+function stopCrawler(name) {
+    fetch(`/api/crawlers/${name}/stop`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('停止爬虫失败：' + data.message);
+        }
+    });
+}
+
+function startAllCrawlers() {
+    fetch('/api/crawlers/start_all', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('启动所有爬虫失败：' + data.message);
+        }
+    });
+}
+</script>
+{% endblock %} 

@@ -1,5 +1,5 @@
 @echo off
-REM 财经新闻爬虫系统 - Web启动脚本
+REM 财经新闻爬虫系统 - Web启动脚本（新版）
 echo 正在启动财经新闻爬虫系统Web应用...
 
 REM 检查Python环境
@@ -16,7 +16,7 @@ if not exist "data" mkdir data
 if not exist "data\db" mkdir data\db
 
 REM 设置环境变量
-set DB_DIR=%cd%\data\db
+set DB_DIR=D:\Git\Github\NewsLook\data\db
 
 REM 启动Web应用（使用新版模块）
 echo 使用新版模块启动Web应用...

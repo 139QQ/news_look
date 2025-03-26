@@ -21,10 +21,18 @@
                 <span class="me-3"><i class="bi bi-person"></i> {{ news.author }}</span>
                 {% endif %}
                 <span class="badge 
-                    {% if news.sentiment > 0.2 %}bg-success
-                    {% elif news.sentiment < -0.2 %}bg-danger
+                    {% if news.sentiment is defined and news.sentiment is not none %}
+                        {% set sentiment_value = news.sentiment|float if news.sentiment is string else news.sentiment %}
+                        {% if sentiment_value > 0.2 %}bg-success
+                        {% elif sentiment_value < -0.2 %}bg-danger
+                        {% else %}bg-secondary{% endif %}
                     {% else %}bg-secondary{% endif %} me-2">
-                    情感: {{ "%.2f"|format(news.sentiment) }}
+                    情感: 
+                    {% if news.sentiment is defined and news.sentiment is not none %}
+                        {{ "%.2f"|format(news.sentiment|float if news.sentiment is string else news.sentiment) }}
+                    {% else %}
+                        未知
+                    {% endif %}
                 </span>
                 <a href="{{ news.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-link-45deg"></i> 查看原文
@@ -33,9 +41,15 @@
             
             {% if news.keywords %}
             <div class="news-keywords mb-3">
-                {% for kw in news.keywords.split(',') %}
-                <span class="badge bg-light text-dark me-1">{{ kw.strip() }}</span>
-                {% endfor %}
+                {% if news.keywords is string %}
+                    {% for kw in news.keywords.split(',') %}
+                        <span class="badge bg-light text-dark me-1">{{ kw.strip() }}</span>
+                    {% endfor %}
+                {% else %}
+                    {% for kw in news.keywords %}
+                        <span class="badge bg-light text-dark me-1">{{ kw }}</span>
+                    {% endfor %}
+                {% endif %}
             </div>
             {% endif %}
             
@@ -91,6 +105,15 @@
                         <div class="news-meta">
                             <span class="badge bg-primary">{{ item.source }}</span>
                             <span class="text-muted"><i class="bi bi-calendar"></i> {{ item.pub_time }}</span>
+                            {% if item.sentiment is defined and item.sentiment is not none %}
+                                {% set sentiment_value = item.sentiment|float if item.sentiment is string else item.sentiment %}
+                                <span class="badge 
+                                    {% if sentiment_value > 0.2 %}bg-success
+                                    {% elif sentiment_value < -0.2 %}bg-danger
+                                    {% else %}bg-secondary{% endif %} ms-1">
+                                    情感: {{ "%.2f"|format(sentiment_value) }}
+                                </span>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

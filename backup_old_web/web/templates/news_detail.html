@@ -1,0 +1,259 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ news.title }} - 财经新闻爬虫系统{% endblock %}
+
+{% block content %}
+<div class="news-detail-container">
+    <!-- 面包屑导航 -->
+    <div class="breadcrumb-container">
+        <a href="{{ url_for('index') }}" class="breadcrumb-link">首页</a>
+        <span class="breadcrumb-separator"><i class="icon-arrow-right"></i></span>
+        <span class="breadcrumb-current">新闻详情</span>
+    </div>
+    
+    <!-- 新闻详情 -->
+    <article class="news-detail-card">
+        <header class="news-detail-header">
+            <h1 class="news-detail-title">{{ news.title }}</h1>
+            <div class="news-detail-meta">
+                <span class="news-source"><i class="icon-source"></i> {{ news.source }}</span>
+                <span class="news-time"><i class="icon-time"></i> {{ news.pub_time }}</span>
+                {% if news.author %}
+                <span class="news-author">{{ news.author }}</span>
+                {% endif %}
+                <span class="sentiment-indicator 
+                    {% if news.sentiment > 0.2 %}sentiment-positive
+                    {% elif news.sentiment < -0.2 %}sentiment-negative
+                    {% else %}sentiment-neutral{% endif %}" 
+                    title="情感值: {{ "%.2f"|format(news.sentiment) }}">
+                </span>
+            </div>
+        </header>
+        
+        <div class="news-detail-content">
+            {% if "图片链接:" in news.content %}
+            {% set parts = news.content.split("图片链接:") %}
+            <div class="content-text">
+                {{ parts[0]|replace("\n", "<br>")|safe }}
+            </div>
+            <div class="news-images">
+                {% for img in parts[1].strip().split("\n") %}
+                {% if img.strip() %}
+                <div class="news-image-container">
+                    <img src="{{ img.strip() }}" alt="新闻图片" class="news-image">
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="content-text">
+                {{ news.content|replace("\n", "<br>")|safe }}
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if news.keywords %}
+        <div class="news-detail-keywords">
+            <h3 class="keywords-title"><i class="icon-keyword"></i> 关键词</h3>
+            <div class="keywords-grid">
+                {% for keyword in news.keywords.split(',') %}
+                <a href="{{ url_for('index', keyword=keyword.strip()) }}" class="keyword-tag">
+                    {{ keyword.strip() }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="news-detail-actions">
+            <a href="{{ news.url }}" target="_blank" class="action-button primary">
+                <i class="icon-arrow-right"></i> 查看原文
+            </a>
+            <a href="{{ url_for('index') }}" class="action-button secondary">
+                <i class="icon-arrow-left"></i> 返回列表
+            </a>
+        </div>
+    </article>
+    
+    {% if related_news %}
+    <section class="related-news-section">
+        <h2 class="section-title"><i class="icon-keyword"></i> 相关新闻</h2>
+        <div class="related-news-grid">
+            {% for item in related_news %}
+            <article class="news-card">
+                <h3 class="news-title">
+                    <a href="{{ url_for('news_detail', news_id=item.id) }}">{{ item.title }}</a>
+                </h3>
+                <div class="news-meta">
+                    <span class="news-source"><i class="icon-source"></i> {{ item.source }}</span>
+                    <span class="news-time"><i class="icon-time"></i> {{ item.pub_time }}</span>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .news-detail-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: var(--spacing-md);
+    }
+    
+    .breadcrumb-container {
+        margin-bottom: var(--spacing-md);
+        color: var(--text-tertiary);
+        font-size: var(--font-size-sm);
+    }
+    
+    .breadcrumb-link {
+        color: var(--primary-500);
+    }
+    
+    .breadcrumb-separator {
+        margin: 0 var(--spacing-xs);
+        font-size: 10px;
+    }
+    
+    .breadcrumb-current {
+        color: var(--text-secondary);
+    }
+    
+    .news-detail-card {
+        background-color: white;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        padding: var(--spacing-lg);
+        margin-bottom: var(--spacing-lg);
+    }
+    
+    .news-detail-header {
+        margin-bottom: var(--spacing-lg);
+        padding-bottom: var(--spacing-md);
+        border-bottom: 1px solid var(--neutral-100);
+    }
+    
+    .news-detail-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: var(--spacing-md);
+        line-height: 1.4;
+    }
+    
+    .news-detail-meta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: var(--spacing-md);
+        font-size: var(--font-size-xs);
+        color: var(--text-tertiary);
+    }
+    
+    .news-detail-content {
+        font-size: var(--font-size-md);
+        line-height: 1.6;
+        color: var(--text-primary);
+        margin-bottom: var(--spacing-lg);
+    }
+    
+    .news-images {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: var(--spacing-md);
+        margin-top: var(--spacing-md);
+    }
+    
+    .news-image {
+        width: 100%;
+        height: auto;
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .news-detail-keywords {
+        margin-bottom: var(--spacing-lg);
+        padding-top: var(--spacing-md);
+        border-top: 1px solid var(--neutral-100);
+    }
+    
+    .keywords-title {
+        font-size: var(--font-size-md);
+        margin-bottom: var(--spacing-sm);
+        color: var(--text-primary);
+    }
+    
+    .news-detail-actions {
+        display: flex;
+        gap: var(--spacing-md);
+    }
+    
+    .action-button {
+        padding: var(--spacing-sm) var(--spacing-lg);
+        border-radius: var(--radius-sm);
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        text-align: center;
+        transition: all 0.2s;
+    }
+    
+    .action-button:hover {
+        text-decoration: none;
+        transform: translateY(-2px);
+    }
+    
+    .action-button.primary {
+        background-color: var(--primary-500);
+        color: white;
+    }
+    
+    .action-button.primary:hover {
+        background-color: var(--primary-600);
+    }
+    
+    .action-button.secondary {
+        background-color: var(--neutral-100);
+        color: var(--text-primary);
+    }
+    
+    .action-button.secondary:hover {
+        background-color: var(--neutral-200);
+    }
+    
+    .related-news-section {
+        background-color: white;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        padding: var(--spacing-lg);
+    }
+    
+    .related-news-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: var(--spacing-md);
+        margin-top: var(--spacing-md);
+    }
+    
+    @media (max-width: 768px) {
+        .news-detail-card {
+            padding: var(--spacing-md);
+        }
+        
+        .news-detail-title {
+            font-size: 20px;
+        }
+        
+        .news-detail-actions {
+            flex-direction: column;
+        }
+        
+        .related-news-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %} 
