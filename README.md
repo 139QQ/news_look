@@ -340,383 +340,168 @@ class ExampleCrawler(BaseCrawler):
         pass
 ```
 
+# NewsLook 项目优化总结与使用指南
 
+*生成时间: 2025年3月24日20:09:07更新*
 
-# 东方财富网爬虫
+## 项目概述
 
-## Eastmoney爬虫
+NewsLook 是一个财经新闻爬虫系统，专注于抓取、处理、存储和展示财经新闻数据。本项目采用模块化设计，易于扩展和维护，支持多种运行模式，包括爬虫模式、调度器模式和Web应用模式。
 
-东方财富网爬虫是一个高效的财经新闻爬取工具，从各个财经类别中抓取最新的新闻和市场动态。
+## 项目结构优化
 
-### 功能特点
-
-- **多类别支持**：支持财经、股票、基金、债券、期货、外汇、黄金等多个金融新闻类别
-- **高效请求**：使用requests库直接请求网页，无需浏览器自动化，性能提升300%
-- **智能解析**：多级选择器和多种匹配策略，提高内容提取成功率
-- **内容清洗**：精准过滤广告和无关内容，保证文本质量
-- **情感分析**：对新闻内容进行情感分析，判断正面、负面或中性
-- **数据存储**：支持将爬取结果存入数据库和文本文件
-
-### 使用方法
-
-```bash
-# 爬取财经类别的新闻（默认）
-python run_eastmoney.py
-
-# 爬取指定类别的新闻
-python run_eastmoney.py --categories 股票 基金
-
-# 爬取所有类别的新闻
-python run_eastmoney.py --categories all
-
-# 指定最大爬取数量
-python run_eastmoney.py --max-news 10
-
-# 指定爬取几天内的新闻
-python run_eastmoney.py --days 3
-
-# 调试模式
-python run_eastmoney.py --debug
-```
-
-### 参数说明
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| --categories | 要爬取的新闻类别，支持：财经、股票、基金、债券、期货、外汇、黄金 | 财经 |
-| --max-news | 每个类别最大爬取的新闻数量 | 20 |
-| --days | 爬取几天内的新闻 | 7 |
-| --debug | 是否开启调试模式 | False |
-| --output-dir | 输出目录 | ./data/output |
-
-### 输出示例
-
-```json
-{
-  "id": "a1b2c3d4e5f6g7h8i9j0",
-  "url": "https://finance.eastmoney.com/a/202501010123456789.html",
-  "title": "市场分析：A股有望迎来开门红",
-  "content": "分析师认为，随着政策利好不断释放，A股市场有望在新年伊始迎来一波上涨行情...",
-  "pub_time": "2025-01-01 08:30:00",
-  "author": "东方财富网",
-  "keywords": "A股,政策,利好,上涨",
-  "sentiment": "正面",
-  "category": "股票",
-  "crawl_time": "2025-01-01 09:15:30",
-  "source": "东方财富网"
-}
-```
-
-## 数据结构
-
-爬取的新闻数据包含以下字段：
-
-- `id`: 新闻ID（唯一标识）
-- `url`: 新闻URL
-- `title`: 新闻标题
-- `content`: 新闻内容（纯文本）
-- `content_html`: 新闻内容（HTML格式）
-- `pub_time`: 发布时间
-- `author`: 作者
-- `keywords`: 关键词
-- `images`: 图片URL列表
-- `related_stocks`: 相关股票
-- `sentiment`: 情感倾向（正面/负面/中性）
-- `classification`: 新闻分类
-- `crawl_time`: 爬取时间
-
-## 反爬机制
-
-本爬虫实现了多种反爬机制，以应对网站的反爬措施：
-
-1. **随机User-Agent**：每次请求使用不同的浏览器标识
-2. **随机Referer**：模拟从不同网站跳转
-3. **随机Cookie**：生成随机的Cookie值
-4. **请求延迟**：随机延迟请求，避免频繁访问
-5. **指数退避策略**：请求失败时，采用指数退避策略增加等待时间
-6. **多种请求方式**：支持普通请求、移动端请求和Selenium模拟浏览器
-7. **智能重试**：遇到403、429等错误时智能重试
-8. **内容检测**：检测响应内容是否包含反爬关键词
-
-### 应对403 Forbidden错误
-
-如果遇到403 Forbidden错误，可以尝试以下方法：
-
-1. 增加请求延迟：`--delay 10`
-2. 使用Selenium模拟浏览器：`--use-selenium`
-3. 减少爬取数量：`--max-news 20`
-4. 使用代理：`--use-proxy`
-
-## 常见问题
-
-### 无法提取发布时间
-
-有些新闻页面的发布时间格式不统一，爬虫会尝试多种方式提取：
-
-1. 从HTML元素中提取
-2. 从URL中提取日期信息
-3. 如果都失败，则使用当前时间
-
-### 遇到403 Forbidden错误
-
-这通常是因为网站的反爬机制，可以尝试以下解决方法：
-
-1. 使用`--use-selenium`参数启用Selenium模拟浏览器
-2. 增加`--delay`参数值，减少请求频率
-3. 使用`--use-proxy`参数启用代理
-
-## 开发者文档
-
-主要文件说明：
-
-- `run_eastmoney.py`: 主程序入口
-- `app/crawlers/eastmoney.py`: 东方财富网爬虫实现
-- `app/crawlers/base.py`: 爬虫基类
-- `app/db/sqlite_manager.py`: SQLite数据库管理器
-
-## 许可证
-
-MIT License
-
-## 最新更新
-
-### 2025年3月 - 参数优化与代码精简
-
-我们对系统进行了全面的参数和命名优化，主要改进包括：
-
-- **代码精简**：移除了冗余参数和不必要的命名，减少了代码行数
-- **参数结构优化**：统一了命令行参数的结构，提高了一致性
-- **启动脚本改进**：简化了启动脚本，使其更加清晰直观
-- **日志系统优化**：重构了日志设置代码，减少了重复内容
-
-这些优化使代码更加简洁和可维护，同时也提高了系统的稳定性和性能。详细改进可以查看 `docs/项目优化汇总.md` 文件中的"参数和命名优化"部分。
-
-### 2025年4月 - 编码优化与乱码处理
-
-为解决爬取财经网站时遇到的编码和乱码问题，我们进行了以下关键优化：
-
-- **多重编码处理**：增强了对UTF-8、GBK、GB18030等多种编码的智能识别和转换能力
-- **Unicode转义序列解码**：新增`decode_unicode_escape`函数处理类似`\u4e2d\u56fd`的Unicode转义序列
-- **URL编码字符解码**：新增`decode_url_encoded`函数处理类似`%E4%B8%AD%E5%9B%BD`的URL编码字符
-- **HTML实体解码增强**：扩展了`decode_html_entities`函数的能力，添加更多常见HTML实体的处理
-- **编码流程优化**：在爬取、解析和存储过程中实施多阶段编码检测和转换
-- **乱码自动修复**：对于特定网站（如新浪财经、腾讯财经）实现了定制化的乱码修复机制
-
-这些优化显著提高了系统处理中文内容的能力，解决了中文乱码问题，特别是在处理财经网站混合编码的情况时。具体实现可查看`app/utils/text_cleaner.py`和`app/crawlers/sina.py`等文件。
-
-### 2025年5月 - 数据库存储优化
-
-为提高数据管理效率和简化系统架构，我们对数据库存储机制进行了以下优化：
-
-- **固定数据库文件名**：改用固定命名格式`[source_name].db`（如`腾讯财经.db`），替代之前的时间戳命名方式
-- **直接数据库访问**：爬虫类实现了直接使用sqlite3连接将新闻保存到数据库，减少了中间层次
-- **自动表初始化**：系统运行时自动检查并创建所需的数据库表结构，确保数据一致性
-- **智能路径处理**：增强了数据库路径处理逻辑，支持多种可能的数据库位置
-- **出错自动重试**：优化了数据库操作的错误处理和重试机制
-
-这些优化带来了显著改进：
-1. 减少了数据库文件数量，避免了数据库文件爆炸性增长
-2. 简化了数据访问流程，网页应用始终能找到最新数据
-3. 减少了数据碎片化，提高了查询效率
-4. 降低了系统维护难度，数据备份更加便捷
-
-详细说明可参阅 `docs/数据库连接说明.md` 文件中的"数据库文件存储优化"部分。
-
-## 使用说明
-
-## 项目维护
-
-### 修复未知来源问题
-
-有时候系统可能会误抓取一些来源不明确的新闻，导致产生"未知来源"的记录。系统提供了以下方法处理这类问题：
-
-1. **使用管理界面**：在系统管理界面的"系统设置"中，提供了"更新未知来源"功能，可以根据URL特征自动识别并更新正确的来源。
-
-2. **运行修复脚本**：可以直接运行以下命令修复所有数据库中的未知来源记录：
-   ```bash
-   python -m app.utils.fix_unknown_sources
-   ```
-
-修复脚本会执行以下操作：
-- 扫描所有数据库中的未知来源记录
-- 根据URL特征自动推断并更新正确的来源
-- 对于无法自动识别的记录，根据数据库名称设置默认来源
-- 删除空的"未知来源"数据库文件
-- 创建备份以确保数据安全
-
-为避免产生未知来源记录，爬虫基类已增强源码验证，确保每个爬虫子类在初始化时正确设置`source`属性。爬虫管理器也会在启动时验证每个爬虫的来源设置，确保系统稳定运行。
-
-# NewsLook 项目目录优化
-
-## 项目介绍
-
-NewsLook 是一个财经新闻爬虫系统，设计用于从各大财经网站（如新浪财经、腾讯财经、东方财富等）收集新闻数据。系统采用模块化设计，支持爬虫模式、调度器模式和Web应用模式三种运行方式。
-
-## 目录结构优化
-
-为了提高项目的可维护性和扩展性，我们对目录结构进行了优化，主要变化如下：
-
-1. **标准化目录结构**：采用符合Python项目最佳实践的目录结构
-2. **统一配置管理**：新增配置管理系统，支持配置文件、环境变量和命令行参数
-3. **优化脚本组织**：按功能对脚本进行分类，提高可维护性
-4. **规范化依赖管理**：为不同环境创建独立的依赖文件
-5. **文档结构化**：按类型组织文档，方便查找
-
-### 新的目录结构
+本项目最近完成了重大结构优化，现在使用模块化设计：
 
 ```
 NewsLook/
-├── newslook/                # 主源代码包
-│   ├── api/                 # API 接口模块
-│   ├── crawlers/            # 爬虫模块
-│   ├── tasks/               # 任务调度模块
-│   ├── utils/               # 工具函数
-│   ├── web/                 # Web 应用
-│   ├── __init__.py          # 包初始化文件
-│   └── config.py            # 统一配置管理
-├── data/                    # 数据存储
-│   └── db/                  # 数据库文件
-│       └── backup/          # 数据库备份子目录
-├── docs/                    # 文档
-│   ├── api/                 # API 文档
-│   ├── database/            # 数据库文档
-│   ├── development/         # 开发指南
-│   └── user/                # 用户手册
-├── scripts/                 # 工具脚本
-│   ├── backup/              # 备份脚本
-│   ├── database/            # 数据库维护脚本
-│   ├── deployment/          # 部署脚本
-│   └── utils/               # 实用工具脚本
-├── tests/                   # 测试目录
-│   ├── unit/                # 单元测试
-│   ├── integration/         # 集成测试
-│   └── data/                # 测试数据
-├── static/                  # 静态文件（已迁移到newslook/web/static/）
-├── templates/               # 模板文件（已迁移到newslook/web/templates/）
-├── requirements/            # 依赖管理
-│   ├── base.txt             # 基础依赖
-│   ├── dev.txt              # 开发环境依赖
-│   ├── prod.txt             # 生产环境依赖
-│   └── test.txt             # 测试环境依赖
-├── .gitignore               # Git 忽略文件
-├── setup.py                 # 项目安装配置
-├── README.md                # 项目说明文档
-├── CHANGELOG.md             # 版本变更记录
-├── LICENSE                  # 许可证文件
-├── Makefile                 # 项目管理命令
-├── run.py                   # 主运行入口
-└── config.ini               # 全局配置文件
+├── newslook/         # 主模块包
+│   ├── crawlers/     # 爬虫模块
+│   ├── tasks/        # 任务调度模块
+│   ├── utils/        # 工具函数
+│   └── web/          # Web应用模块
+├── data/             # 数据存储
+│   └── db/           # 数据库文件
+├── logs/             # 日志文件
+├── scripts/          # 运行脚本
+└── tests/            # 测试代码
 ```
 
-## 迁移指南
+### Web应用启动方法
 
-我们提供了自动化迁移工具，帮助您将现有项目迁移到新的目录结构。
+使用以下命令启动Web应用：
 
-### 迁移步骤
+```bash
+# 开发环境启动
+python run.py web --debug
 
-1. **准备工作**：
-   
-   确保您有当前项目的完整备份，或者所有更改已提交到版本控制系统。
+# 生产环境启动
+python run.py web
+```
 
-2. **执行迁移预检**：
+或者直接双击运行`start_web.bat`脚本。
 
-   ```bash
-   python scripts/migrate_structure.py --dry-run
-   ```
+### 数据库文件存储优化
 
-   此命令会显示将要执行的所有操作，但不会实际执行。请仔细检查输出，确认所有操作是否符合预期。
+系统现在使用以下数据库架构：
 
-3. **执行实际迁移**：
+1. **主数据库**: `finance_news.db` - 用于存储聚合的新闻数据
+2. **来源专用数据库**: 每个来源对应一个独立的数据库文件，如 `腾讯财经.db`、`新浪财经.db` 等
 
-   ```bash
-   python scripts/migrate_structure.py
-   ```
+系统会自动发现并使用这些数据库文件，允许查看并管理所有爬取的新闻数据。
 
-   此命令将执行实际的目录结构迁移操作。
+## 代码健康工具
 
-4. **创建配置文件**：
+为确保代码质量和项目健康，我们提供了一系列工具脚本：
 
-   ```bash
-   python scripts/utils/create_config.py
-   ```
+### 1. 代码健康检查工具
 
-   此命令将创建默认的配置文件。
+检查代码风格、静态类型、安全漏洞等，并生成健康报告。
 
-5. **验证迁移结果**：
+```bash
+python scripts/utils/code_health_check.py [--fix]
+```
 
-   检查新的目录结构是否符合预期，并测试系统的各项功能。
+参数:
+- `--fix`: 尝试自动修复发现的问题
 
-6. **更新导入语句**：
+### 2. 依赖分析工具
 
-   由于目录结构发生了变化，您可能需要更新代码中的导入语句。主要变化是：
+分析项目中的依赖关系，生成依赖图，检测循环依赖。
 
-   - `app.crawlers.*` → `newslook.crawlers.*`
-   - `app.utils.*` → `newslook.utils.*`
-   - `app.tasks.*` → `newslook.tasks.*`
-   - `app.web.*` → `newslook.web.*`
-   - `api.*` → `newslook.api.*`
+```bash
+python scripts/utils/dependency_analyzer.py [--output OUTPUT] [--format {png,svg,pdf}] [--mode {modules,packages,imports}]
+```
 
-## 配置系统使用指南
+参数:
+- `--output`: 输出文件名前缀
+- `--format`: 输出图形格式
+- `--mode`: 分析模式
 
-新的配置系统支持从配置文件、环境变量和命令行参数获取配置，按照以下优先级：
+### 3. 性能分析工具
 
-1. 命令行参数（最高优先级）
-2. 环境变量
-3. 配置文件
-4. 默认值
+分析代码性能瓶颈，提供优化建议。
 
-### 配置文件
+```bash
+python scripts/utils/performance_profiler.py [--mode {cpu,memory,time,all}] [--target TARGET] [--output OUTPUT]
+```
 
-配置文件位于项目根目录的 `config.ini`，包括以下主要配置项：
+参数:
+- `--mode`: 分析模式
+- `--target`: 要分析的目标
+- `--output`: 输出文件名前缀
+
+### 4. 文档生成工具
+
+从代码注释生成项目文档。
+
+```bash
+python scripts/utils/documentation_generator.py [--output OUTPUT] [--format {html,markdown}] [--title TITLE] [--source SOURCE]
+```
+
+参数:
+- `--output`: 输出目录
+- `--format`: 文档格式
+- `--title`: 文档标题
+- `--source`: 源代码目录
+
+### 5. 依赖版本管理
+
+冻结项目依赖版本，确保环境一致性。
+
+```bash
+python scripts/utils/freeze_requirements.py
+```
+
+## 配置系统
+
+项目使用统一的配置管理系统，支持从命令行参数、环境变量和配置文件读取配置。优先级顺序为：命令行 > 环境变量 > 配置文件 > 默认值。
+
+### 生成默认配置
+
+```bash
+python scripts/create_config.py
+```
+
+配置文件示例:
 
 ```ini
 [Database]
-DB_DIR = data/db
-BACKUP_DIR = data/db/backup
+db_directory = data/db
+backup_directory = data/db/backup
 
 [Crawler]
-USER_AGENT = Mozilla/5.0 ...
-REQUEST_TIMEOUT = 30
-MAX_RETRIES = 3
-DEFAULT_ENCODING = utf-8
-
-[Sources]
-ENABLED_SOURCES = 新浪财经,腾讯财经,东方财富,网易财经,凤凰财经
-DEFAULT_DAYS = 3
+user_agent = Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36
+timeout = 10
+max_retries = 3
+default_encoding = utf-8
 
 [Web]
-HOST = 0.0.0.0
-PORT = 8000
-DEBUG = False
-SECRET_KEY = newslook_secret_key_change_this_in_production
+host = 0.0.0.0
+port = 5000
+debug = false
+secret_key = your_secret_key_here
+items_per_page = 20
 
 [Logging]
-LOG_LEVEL = INFO
-LOG_FILE = logs/newslook.log
+log_level = INFO
+log_file = logs/newslook.log
+log_rotation = true
+max_log_size = 10485760
+backup_count = 5
 
 [Scheduler]
-INTERVAL = 3600
-CRAWL_TIMES = 06:00,12:00,18:00,00:00
+interval = 3600
+start_on_boot = true
+scheduled_crawl = 08:00,20:00
 ```
 
-### 环境变量
-
-环境变量格式为 `NEWSLOOK_<SECTION>_<OPTION>`，例如：
-
-- `NEWSLOOK_DATABASE_DB_DIR`
-- `NEWSLOOK_WEB_PORT`
-- `NEWSLOOK_LOGGING_LOG_LEVEL`
+## 使用方式
 
 ### 命令行参数
 
-常用命令行参数：
+可以通过命令行参数指定运行模式和配置。
 
 ```bash
-# 通用参数
---config            指定配置文件路径
---db-dir            指定数据库目录
---log-level         指定日志级别
-
 # 爬虫模式
 python run.py crawler [--source SOURCE] [--days DAYS]
 
@@ -727,39 +512,55 @@ python run.py scheduler [--interval INTERVAL]
 python run.py web [--host HOST] [--port PORT] [--debug]
 ```
 
-## 脚本工具
-
 ### 数据库工具
 
-- **未知来源更新工具**：`python scripts/database/update_unknown_sources.py`
-- **未知来源检查工具**：`python scripts/database/check_unknown_sources.py`
-- **未知来源数据库合并工具**：`python scripts/database/merge_unknown_source.py`
+项目提供了数据库管理工具:
 
-### 配置工具
+```bash
+# 检查未知来源
+python scripts/db/check_unknown_sources.py
 
-- **配置文件生成工具**：`python scripts/utils/create_config.py`
+# 更新未知来源
+python scripts/db/update_unknown_sources.py
 
-## 开发注意事项
+# 合并数据库
+python scripts/db/merge_databases.py
+```
 
-1. 请使用相对导入语句，确保代码在任何环境下都能正常运行
-2. 所有新增的Python包和模块都应添加 `__init__.py` 文件
-3. 使用 `newslook.config` 模块获取配置，而不是硬编码配置
-4. 按照功能将脚本放在对应的子目录中
-5. 为新增功能编写单元测试
+## 开发最佳实践
 
-详细开发指南请参阅 `docs/development/` 目录下的文档。
+1. **使用相对导入**: 在包内使用相对导入，例如 `from ..utils import helper`
+2. **为新包添加`__init__.py`文件**: 确保新创建的包包含此文件
+3. **编写单元测试**: 为新功能编写单元测试
+4. **使用配置管理**: 使用配置管理系统而不是硬编码值
+5. **使用日志系统**: 使用统一的日志系统而不是print语句
+6. **规范代码风格**: 遵循PEP 8编码规范
 
 ## 数据库维护
 
-数据库文件存储在 `data/db` 目录下，每个来源使用独立的数据库文件：
+数据库文件存储在 `data/db` 目录下，备份存储在 `data/db/backup` 目录。详细的数据库维护指南请参阅 `docs/database/` 目录下的文档。
 
-- `finance_news.db` - 主数据库
-- `腾讯财经.db` - 腾讯财经新闻数据库
-- `新浪财经.db` - 新浪财经新闻数据库
-- `东方财富.db` - 东方财富新闻数据库
-- `网易财经.db` - 网易财经新闻数据库
-- `凤凰财经.db` - 凤凰财经新闻数据库
+## 贡献代码
 
-数据库备份存储在 `data/db/backup` 目录。
+欢迎贡献代码，请确保贡献的代码遵循本项目的编码规范，并通过了单元测试。提交前请运行代码健康检查工具确保代码质量。
 
-详细数据库维护指南请参阅 `docs/database/` 目录下的文档。
+## 项目文件整理 (2025-03-25)
+
+项目已完成文件整理，主要变动如下：
+
+1. 数据库相关工具移至 `scripts/db_utils` 目录
+   - 数据库检查工具
+   - 数据库修复工具
+   - 关键词修复工具
+
+2. 搜索工具移至 `scripts/search_utils` 目录
+   - 新闻搜索脚本
+   - 内容获取脚本
+   - 腾讯财经专用搜索工具
+
+3. Web应用工具准备目录 `scripts/web_utils`
+   - 未来将添加Web应用相关工具
+
+4. 清理了临时文件和乱码数据库文件
+
+每个工具目录下都添加了README.md文件，描述了目录中工具的用途和使用方法。
