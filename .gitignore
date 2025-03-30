@@ -53,7 +53,7 @@ coverage.xml
 *.pot
 
 # Django stuff:
-*.log
+
 local_settings.py
 db.sqlite3
 
@@ -125,3 +125,7 @@ debug/
 .vscode/
 *.swp
 *.swo 
+
+# windsurf rules
+.windsurfrules
+.gitignore
