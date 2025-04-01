@@ -355,7 +355,7 @@ class OptimizedCrawler(BaseCrawler):
             # 默认返回空字符串
             return ""
     
-    def crawl(self, days=1, max_news=None, check_status=True):
+    def crawl(self, days=1, max_news=None, check_status=True, category=None):
         """
         爬取新闻的主方法
         
@@ -363,6 +363,7 @@ class OptimizedCrawler(BaseCrawler):
             days: 爬取最近几天的新闻
             max_news: 最大新闻数量，None表示不限制
             check_status: 是否检查网站状态
+            category: 要爬取的特定分类，如财经、股票等
             
         Returns:
             list: 爬取的新闻列表
@@ -376,7 +377,7 @@ class OptimizedCrawler(BaseCrawler):
         # 开始计时
         self.crawl_stats["start_time"] = datetime.now()
         
-        logger.info(f"开始爬取 {self.source} 的财经新闻，爬取天数: {days}")
+        logger.info(f"开始爬取 {self.source} 的财经新闻，爬取天数: {days}" + (f", 分类: {category}" if category else ""))
         
         # 如果需要，检查网站状态
         if check_status and not self.check_website_status():
