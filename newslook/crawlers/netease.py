@@ -98,10 +98,10 @@ class NeteaseCrawler(BaseCrawler):
         # 清空新闻数据列表
         self.news_data = []
         
-        # 重置广告过滤计数
-        self.ad_filter.reset_filter_count()
-        # 重置广告图片过滤计数
-        self.image_detector.reset_ad_count()
+        # 重置广告过滤计数 - 已禁用URL广告过滤
+        # self.ad_filter.reset_filter_count()
+        # 重置广告图片过滤计数 - 已禁用图片过滤
+        # self.image_detector.reset_ad_count()
         
         # 计算开始日期
         start_date = datetime.now() - timedelta(days=days)
@@ -184,7 +184,7 @@ class NeteaseCrawler(BaseCrawler):
             except Exception as e:
                 logger.error(f"爬取分类 '{category}' 失败: {str(e)}")
         
-        logger.info(f"网易财经爬取完成，共爬取新闻: {len(self.news_data)} 条，过滤广告: {self.ad_filter.get_filter_count()} 条，过滤广告图片: {self.image_detector.get_ad_count()} 张")
+        logger.info(f"网易财经爬取完成，共爬取新闻: {len(self.news_data)} 条")
         return self.news_data
     
     def extract_news_links_from_home(self, html, category):
@@ -274,10 +274,10 @@ class NeteaseCrawler(BaseCrawler):
         if not url:
             return False
             
-        # 检查URL是否为广告
-        if self.ad_filter.is_ad_url(url):
-            logger.info(f"过滤广告URL: {url}")
-            return False
+        # 检查URL是否为广告 - 已移除广告过滤
+        # if self.ad_filter.is_ad_url(url):
+        #     logger.info(f"过滤广告URL: {url}")
+        #     return False
             
         # 网易财经新闻URL通常包含以下特征
         patterns = [
@@ -305,10 +305,10 @@ class NeteaseCrawler(BaseCrawler):
         """
         logger.info(f"爬取新闻详情: {url}")
         try:
-            # 判断URL是否为广告
-            if self.ad_filter.is_ad_url(url):
-                logger.info(f"跳过广告URL: {url}")
-                return None
+            # 判断URL是否为广告 - 已移除广告过滤
+            # if self.ad_filter.is_ad_url(url):
+            #     logger.info(f"跳过广告URL: {url}")
+            #     return None
                 
             html = self.fetch_page(url)
             if not html:
@@ -353,10 +353,9 @@ class NeteaseCrawler(BaseCrawler):
             # 提取作者
             author = self.extract_author(soup)
             
-            # 检测和过滤广告图片
+            # 检测和过滤广告图片 - 已移除图片过滤
             image_content_soup = BeautifulSoup(content_html, 'html.parser')
             image_urls = []
-            ad_images_removed = False
             
             for img in image_content_soup.find_all('img'):
                 img_url = img.get('src')
@@ -364,17 +363,14 @@ class NeteaseCrawler(BaseCrawler):
                     if img_url.startswith('//'):
                         img_url = 'https:' + img_url
                         
-                    if self.image_detector.is_ad_image(img_url, context={'category': category}):
-                        logger.info(f"过滤广告图片: {img_url}")
-                        img.decompose()  # 从HTML中移除广告图片
-                        ad_images_removed = True
-                    else:
-                        image_urls.append(img_url)
-            
-            # 如果移除了广告图片，更新内容HTML和纯文本
-            if ad_images_removed:
-                content_html = str(image_content_soup)
-                content = clean_html(content_html)
+                    # 不再过滤广告图片，保留所有图片
+                    # if self.image_detector.is_ad_image(img_url, context={'category': category}):
+                    #     logger.info(f"过滤广告图片: {img_url}")
+                    #     img.decompose()  # 从HTML中移除广告图片
+                    #     ad_images_removed = True
+                    # else:
+                    #     image_urls.append(img_url)
+                    image_urls.append(img_url)
             
             # 提取关键词
             keywords = extract_keywords(title + ' ' + content)
