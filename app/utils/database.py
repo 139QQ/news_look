@@ -847,15 +847,31 @@ class DatabaseManager:
         初始化数据库管理器
         
         Args:
-            db_dir: 数据库目录
+            db_dir: 数据库目录或数据库文件路径
         """
-        self.db_dir = db_dir
+        # 检查db_dir是否是一个文件路径（以.db结尾）
+        if db_dir.endswith('.db'):
+            # 如果是文件路径，分离目录和文件名
+            self.db_dir = os.path.dirname(db_dir)
+            self.main_db_path = db_dir
+        else:
+            # 如果是目录路径，使用默认文件名
+            self.db_dir = db_dir
+            self.main_db_path = os.path.join(db_dir, 'finance_news.db')
         
         # 确保数据库目录存在
-        os.makedirs(db_dir, exist_ok=True)
-        
-        # 主数据库路径
-        self.main_db_path = os.path.join(db_dir, 'finance_news.db')
+        if self.db_dir and not os.path.exists(self.db_dir):
+            try:
+                os.makedirs(self.db_dir, exist_ok=True)
+                logger.info(f"创建数据库目录: {self.db_dir}")
+            except Exception as e:
+                logger.error(f"创建数据库目录失败: {self.db_dir}, 错误: {str(e)}")
+                # 尝试使用当前目录
+                self.db_dir = os.path.join(os.getcwd(), 'data', 'db')
+                if not os.path.exists(self.db_dir):
+                    os.makedirs(self.db_dir, exist_ok=True)
+                self.main_db_path = os.path.join(self.db_dir, 'finance_news.db')
+                logger.info(f"使用备用数据库目录: {self.db_dir}")
     
     def get_connection(self, db_path=None):
         """
@@ -901,6 +917,7 @@ class DatabaseManager:
                     id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
                     content TEXT,
+                    content_html TEXT,
                     pub_time TEXT,
                     author TEXT,
                     source TEXT,
