@@ -9,22 +9,25 @@
 import re
 import time
 import random
+import hashlib
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 import json
 import urllib.parse
 from urllib.parse import urlparse, parse_qs
-import logging
 import requests
+import os
+import logging
+import traceback
 
 from app.crawlers.optimized_crawler import OptimizedCrawler
-from app.utils.logger import get_logger
+from app.utils.logger import get_crawler_logger
 from app.utils.text_cleaner import clean_html, extract_keywords
 from app.utils.ad_filter import AdFilter
 from app.utils.image_detector import ImageDetector
 
-# 设置日志记录器
-logger = get_logger('optimized_netease')
+# 设置日志记录器，确保日志输出到log文件夹
+logger = get_crawler_logger('netease')
 
 # 添加常用用户代理列表
 USER_AGENTS = [
@@ -91,6 +94,9 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
         # 设置来源名称
         self.source = "网易财经"
         
+        # 配置详细日志
+        self._setup_logger()
+        
         # 初始化父类
         super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, 
                         use_source_db=use_source_db, max_workers=max_workers, 
@@ -104,7 +110,7 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
         
         # 设置网易财经特有的请求头
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'User-Agent': random.choice(USER_AGENTS),
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
             'Connection': 'keep-alive',
@@ -113,7 +119,13 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
             'Upgrade-Insecure-Requests': '1'
         }
         
-        logger.info(f"优化的网易财经爬虫初始化完成，数据库路径: {self.db_path}")
+        # 获取并记录数据库路径
+        if self.db_manager and hasattr(self.db_manager, 'main_db_path'):
+            self.db_path = self.db_manager.main_db_path
+        elif not self.db_path and db_path:
+            self.db_path = db_path
+            
+        logger.info(f"优化的网易财经爬虫初始化完成，数据库路径: {self.db_path if self.db_path else '未指定'}")
         
         self.home_url = "https://money.163.com/"
         self.base_url = "https://money.163.com"
@@ -132,8 +144,26 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
             "Cache-Control": "max-age=0",
             "Referer": "https://www.163.com/"
         }
-    
-    def crawl(self, days=1, max_news=50, check_status=True):
+
+    def _setup_logger(self):
+        """配置详细的日志系统"""
+        global logger
+        
+        # 使用统一的爬虫日志记录器
+        logger = get_crawler_logger('netease')
+        logger.info("优化版网易财经爬虫日志系统初始化完成")
+        
+        # 记录数据库路径信息
+        if hasattr(self, 'db_path'):
+            logger.info(f"数据库路径: {self.db_path}")
+        
+        # 打印日志信息
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs', '网易财经')
+        today = datetime.now().strftime('%Y%m%d')
+        log_file = os.path.join(log_dir, f'netease_{today}.log')
+        logger.info(f"日志文件路径: {log_file}")
+
+    def crawl(self, days=1, max_news=50, check_status=True, category=None):
         """
         爬取网易财经的财经新闻
         
@@ -141,12 +171,13 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
             days: 爬取最近几天的新闻
             max_news: 最大新闻数量
             check_status: 是否检查网站状态
+            category: 要爬取的特定分类，如财经、股票等
             
         Returns:
             list: 爬取的新闻列表
         """
         # 调用父类方法初始化爬取状态
-        super().crawl(days, max_news, check_status)
+        super().crawl(days, max_news, check_status, category)
         
         # 清空新闻数据
         self.news_data = []
@@ -164,11 +195,11 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
             home_url = "https://money.163.com/"
             html = self.fetch_page(home_url)
             if html:
-                news_links = self.extract_news_links_from_home(html)
+                news_links = self._extract_news_links_from_home(html)
                 logger.info(f"从首页提取到新闻链接数量: {len(news_links)}")
                 
                 # 批量处理新闻链接
-                home_news = self.batch_process_news_links(news_links, "财经")
+                home_news = self._batch_process_news_links(news_links, "财经")
                 self.news_data.extend(home_news)
                 
                 # 如果已经达到最大新闻数量，则提前返回
@@ -178,43 +209,59 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
         except Exception as e:
             logger.error(f"从首页爬取新闻失败: {str(e)}")
         
-        # 从API获取各类新闻 - 由于API地址可能已失效，暂时跳过此步骤
-        # logger.info("开始从网易财经API获取各类新闻")
-        # try:
-        #     # 从各API获取新闻
-        #     for api_type, api_url in self.API_URL_TEMPLATES.items():
-        #         logger.info(f"开始获取 {api_type} 类新闻")
-        #         ...
-        # except Exception as e:
-        #     logger.error(f"从API爬取新闻失败: {str(e)}")
-        
         # 爬取各分类页面
         logger.info("开始爬取网易财经各分类页面")
         try:
-            for category, url in self.CATEGORY_URLS.items():
-                logger.info(f"开始爬取分类: {category}, URL: {url}")
-                
-                # 获取分类页面
-                html = self.fetch_page(url)
-                if not html:
-                    logger.warning(f"获取分类页面失败: {category}")
-                    continue
-                
-                # 提取新闻链接
-                news_links = self.extract_news_links(html)
-                logger.info(f"从分类 {category} 提取到 {len(news_links)} 条新闻链接")
-                
-                # 批量处理新闻链接
-                category_news = self.batch_process_news_links(news_links, category)
-                self.news_data.extend(category_news)
-                
-                # 如果已经达到最大新闻数量，则提前返回
-                if max_news and len(self.news_data) >= max_news:
-                    logger.info(f"已达到最大新闻数量 {max_news}，提前结束爬取")
-                    return self.news_data[:max_news]
-                
-                # 随机休眠，避免请求过快
-                time.sleep(2 + random.random())
+            if category:
+                if category in self.CATEGORY_URLS:
+                    logger.info(f"开始爬取分类: {category}, URL: {self.CATEGORY_URLS[category]}")
+                    
+                    # 获取分类页面
+                    html = self.fetch_page(self.CATEGORY_URLS[category])
+                    if not html:
+                        logger.warning(f"获取分类页面失败: {category}")
+                        return self.news_data
+                    
+                    # 提取新闻链接
+                    news_links = self._extract_news_links(html)
+                    logger.info(f"从分类 {category} 提取到 {len(news_links)} 条新闻链接")
+                    
+                    # 批量处理新闻链接
+                    category_news = self._batch_process_news_links(news_links, category)
+                    self.news_data.extend(category_news)
+                    
+                    # 如果已经达到最大新闻数量，则提前返回
+                    if max_news and len(self.news_data) >= max_news:
+                        logger.info(f"已达到最大新闻数量 {max_news}，提前结束爬取")
+                        return self.news_data[:max_news]
+                else:
+                    logger.warning(f"未找到分类: {category}")
+                    return self.news_data
+            else:
+                for category, url in self.CATEGORY_URLS.items():
+                    logger.info(f"开始爬取分类: {category}, URL: {url}")
+                    
+                    # 获取分类页面
+                    html = self.fetch_page(url)
+                    if not html:
+                        logger.warning(f"获取分类页面失败: {category}")
+                        continue
+                    
+                    # 提取新闻链接
+                    news_links = self._extract_news_links(html)
+                    logger.info(f"从分类 {category} 提取到 {len(news_links)} 条新闻链接")
+                    
+                    # 批量处理新闻链接
+                    category_news = self._batch_process_news_links(news_links, category)
+                    self.news_data.extend(category_news)
+                    
+                    # 如果已经达到最大新闻数量，则提前返回
+                    if max_news and len(self.news_data) >= max_news:
+                        logger.info(f"已达到最大新闻数量 {max_news}，提前结束爬取")
+                        return self.news_data[:max_news]
+                    
+                    # 随机休眠，避免请求过快
+                    time.sleep(2 + random.random())
         except Exception as e:
             logger.error(f"爬取分类页面失败: {str(e)}")
         
@@ -235,7 +282,7 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
         
         return self.news_data
     
-    def api_type_to_category(self, api_type):
+    def _api_type_to_category(self, api_type):
         """将API类型转换为分类名称"""
         mapping = {
             'finance': '财经',
@@ -245,7 +292,7 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
         }
         return mapping.get(api_type, '财经')
     
-    def parse_api_data(self, api_data):
+    def _parse_api_data(self, api_data):
         """
         解析API数据
         
@@ -273,7 +320,7 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
             logger.error(f"解析API数据失败: {str(e)}")
             return []
     
-    def extract_news_links_from_home(self, html):
+    def _extract_news_links_from_home(self, html):
         """
         从首页提取新闻链接
         
@@ -293,7 +340,7 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
                 link = a_tag['href']
                 
                 # 判断是否为有效的新闻链接
-                if self.is_valid_news_url(link):
+                if self._is_valid_news_url(link):
                     # 处理相对URL
                     if link.startswith('/'):
                         link = f"https://money.163.com{link}"
@@ -314,7 +361,7 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
         
         return news_links
     
-    def extract_news_links(self, html):
+    def _extract_news_links(self, html):
         """
         从HTML中提取新闻链接
         
@@ -334,7 +381,7 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
                 link = a_tag['href']
                 
                 # 判断是否为有效的新闻链接
-                if self.is_valid_news_url(link):
+                if self._is_valid_news_url(link):
                     # 处理相对URL
                     if link.startswith('/'):
                         link = f"https://money.163.com{link}"
@@ -355,7 +402,7 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
         
         return news_links
     
-    def is_valid_news_url(self, url):
+    def _is_valid_news_url(self, url):
         """
         判断URL是否为有效的新闻链接
         
@@ -367,11 +414,6 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
         """
         if not url:
             return False
-        
-        # 暂时禁用广告URL过滤
-        # if hasattr(self, 'ad_filter') and self.ad_filter.is_ad_url(url):
-        #     logger.debug(f"过滤广告URL: {url}")
-        #     return False
         
         # 常见的网易新闻URL模式（同时支持绝对和相对URL）
         patterns = [
@@ -392,7 +434,7 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
             r'//news\.163\.com/\d+/\d+/\d+/\w+\.html',
             
             # 可能的其他财经文章格式
-            r'https?://(.*?)\.163\.com/.*/\d{4}/\d{2}/\d{2}/\w+\.html',
+            r'https?://(.*?)\.163\.com/.*/\d{4}/\d{2}/\d{2}(/\d{2}/\d{2})?/\w+\.html',
         ]
         
         # 如果URL匹配任一模式，则为有效
@@ -402,14 +444,14 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
         
         return False
     
-    def get_page(self, url):
+    def fetch_page(self, url):
         """
         获取页面内容
         
-        参数:
-            url (str): 要获取的URL
+        Args:
+            url: 要获取的URL
             
-        返回:
+        Returns:
             str: 页面内容
         """
         # 每次请求随机选择一个用户代理
@@ -425,43 +467,43 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
                 return response.text
             return None
         except Exception as e:
-            logging.error(f"获取页面异常: {url}, 错误: {str(e)}")
+            logger.error(f"获取页面异常: {url}, 错误: {str(e)}")
             return None
 
-    def extract_keywords(self, content):
+    def _extract_keywords(self, content):
         """
         提取关键词
         
-        参数:
-            content (str): 要提取关键词的内容
+        Args:
+            content: 要提取关键词的内容
             
-        返回:
+        Returns:
             list: 关键词列表
         """
         try:
             return extract_keywords(content)
         except Exception as e:
-            logging.error(f"提取关键词失败: {str(e)}")
+            logger.error(f"提取关键词失败: {str(e)}")
             return []
             
-    def get_current_time(self):
+    def _get_current_time(self):
         """
         获取当前时间
         
-        返回:
+        Returns:
             str: 当前时间字符串，格式为 YYYY-MM-DD HH:MM:SS
         """
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
-    def crawl_news_detail(self, url, category=None):
+    def _crawl_news_detail(self, url, category=None):
         """
         爬取新闻详情
         
-        参数:
-            url (str): 新闻详情页URL
-            category (str): 新闻分类，默认为None
+        Args:
+            url: 新闻详情页URL
+            category: 新闻分类，默认为None
             
-        返回:
+        Returns:
             dict: 新闻数据字典，包含标题、发布时间、作者、内容等
         """
         try:
@@ -476,11 +518,11 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
             try:
                 response = requests.get(url, headers=headers, timeout=30)
                 if response.status_code != 200:
-                    logging.warning(f"获取新闻页面失败，状态码: {response.status_code}, URL: {url}")
+                    logger.warning(f"获取新闻页面失败，状态码: {response.status_code}, URL: {url}")
                     return None
                 html_content = response.text
             except Exception as e:
-                logging.error(f"请求页面异常: {url}, 错误: {str(e)}")
+                logger.error(f"请求页面异常: {url}, 错误: {str(e)}")
                 return None
                 
             # 解析HTML
@@ -493,11 +535,11 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
                 title_elem = soup.select_one(selector)
                 if title_elem:
                     title = title_elem.text.strip()
-                    logging.debug(f"提取到标题 (使用选择器 {selector}): {title}")
+                    logger.debug(f"提取到标题 (使用选择器 {selector}): {title}")
                     break
             
             if not title:
-                logging.warning(f"提取标题失败: {url}")
+                logger.warning(f"提取标题失败: {url}")
                 return None
                 
             # 提取发布时间
@@ -508,14 +550,14 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
                 if time_elem:
                     pub_time = time_elem.text.strip()
                     # 处理可能的额外文本
-                    pub_time = re.sub(r'(来源|举报|举报?)', '', pub_time).strip()
-                    logging.debug(f"提取到发布时间 (使用选择器 {selector}): {pub_time}")
+                    pub_time = re.sub(r'(来源|举报|举报?|：|:|\s+)', ' ', pub_time).strip()
+                    logger.debug(f"提取到发布时间 (使用选择器 {selector}): {pub_time}")
                     break
             
             # 如果未找到发布时间，使用当前时间
             if not pub_time:
-                pub_time = self.get_current_time()
-                logging.debug(f"使用当前时间作为发布时间: {pub_time}")
+                pub_time = self._get_current_time()
+                logger.debug(f"使用当前时间作为发布时间: {pub_time}")
             
             # 提取作者
             author = None
@@ -526,12 +568,12 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
                     author = author_elem.text.strip()
                     # 处理可能的额外文本
                     author = re.sub(r'(本文来源[：:]|作者[：:]|来源[：:]|责任编辑[：:])', '', author).strip()
-                    logging.debug(f"提取到作者 (使用选择器 {selector}): {author}")
+                    logger.debug(f"提取到作者 (使用选择器 {selector}): {author}")
                     break
             
             if not author:
                 author = "网易财经"
-                logging.debug(f"使用默认作者: {author}")
+                logger.debug(f"使用默认作者: {author}")
             
             # 提取内容
             content_html = ''
@@ -540,7 +582,7 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
             for selector in content_selectors:
                 content_elem = soup.select_one(selector)
                 if content_elem:
-                    logging.debug(f"找到内容元素，使用选择器: {selector}")
+                    logger.debug(f"找到内容元素，使用选择器: {selector}")
                     
                     # 删除不需要的元素
                     for selector in ['.post_btns', '.post_topshare', '.post_end', '.post_function', '.post_function_wrap', 'script', 'style']:
@@ -560,17 +602,17 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
                         if len(p.get_text(strip=True)) > 10:
                             content_html += str(p)
                     content_html += '</div>'
-                    logging.debug(f"从段落中提取内容，找到 {len(paragraphs)} 个段落")
+                    logger.debug(f"从段落中提取内容，找到 {len(paragraphs)} 个段落")
             
             if not content_html:
-                logging.warning(f"无法找到内容元素: {url}")
+                logger.warning(f"无法找到内容元素: {url}")
                 return None
             
             # 清理HTML，提取纯文本
             content_text = clean_html(content_html)
             
             if not content_text or len(content_text) < 50:  # 允许较短的内容但要有基本长度
-                logging.warning(f"内容过短或为空: {url}, 长度: {len(content_text) if content_text else 0}")
+                logger.warning(f"内容过短或为空: {url}, 长度: {len(content_text) if content_text else 0}")
                 if not content_text:
                     return None
             
@@ -588,30 +630,204 @@ class OptimizedNeteaseCrawler(OptimizedCrawler):
                     
                     images.append(src)
             
-            logging.debug(f"提取到 {len(images)} 张图片")
+            logger.debug(f"提取到 {len(images)} 张图片")
             
             # 提取关键词
-            keywords = self.extract_keywords(title + ' ' + content_text if content_text else title)
+            keywords = self._extract_keywords(title + ' ' + content_text if content_text else title)
+            
+            # 生成唯一ID
+            import hashlib
+            news_id = hashlib.md5(url.encode('utf-8')).hexdigest()
             
             # 构建新闻数据
             news_data = {
+                'id': news_id,
                 'url': url,
                 'title': title,
                 'pub_time': pub_time,
                 'author': author,
-                'content_html': content_html,
-                'content_text': content_text,
+                'content': content_text,  # 使用content_text作为content字段
+                'content_html': content_html,  # 保留原字段，但不会保存到数据库
+                'content_text': content_text,  # 保留原字段，但不会保存到数据库
                 'keywords': ','.join(keywords) if keywords else '',
                 'images': json.dumps(images),
-                'crawl_time': self.get_current_time(),
+                'crawl_time': self._get_current_time(),
                 'category': category,
                 'source': self.source
             }
             
             # 调试日志
-            logging.info(f"成功提取新闻: {title}, URL: {url}")
+            logger.info(f"成功提取新闻: {title}, URL: {url}")
+            
+            # 保存新闻到数据库
+            if self.db_manager:
+                db_path = self.db_manager.main_db_path if hasattr(self.db_manager, 'main_db_path') else self.db_path
+                logger.info(f"尝试保存新闻到数据库，路径: {db_path}")
+                
+                try:
+                    # 移除不需要保存到数据库的字段
+                    save_data = news_data.copy()
+                    if 'content_html' in save_data:
+                        del save_data['content_html']
+                    if 'content_text' in save_data:
+                        del save_data['content_text']
+                    
+                    # 确保content字段存在
+                    if 'content' not in save_data or not save_data['content']:
+                        save_data['content'] = save_data.get('content_text', '')
+                    
+                    # 保存到数据库
+                    result = self.db_manager.save_news(save_data)
+                    
+                    if result:
+                        logger.info(f"成功保存新闻到数据库: {title}")
+                    else:
+                        # 尝试检查是否已存在
+                        try:
+                            conn = self.db_manager.get_connection()
+                            cursor = conn.cursor()
+                            cursor.execute("SELECT id FROM news WHERE id = ?", (news_data['id'],))
+                            exists = cursor.fetchone()
+                            if exists:
+                                logger.info(f"新闻已存在于数据库中: {title}")
+                            else:
+                                logger.error(f"新闻不存在于数据库且保存失败: {title}")
+                            conn.close()
+                        except Exception as db_err:
+                            logger.error(f"检查新闻存在性时出错: {str(db_err)}")
+                except Exception as save_err:
+                    logger.error(f"保存新闻到数据库时出错: {str(save_err)}")
+            else:
+                logger.warning(f"数据库管理器未初始化，无法保存新闻: {title}")
+            
             return news_data
             
         except Exception as e:
-            logging.error(f"爬取新闻详情异常: {url}, 错误: {str(e)}")
-            return None 
+            logger.error(f"爬取新闻详情异常: {url}, 错误: {str(e)}")
+            logger.error(traceback.format_exc())
+            return None
+            
+    def _extract_publish_time(self, soup):
+        """
+        从HTML中提取发布时间
+        
+        Args:
+            soup: BeautifulSoup对象
+            
+        Returns:
+            str: 发布时间
+        """
+        try:
+            # 尝试从meta标签中提取
+            pub_time_tag = soup.find('meta', attrs={'property': 'article:published_time'})
+            if pub_time_tag and pub_time_tag.get('content'):
+                pub_time = pub_time_tag.get('content')
+                # 处理ISO格式时间
+                if 'T' in pub_time:
+                    try:
+                        dt = datetime.fromisoformat(pub_time.replace('Z', '+00:00'))
+                        return dt.strftime('%Y-%m-%d %H:%M:%S')
+                    except Exception:
+                        pass
+                return pub_time
+            
+            # 尝试从time标签中提取
+            time_tag = soup.find('time')
+            if time_tag and time_tag.get('datetime'):
+                return time_tag.get('datetime')
+            
+            # 尝试从特定class中提取
+            for selector in ['.post_time_source', '.time-source', '.publish-time', '.date']:
+                time_elem = soup.select_one(selector)
+                if time_elem:
+                    time_text = time_elem.text.strip()
+                    # 清理时间文本
+                    time_text = re.sub(r'(来源|举报|举报?|：|:|\s+)', ' ', time_text).strip()
+                    # 提取时间模式
+                    date_match = re.search(r'(\d{4}[-年/]\d{1,2}[-月/]\d{1,2}日?\s*\d{1,2}:\d{1,2}(:\d{1,2})?)', time_text)
+                    if date_match:
+                        return date_match.group(1).replace('年', '-').replace('月', '-').replace('日', '')
+                    
+                    # 尝试其他时间格式
+                    date_match = re.search(r'(\d{4}[-年/]\d{1,2}[-月/]\d{1,2}日?)', time_text)
+                    if date_match:
+                        date_str = date_match.group(1).replace('年', '-').replace('月', '-').replace('日', '')
+                        return f"{date_str} 00:00:00"
+            
+            # 如果都没找到，返回当前时间
+            return self._get_current_time()
+        except Exception as e:
+            logger.error(f"提取发布时间失败: {str(e)}")
+            return self._get_current_time()
+            
+    def _batch_process_news_links(self, news_links, category):
+        """
+        批量处理新闻链接
+        
+        Args:
+            news_links: 新闻链接列表
+            category: 新闻分类
+            
+        Returns:
+            list: 处理后的新闻数据列表
+        """
+        news_data_list = []
+        
+        for url in news_links:
+            try:
+                # 更新爬虫统计信息
+                self.crawl_stats["processed_urls"] += 1
+                
+                # 爬取新闻详情
+                news_data = self._crawl_news_detail(url, category)
+                if news_data:
+                    news_data_list.append(news_data)
+                    self.crawl_stats["success_urls"] += 1
+                    
+                    # 保存到数据库
+                    if self.db_manager:
+                        db_path = self.db_manager.main_db_path if hasattr(self.db_manager, 'main_db_path') else self.db_path
+                        logger.info(f"尝试保存新闻到数据库，路径: {db_path}")
+                        
+                        try:
+                            # 移除不需要保存到数据库的字段
+                            save_data = news_data.copy()
+                            if 'content_html' in save_data:
+                                del save_data['content_html']
+                            if 'content_text' in save_data:
+                                del save_data['content_text']
+                            
+                            # 确保content字段存在
+                            if 'content' not in save_data or not save_data['content']:
+                                save_data['content'] = save_data.get('content_text', '')
+                            
+                            # 保存新闻
+                            result = self.db_manager.save_news(save_data)
+                            if result:
+                                logger.info(f"成功保存新闻到数据库: {news_data['title']}")
+                            else:
+                                # 尝试检查是否已存在
+                                try:
+                                    conn = self.db_manager.get_connection()
+                                    cursor = conn.cursor()
+                                    cursor.execute("SELECT id FROM news WHERE id = ?", (news_data['id'],))
+                                    exists = cursor.fetchone()
+                                    if exists:
+                                        logger.info(f"新闻已存在于数据库中: {news_data['title']}")
+                                    else:
+                                        logger.error(f"新闻不存在于数据库且保存失败: {news_data['title']}")
+                                    conn.close()
+                                except Exception as db_err:
+                                    logger.error(f"检查新闻存在性时出错: {str(db_err)}")
+                        except Exception as save_err:
+                            logger.error(f"保存新闻到数据库时出错: {str(save_err)}")
+                else:
+                    self.crawl_stats["failed_urls"] += 1
+                
+                # 随机休眠，避免请求过快
+                time.sleep(1 + random.random())
+            except Exception as e:
+                logger.error(f"处理新闻链接失败: {url}, 错误: {str(e)}")
+                self.crawl_stats["failed_urls"] += 1
+        
+        return news_data_list

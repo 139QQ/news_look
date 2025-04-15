@@ -24,7 +24,7 @@ from app.utils.text_cleaner import clean_html, extract_keywords
 from app.db.sqlite_manager import SQLiteManager
 
 # 使用专门的爬虫日志记录器
-logger = get_crawler_logger('eastmoney')
+logger = get_crawler_logger('东方财富')
 
 class EastMoneyCrawler(BaseCrawler):
     """东方财富网爬虫，用于爬取东方财富网的财经新闻"""
@@ -576,7 +576,7 @@ class EastMoneyCrawler(BaseCrawler):
             'span.source',
             'div.author',
             'span.author',
-            'div.article-meta span:nth-child(2)'
+            'div.article-meta span.time'
         ]
         
         for selector in selectors:
@@ -806,4 +806,6 @@ def main():
     print("爬取完成")
 
 if __name__ == '__main__':
+    from app.utils.logger import get_crawler_logger
+    logger = get_crawler_logger('东方财富')
     main()

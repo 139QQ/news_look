@@ -17,7 +17,6 @@ from app.crawlers.base import BaseCrawler
 from app.crawlers.eastmoney import EastMoneyCrawler
 from app.crawlers.eastmoney_simple import EastMoneySimpleCrawler
 from app.crawlers.sina import SinaCrawler
-from app.crawlers.tencent import TencentCrawler
 from app.crawlers.netease import NeteaseCrawler
 from app.crawlers.ifeng import IfengCrawler
 import re
@@ -82,7 +81,6 @@ class CrawlerManager:
             self.crawlers["东方财富"] = self.eastmoney_crawler
             self.crawlers["东方财富简版"] = self.eastmoney_simple_crawler
             self.crawlers["新浪财经"] = self.sina_crawler
-            self.crawlers["腾讯财经"] = self.tencent_crawler
             self.crawlers["网易财经"] = self.netease_crawler
             self.crawlers["凤凰财经"] = self.ifeng_crawler
             
@@ -121,12 +119,6 @@ class CrawlerManager:
             )
             self._set_db_path(self.sina_crawler, "新浪财经")
             
-            self.tencent_crawler = TencentCrawler(
-                use_proxy=self.settings.get('USE_PROXY', False),
-                use_source_db=True
-            )
-            self._set_db_path(self.tencent_crawler, "腾讯财经")
-            
             self.netease_crawler = NeteaseCrawler(
                 use_proxy=self.settings.get('USE_PROXY', False),
                 use_source_db=True
@@ -147,7 +139,6 @@ class CrawlerManager:
             logger.info(f"- 东方财富 (EastmoneyCrawler): {self.eastmoney_crawler.db_path}")
             logger.info(f"- 东方财富简版 (EastMoneySimpleCrawler): {self.eastmoney_simple_crawler.db_path}")
             logger.info(f"- 新浪财经 (SinaCrawler): {self.sina_crawler.db_path}")
-            logger.info(f"- 腾讯财经 (TencentCrawler): {self.tencent_crawler.db_path}")
             logger.info(f"- 网易财经 (NeteaseCrawler): {self.netease_crawler.db_path}")
             logger.info(f"- 凤凰财经 (IfengCrawler): {self.ifeng_crawler.db_path}")
             
@@ -214,7 +205,6 @@ class CrawlerManager:
             'eastmoney_crawler': ('东方财富', self.eastmoney_crawler),
             'eastmoney_simple_crawler': ('东方财富', self.eastmoney_simple_crawler),
             'sina_crawler': ('新浪财经', self.sina_crawler),
-            'tencent_crawler': ('腾讯财经', self.tencent_crawler),
             'netease_crawler': ('网易财经', self.netease_crawler),
             'ifeng_crawler': ('凤凰财经', self.ifeng_crawler)
         }
