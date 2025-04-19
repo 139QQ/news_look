@@ -299,6 +299,58 @@ class AdFilter:
                 
         return False
     
+    def is_ad(self, url=None, text=None, title=None, section=None, category=None):
+        """
+        综合判断URL和内容是否为广告
+        
+        Args:
+            url: URL地址
+            text: 文本内容
+            title: 文章标题
+            section: 文章所属栏目
+            category: 文章所属类别
+            
+        Returns:
+            bool: 是否为广告
+        """
+        # 如果URL是广告URL，直接返回True
+        if url and self.is_ad_url(url):
+            logger.debug(f"URL被识别为广告: {url}")
+            return True
+            
+        # 如果内容包含广告关键词，返回True
+        if text and self.is_ad_content(text, title, section, category):
+            logger.debug(f"内容被识别为广告")
+            return True
+            
+        return False
+    
+    def load_rules(self):
+        """
+        加载或重新加载广告过滤规则
+        
+        此方法可用于在爬虫运行期间动态更新过滤规则
+        """
+        logger.info(f"加载广告过滤规则: {self.source_name}")
+        
+        # 重置广告URL特征
+        self.ad_url_patterns = self.DEFAULT_AD_URL_PATTERNS.copy()
+        
+        # 添加源特定的URL特征
+        if self.source_name in self.SOURCE_SPECIFIC_URL_PATTERNS:
+            self.ad_url_patterns.extend(self.SOURCE_SPECIFIC_URL_PATTERNS[self.source_name])
+        
+        # 重置广告内容关键词
+        self.ad_content_keywords = self.DEFAULT_AD_CONTENT_KEYWORDS.copy()
+        
+        # 添加源特定的内容关键词
+        if self.source_name in self.SOURCE_SPECIFIC_CONTENT_KEYWORDS:
+            self.ad_content_keywords.extend(self.SOURCE_SPECIFIC_CONTENT_KEYWORDS[self.source_name])
+        
+        # 记录加载的规则数量
+        logger.info(f"已加载 {len(self.ad_url_patterns)} 条URL过滤规则和 {len(self.ad_content_keywords)} 条内容关键词")
+        return True
+    
     def _analyze_keyword_context(self, text, keyword):
         """分析关键词上下文，判断是否为广告内容"""
         # 获取关键词所在句子

@@ -6,13 +6,11 @@
 """
 
 import os
-import sys
 import logging
 import logging.handlers
 import colorlog
 from datetime import datetime
 import traceback
-import importlib.util
 
 # 全局日志器缓存，用于防止重复配置
 _logger_cache = {}
@@ -32,7 +30,7 @@ except ImportError:
     # 尝试获取BASE_DIR
     try:
         BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    except:
+    except Exception as e:
         BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # 从环境变量或配置文件获取日志级别
@@ -47,7 +45,7 @@ if not LOG_FILE:
     if not os.path.isabs(LOG_FILE):
         LOG_FILE = os.path.join(BASE_DIR, LOG_FILE)
 
-# 日志格式
+# 日志格式 - 统一标准格式
 DEFAULT_LOG_FORMAT = '%(asctime)s [%(levelname)s] [%(name)s] %(message)s'
 COLOR_LOG_FORMAT = '%(log_color)s%(asctime)s [%(levelname)s] [%(name)s] %(message)s'
 
@@ -87,10 +85,10 @@ def get_log_dir():
 
 def is_logger_configured(logger):
     """检查日志记录器是否已经配置过"""
-    return hasattr(logger, '_configured') and logger._configured
+    return hasattr(logger, '_configured') and getattr(logger, '_configured', False)
 
 def configure_logger(name, level=None, log_file=None, module=None, 
-                    max_bytes=10*1024*1024, backup_count=5, propagate=True):
+                   max_bytes=10*1024*1024, backup_count=5, propagate=True):
     """
     配置日志器
     
@@ -131,10 +129,20 @@ def configure_logger(name, level=None, log_file=None, module=None,
     # 获取或创建日志器
     logger = logging.getLogger(name)
     
-    # 如果已有处理器，说明已经配置过，直接返回
-    if logger.handlers:
-        _logger_cache[logger_id] = logger
-        return logger
+    # 检查是否已有相同的处理器，如果有则移除
+    existing_handlers = []
+    for handler in logger.handlers:
+        # 检查是否为文件处理器并且指向相同文件
+        if isinstance(handler, logging.handlers.RotatingFileHandler) and hasattr(handler, 'baseFilename'):
+            if os.path.abspath(handler.baseFilename) == os.path.abspath(log_file):
+                existing_handlers.append(handler)
+        # 检查是否为控制台处理器
+        elif isinstance(handler, logging.StreamHandler) and handler.stream.name in ('<stdout>', '<stderr>'):
+            existing_handlers.append(handler)
+    
+    # 移除已存在的处理器
+    for handler in existing_handlers:
+        logger.removeHandler(handler)
     
     # 设置日志级别
     logger.setLevel(level)
@@ -160,12 +168,14 @@ def configure_logger(name, level=None, log_file=None, module=None,
             encoding='utf-8'
         )
         file_handler.setLevel(level)
+        # 确保使用统一的日志格式
         file_handler.setFormatter(logging.Formatter(DEFAULT_LOG_FORMAT))
         logger.addHandler(file_handler)
     
     # 添加控制台处理器
     console_handler = logging.StreamHandler()
     console_handler.setLevel(level)
+    # 确保使用统一的彩色日志格式
     console_handler.setFormatter(colorlog.ColoredFormatter(
         COLOR_LOG_FORMAT,
         log_colors=COLOR_DICT
@@ -206,16 +216,74 @@ def get_crawler_logger(name):
     Returns:
         logging.Logger: 爬虫专用日志记录器
     """
+    global _logger_cache
     cache_key = f'crawler.{name}'
     if cache_key in _logger_cache:
         return _logger_cache[cache_key]
     
-    return configure_logger(
-        name=cache_key,
-        module=f"crawler_{name}",
-        level=get_log_level(),
-        propagate=False
+    # 先获取logger对象
+    logger = logging.getLogger(cache_key)
+    
+    # 如果已有处理器，先清空，避免添加重复的处理器导致日志重复输出
+    if logger.handlers:
+        logger.handlers = []
+    
+    # 确保日志目录存在
+    try:
+        from app.config import get_settings
+        settings = get_settings()
+        log_dir = settings.LOG_DIR
+    except (ImportError, AttributeError):
+        # 使用默认日志目录
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'logs')
+    
+    # 创建爬虫专用日志目录
+    crawler_log_dir = os.path.join(log_dir, name)
+    os.makedirs(crawler_log_dir, exist_ok=True)
+    
+    # 构建日志文件路径 - 使用统一的日期格式 YYYYMMDD
+    today = datetime.now().strftime('%Y%m%d')
+    log_file = os.path.join(crawler_log_dir, f"{name}_{today}.log")
+    
+    # 设置日志级别
+    level = get_log_level()
+    logger.setLevel(level)
+    
+    # 防止日志传播导致重复
+    logger.propagate = False
+    
+    # 添加文件处理器
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_file,
+        maxBytes=LOG_CONFIG.get('max_size', 10 * 1024 * 1024),
+        backupCount=LOG_CONFIG.get('backup_count', 5),
+        encoding='utf-8'
     )
+    file_handler.setLevel(level)
+    file_formatter = logging.Formatter(DEFAULT_LOG_FORMAT)
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
+    
+    # 添加控制台处理器
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(level)
+    console_formatter = colorlog.ColoredFormatter(
+        COLOR_LOG_FORMAT,
+        log_colors=COLOR_DICT
+    )
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
+    
+    # 标记为已配置
+    setattr(logger, '_configured', True)
+    
+    # 缓存已配置的日志器
+    _logger_cache[cache_key] = logger
+    
+    # 记录初始化信息
+    logger.info(f"爬虫日志记录器 '{name}' 已初始化，日志文件: {log_file}")
+    
+    return logger
 
 def get_api_logger():
     """获取API专用日志记录器"""

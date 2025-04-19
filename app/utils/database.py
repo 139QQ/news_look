@@ -53,11 +53,18 @@ class NewsDatabase:
         
         # 确保DB_DIR存在且为绝对路径
         self.db_dir = settings.get('DB_DIR')
+        if not self.db_dir:
+            # 如果DB_DIR未设置，使用默认路径
+            self.db_dir = os.path.join(os.getcwd(), 'data', 'db')
+            logger.warning(f"DB_DIR未设置，使用默认路径: {self.db_dir}")
+            
+        # 转换为绝对路径
         if not os.path.isabs(self.db_dir):
             self.db_dir = os.path.join(os.getcwd(), self.db_dir)
             
         logger.info(f"初始化数据库连接，数据库目录: {self.db_dir}")
         
+        # 确保数据库目录存在
         if not os.path.exists(self.db_dir):
             logger.info(f"数据库目录不存在，创建目录: {self.db_dir}")
             os.makedirs(self.db_dir, exist_ok=True)
@@ -838,6 +845,228 @@ class NewsDatabase:
             self.session.rollback()
             logger.error(f"更新未知来源失败: {str(e)}")
             return 0
+
+    def get_news_count_by_sentiment(self, min_value, max_value):
+        """
+        获取指定情感值范围内的新闻数量
+        
+        Args:
+            min_value: 情感值最小值
+            max_value: 情感值最大值
+            
+        Returns:
+            int: 符合条件的新闻总数
+        """
+        total_count = 0
+        
+        try:
+            # 遍历所有数据库文件
+            for db_path in self.all_db_paths:
+                if not os.path.exists(db_path):
+                    continue
+                    
+                try:
+                    conn = sqlite3.connect(db_path)
+                    cursor = conn.cursor()
+                    
+                    # 检查news表是否存在
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='news'")
+                    if not cursor.fetchone():
+                        conn.close()
+                        continue
+                    
+                    # 检查sentiment字段是否存在
+                    cursor.execute("PRAGMA table_info(news)")
+                    columns = [column[1] for column in cursor.fetchall()]
+                    if 'sentiment' not in columns:
+                        logger.warning(f"数据库 {db_path} 中news表没有sentiment字段")
+                        conn.close()
+                        continue
+                    
+                    # 查询符合情感值范围的新闻数量
+                    # 处理不同情感值储存格式：数值型、字符串型和NULL值
+                    sql = """
+                    SELECT COUNT(*) FROM news 
+                    WHERE sentiment IS NOT NULL AND sentiment != '' AND (
+                        (TYPEOF(sentiment) = 'real' AND sentiment >= ? AND sentiment <= ?) OR
+                        (TYPEOF(sentiment) = 'text' AND CAST(sentiment AS REAL) >= ? AND CAST(sentiment AS REAL) <= ?)
+                    )
+                    """
+                    cursor.execute(sql, (min_value, max_value, min_value, max_value))
+                    count = cursor.fetchone()[0]
+                    total_count += count
+                    
+                    conn.close()
+                except Exception as e:
+                    logger.error(f"查询数据库 {db_path} 情感统计失败: {str(e)}")
+            
+            logger.info(f"情感值在 {min_value} 和 {max_value} 之间的新闻数量: {total_count}")
+        except Exception as e:
+            logger.error(f"获取情感新闻数量失败: {str(e)}")
+        
+        return total_count
+
+    def get_sentiment_distribution(self, buckets=5):
+        """
+        获取情感值分布统计
+        
+        Args:
+            buckets: 分桶数量，默认为5个等分桶
+            
+        Returns:
+            dict: 情感值分布统计，例如 {"-1.0~-0.6": 10, "-0.6~-0.2": 20, ...}
+        """
+        distribution = {}
+        
+        # 初始化分桶
+        step = 2.0 / buckets  # 情感值范围从-1到1，总跨度为2
+        for i in range(buckets):
+            low = -1.0 + i * step
+            high = low + step
+            # 保留一位小数
+            low_str = f"{low:.1f}"
+            high_str = f"{high:.1f}"
+            bucket_key = f"{low_str}~{high_str}"
+            distribution[bucket_key] = 0
+        
+        try:
+            # 遍历所有数据库文件
+            for db_path in self.all_db_paths:
+                if not os.path.exists(db_path):
+                    continue
+                    
+                try:
+                    conn = sqlite3.connect(db_path)
+                    cursor = conn.cursor()
+                    
+                    # 检查news表是否存在
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='news'")
+                    if not cursor.fetchone():
+                        conn.close()
+                        continue
+                    
+                    # 检查sentiment字段是否存在
+                    cursor.execute("PRAGMA table_info(news)")
+                    columns = [column[1] for column in cursor.fetchall()]
+                    if 'sentiment' not in columns:
+                        logger.warning(f"数据库 {db_path} 中news表没有sentiment字段")
+                        conn.close()
+                        continue
+                    
+                    # 查询所有有效的情感值
+                    cursor.execute("""
+                    SELECT sentiment FROM news 
+                    WHERE sentiment IS NOT NULL AND sentiment != '' AND (
+                        TYPEOF(sentiment) = 'real' OR 
+                        (TYPEOF(sentiment) = 'text' AND sentiment GLOB '*[0-9]*')
+                    )
+                    """)
+                    
+                    for row in cursor.fetchall():
+                        try:
+                            sentiment_value = float(row[0])
+                            # 确保值在-1到1范围内
+                            sentiment_value = max(-1.0, min(1.0, sentiment_value))
+                            
+                            # 确定所属分桶
+                            bucket_index = min(buckets - 1, int((sentiment_value + 1.0) / step))
+                            low = -1.0 + bucket_index * step
+                            high = low + step
+                            low_str = f"{low:.1f}"
+                            high_str = f"{high:.1f}"
+                            bucket_key = f"{low_str}~{high_str}"
+                            
+                            distribution[bucket_key] += 1
+                        except (ValueError, TypeError):
+                            # 忽略无法转换的值
+                            continue
+                    
+                    conn.close()
+                except Exception as e:
+                    logger.error(f"查询数据库 {db_path} 情感分布失败: {str(e)}")
+            
+            logger.info(f"情感分布统计结果: {distribution}")
+        except Exception as e:
+            logger.error(f"获取情感分布失败: {str(e)}")
+        
+        return distribution
+
+    def ensure_source_table_exists(self, source_name):
+        """
+        确保来源专用数据库中存在news表
+        
+        Args:
+            source_name: 来源名称，对应数据库文件名
+        
+        Returns:
+            bool: 表是否存在或创建成功
+        """
+        try:
+            # 确定数据库路径
+            db_path = None
+            if source_name in self.source_db_map:
+                db_path = self.source_db_map[source_name]
+            else:
+                # 如果映射中没有，尝试根据命名规则找到数据库
+                possible_path = os.path.join(self.db_dir, f"{source_name}.db")
+                if os.path.exists(possible_path):
+                    db_path = possible_path
+                    # 更新映射
+                    self.source_db_map[source_name] = db_path
+                    logger.info(f"找到来源 '{source_name}' 的专用数据库: {db_path}")
+                else:
+                    logger.warning(f"未找到来源 '{source_name}' 的专用数据库")
+                    return False
+            
+            # 检查news表是否存在，若不存在则创建
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                
+                # 检查news表是否存在
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='news'")
+                if not cursor.fetchone():
+                    logger.warning(f"数据库 {db_path} 中news表不存在，正在创建...")
+                    
+                    # 创建news表
+                    cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS news (
+                        id TEXT PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        content TEXT,
+                        content_html TEXT,
+                        pub_time TEXT,
+                        author TEXT,
+                        source TEXT,
+                        url TEXT UNIQUE,
+                        keywords TEXT,
+                        images TEXT,
+                        related_stocks TEXT,
+                        sentiment TEXT,
+                        classification TEXT,
+                        category TEXT,
+                        crawl_time TEXT
+                    )
+                    ''')
+                    
+                    # 创建索引
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_news_url ON news (url)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_news_source ON news (source)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_news_pub_time ON news (pub_time)")
+                    
+                    conn.commit()
+                    logger.info(f"在数据库 {db_path} 中成功创建news表和索引")
+                else:
+                    logger.debug(f"数据库 {db_path} 中news表已存在")
+                
+                conn.close()
+                return True
+            except Exception as e:
+                logger.error(f"检查或创建表结构时出错: {str(e)}")
+                return False
+        except Exception as e:
+            logger.error(f"确保来源表存在时出错: {str(e)}")
+            return False
 
 class DatabaseManager:
     """数据库管理器，提供数据库连接和初始化功能"""

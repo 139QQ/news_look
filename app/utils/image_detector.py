@@ -63,6 +63,8 @@ import hashlib
 import requests
 from PIL import Image, ImageFilter, ImageEnhance
 import numpy as np
+import urllib.parse
+import tempfile
 
 try:
     import cv2
@@ -315,8 +317,56 @@ class ImageDetector:
         try:
             # 1. 下载图片
             try:
-                response = requests.get(image_url, timeout=10)
-                img = Image.open(BytesIO(response.content))
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Referer': 'https://news.163.com/'
+                }
+                
+                # 处理网易特殊图片URL
+                if '126.net' in image_url and '?' in image_url:
+                    # 尝试提取原始图片URL
+                    try:
+                        parsed_url = urllib.parse.urlparse(image_url)
+                        query_params = urllib.parse.parse_qs(parsed_url.query)
+                        if 'url' in query_params:
+                            original_url = query_params['url'][0]
+                            # 如果原始URL不是完整URL，添加协议
+                            if original_url.startswith('//'):
+                                original_url = 'https:' + original_url
+                            logger.info(f"使用原始图片URL: {original_url}")
+                            image_url = original_url
+                    except Exception as e:
+                        logger.warning(f"提取原始图片URL失败: {e}")
+                
+                response = requests.get(image_url, headers=headers, timeout=10)
+                
+                # 检查内容类型
+                content_type = response.headers.get('Content-Type', '')
+                if not content_type.startswith('image/'):
+                    logger.warning(f"非图片内容类型: {content_type}, URL: {image_url}")
+                    return False
+                
+                # 尝试打开图片
+                try:
+                    img = Image.open(BytesIO(response.content))
+                except Exception as inner_e:
+                    # 如果打开失败，尝试保存为临时文件再打开
+                    logger.warning(f"直接打开图片失败，尝试保存为临时文件: {inner_e}")
+                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+                    temp_file.write(response.content)
+                    temp_file.close()
+                    
+                    try:
+                        img = Image.open(temp_file.name)
+                        # 读取后删除临时文件
+                        os.unlink(temp_file.name)
+                    except Exception as final_e:
+                        logger.error(f"所有方法均无法打开图片: {final_e}")
+                        if os.path.exists(temp_file.name):
+                            os.unlink(temp_file.name)
+                        return False
             except Exception as e:
                 logger.error(f"下载或打开图片失败: {image_url}, 错误: {e}")
                 return False
