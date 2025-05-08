@@ -17,26 +17,25 @@ import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from app.crawlers.base import BaseCrawler
-from app.utils.logger import get_crawler_logger
+from app.utils.logger import get_crawler_logger, configure_logger
 from app.utils.text_cleaner import clean_html, extract_keywords
 from app.db.sqlite_manager import SQLiteManager
 from app.utils.ad_filter import AdFilter  # 导入广告过滤器模块
 from app.utils.image_detector import ImageDetector  # 导入图像识别模块
 
-# 使用专门的爬虫日志记录器
-crawler_logger = logging.getLogger('crawler.netease')
+# 初始化日志记录器
+logger = get_crawler_logger('netease')
 
 class NeteaseCrawler(BaseCrawler):
     """网易财经爬虫，用于爬取网易财经的财经新闻"""
     
-    # 新闻分类URL
+    # 新闻分类URL - 仅保留财经核心版块
     CATEGORY_URLS = {
         '财经': 'https://money.163.com/',
         '股票': 'https://money.163.com/stock/',
-        '理财': 'https://money.163.com/licai/',
         '基金': 'https://money.163.com/fund/',
-        '热点': 'https://money.163.com/special/00252G50/macro.html',
-        '商业': 'https://biz.163.com/'
+        '期货': 'https://money.163.com/futures/',
+        '外汇': 'https://money.163.com/forex/'
     }
     
     # API接口
@@ -46,30 +45,45 @@ class NeteaseCrawler(BaseCrawler):
         '基金': 'https://money.163.com/special/00259BVP/fund_json.js'
     }
     
-    # 内容选择器 - 更新为支持多种可能的选择器
+    # 内容选择器 - 保留主要选择器
     CONTENT_SELECTORS = [
         'div.post_body',
-        'div.post_text',
-        'div#endText',
-        'div.post-content',
-        'div.content'
+        'div#endText'
     ]
     
-    # 时间选择器 - 更新为支持多种可能的选择器
+    # 时间选择器 - 保留主要选择器
     TIME_SELECTORS = [
         'div.post_time_source',
-        'div.post_info',
-        'div.time',
-        'span.time',
-        'div.post-time'
+        'div.post_info'
     ]
     
-    # 作者选择器
+    # 作者选择器 - 保留主要选择器
     AUTHOR_SELECTORS = [
         'div.post_time_source span',
-        'div.post_info span',
-        'span.source',
-        'a.source'
+        'span.source'
+    ]
+    
+    # URL过滤规则
+    FILTER_PATTERNS = [
+        r'/api/',           # API接口
+        r'\?.*=',          # 带有动态参数的URL
+        r'/login',         # 登录相关
+        r'/register',      # 注册相关
+        r'/mobile',        # 移动端
+        r'/app',           # 应用相关
+        r'/service',       # 内部服务
+        r'/admin',         # 管理后台
+        r'/manage',        # 管理相关
+        r'/download',      # 下载相关
+        r'/special',       # 专题页面
+        r'/ent',          # 娱乐
+        r'/sports',       # 体育
+        r'/tech',         # 科技
+        r'/auto',         # 汽车
+        r'/war',          # 军事
+        r'/dy',           # 订阅
+        r'/sdk',          # SDK相关
+        r'/oauth'         # 认证相关
     ]
     
     def __init__(self, db_manager=None, db_path=None, use_proxy=False, use_source_db=False, **kwargs):
@@ -78,61 +92,47 @@ class NeteaseCrawler(BaseCrawler):
         
         Args:
             db_manager: 数据库管理器对象
-            db_path: 数据库路径，如果为None则使用默认路径
+            db_path: 数据库路径 (BaseCrawler handles default)
             use_proxy: 是否使用代理
-            use_source_db: 是否使用来源专用数据库
+            use_source_db: 是否使用来源专用数据库 (BaseCrawler handles interpretation)
+            **kwargs: Additional arguments for BaseCrawler
         """
-        self.source = "网易财经"
-        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db, **kwargs)
+        self.source = "网易财经" # Define source before calling super
         
-        # 初始化广告过滤器
+        # Initialize BaseCrawler first
+        # Pass source, db_manager, db_path, use_proxy etc.
+        super().__init__(
+            db_manager=db_manager,
+            db_path=db_path, # Let BaseCrawler handle defaulting if None
+            use_proxy=use_proxy,
+            use_source_db=use_source_db,
+            source=self.source, # Pass the source
+            **kwargs
+        )
+        
+        # Initialize Netease-specific components
         self.ad_filter = AdFilter(source_name=self.source)
-        # 初始化图像检测器
-        self.image_detector = ImageDetector(cache_dir='./image_cache')
+        self.image_detector = ImageDetector(cache_dir='./image_cache') # Consider making cache_dir configurable
         
-        # 初始化requests会话
-        self.session = requests.Session()
+        # Use BaseCrawler's session, potentially configuring it if needed
+        # self.session = requests.Session() # REMOVE - Use super().session
+        # Configure BaseCrawler's session headers if necessary
         self.session.headers.update(self.get_browser_headers())
         
-        # 设置专用日志
-        self.setup_logger()
+        # Setup Netease-specific logger (optional, if more control needed than BaseCrawler's logger)
+        # self.setup_logger() # Review if BaseCrawler logger is sufficient
+        # Use BaseCrawler's logger by default, or assign the specific one if needed
+        self.logger = logger # Assign module-level logger to instance logger
+
+        # Remove redundant db manager setup - rely on self.db_manager from BaseCrawler
+        # if not isinstance(self.db_manager, SQLiteManager):
+        #     self.sqlite_manager = SQLiteManager(self.db_path)
+        # else:
+        #     self.sqlite_manager = self.db_manager
         
-        # 如果提供了db_manager并且不是SQLiteManager类型，创建SQLiteManager
-        if db_manager and not isinstance(db_manager, SQLiteManager):
-            if hasattr(db_manager, 'db_path'):
-                self.sqlite_manager = SQLiteManager(db_manager.db_path)
-            else:
-                # 使用传入的db_path或默认路径
-                self.sqlite_manager = SQLiteManager(db_path or self.db_path)
-        elif not db_manager:
-            # 如果没有提供db_manager，创建SQLiteManager
-            self.sqlite_manager = SQLiteManager(self.db_path)
-        else:
-            # 否则使用提供的db_manager
-            self.sqlite_manager = db_manager
+        # self.proxy_manager = None # BaseCrawler initializes proxy_manager if use_proxy=True
         
-        self.proxy_manager = None
-        
-        crawler_logger.info(f"网易财经爬虫初始化完成，数据库路径: {self.db_path}")
-        print(f"网易财经爬虫初始化完成，数据库路径: {self.db_path}")
-    
-    def setup_logger(self):
-        """设置专用的爬虫日志记录器"""
-        global crawler_logger
-        
-        # 使用统一的爬虫日志记录器功能
-        crawler_logger = get_crawler_logger('netease')
-        crawler_logger.info("网易财经爬虫日志系统初始化完成")
-        
-        # 记录数据库路径信息
-        if hasattr(self, 'db_path'):
-            crawler_logger.info(f"数据库路径: {self.db_path}")
-        
-        # 打印日志信息
-        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'logs', '网易财经')
-        current_date = datetime.now().strftime('%Y%m%d')
-        log_file = os.path.join(log_dir, f'netease_{current_date}.log')
-        print(f"网易财经爬虫日志将输出到: {log_file}")
+        self.logger.info(f"网易财经爬虫 ({self.source}) 初始化完成. DB Manager: {type(self.db_manager).__name__}, DB Path from Manager: {getattr(self.db_manager, 'db_path', 'N/A')}")
     
     def get_browser_headers(self):
         """获取模拟浏览器的请求头"""
@@ -158,60 +158,55 @@ class NeteaseCrawler(BaseCrawler):
         ]
         return random.choice(user_agents)
     
-    def fetch_page(self, url, retry=3, retry_interval=2):
+    def fetch_page(self, url, params=None, headers=None, max_retries=None, timeout=None):
         """
-        获取页面内容
+        获取页面内容 (使用BaseCrawler的实现)
         
         Args:
-            url: 页面URL
-            retry: 重试次数
-            retry_interval: 重试间隔时间（秒）
+            url (str): 页面URL
+            params (Optional[Dict]): 请求参数.
+            headers (Optional[Dict]): 请求头 (如果为None，将使用BaseCrawler的默认头).
+            max_retries (Optional[int]): 最大重试次数 (如果为None，使用BaseCrawler默认).
+            timeout (Optional[int]): 超时时间 (如果为None，使用BaseCrawler默认).
             
         Returns:
-            str: 页面内容
+            Optional[str]: 页面内容 (UTF-8)，获取失败则返回None
         """
-        crawler_logger.info(f"尝试获取页面: {url}")
-        print(f"尝试获取页面: {url}")
-        
-        for attempt in range(retry):
-            try:
-                # 使用会话发送请求
-                headers = self.get_browser_headers()
-                response = self.session.get(url, headers=headers, timeout=15)
-                
-                # 检查响应状态
-                if response.status_code == 200:
-                    # 检查是否有反爬措施
-                    if "验证码" in response.text or "人机验证" in response.text or len(response.text) < 1000:
-                        crawler_logger.warning(f"检测到反爬虫措施，尝试更换User-Agent和延迟重试")
-                        print(f"检测到反爬虫措施，尝试更换User-Agent和延迟重试")
-                        # 更换User-Agent
-                        time.sleep(random.uniform(3, 5))
-                        continue
-                    
-                    crawler_logger.info(f"成功获取页面: {url}")
-                    print(f"成功获取页面: {url}")
-                    return response.text
-                else:
-                    crawler_logger.warning(f"获取页面失败，状态码: {response.status_code}，尝试重试 {attempt+1}/{retry}")
-                    print(f"获取页面失败，状态码: {response.status_code}，尝试重试 {attempt+1}/{retry}")
-            except requests.exceptions.Timeout:
-                crawler_logger.warning(f"请求超时，尝试重试 {attempt+1}/{retry}")
-                print(f"请求超时，尝试重试 {attempt+1}/{retry}")
-            except requests.exceptions.ConnectionError:
-                crawler_logger.warning(f"连接错误，尝试重试 {attempt+1}/{retry}")
-                print(f"连接错误，尝试重试 {attempt+1}/{retry}")
+        self.logger.debug(f"[NeteaseCrawler.fetch_page] Calling super().fetch_page() for URL: {url}")
+        try:
+            return super().fetch_page(url, params=params, headers=headers, max_retries=max_retries, timeout=timeout)
             except Exception as e:
-                crawler_logger.error(f"获取页面时发生错误: {str(e)}，尝试重试 {attempt+1}/{retry}")
-                print(f"获取页面时发生错误: {str(e)}，尝试重试 {attempt+1}/{retry}")
-            
-            # 等待一段时间后重试
-            time.sleep(retry_interval)
-        
-        crawler_logger.error(f"获取页面失败，已达到最大重试次数: {retry}")
-        print(f"获取页面失败，已达到最大重试次数: {retry}")
+            self.logger.error(f"[NeteaseCrawler.fetch_page] Error calling super().fetch_page() for {url}: {e}", exc_info=True)
         return None
     
+    def is_valid_url(self, url):
+        """
+        检查URL是否有效
+        
+        Args:
+            url: 要检查的URL
+            
+        Returns:
+            bool: URL是否有效
+        """
+        if not url:
+            return False
+            
+        # 检查是否是网易财经的URL
+        if not url.startswith(('http://money.163.com', 'https://money.163.com')):
+            return False
+            
+        # 检查是否包含需要过滤的模式
+        for pattern in self.FILTER_PATTERNS:
+            if re.search(pattern, url):
+                return False
+                
+        # 检查是否是新闻文章URL
+        if not re.search(r'/\d{2}/\d{4}/', url):  # 新闻URL通常包含日期格式
+            return False
+            
+        return True
+
     def extract_news_links_from_home(self, html, category):
         """
         从首页提取新闻链接
@@ -224,8 +219,7 @@ class NeteaseCrawler(BaseCrawler):
             list: 新闻链接列表
         """
         if not html:
-            crawler_logger.warning("首页HTML内容为空，无法提取新闻链接")
-            print("首页HTML内容为空，无法提取新闻链接")
+            self.logger.warning("首页HTML内容为空，无法提取新闻链接")
             return []
         
         try:
@@ -236,7 +230,7 @@ class NeteaseCrawler(BaseCrawler):
             for link in soup.find_all('a', href=True):
                 href = link.get('href', '')
                 
-                # 过滤链接
+                # 过滤无效链接
                 if not href or not isinstance(href, str):
                     continue
                 
@@ -246,18 +240,18 @@ class NeteaseCrawler(BaseCrawler):
                 elif href.startswith('/'):
                     href = 'https://money.163.com' + href
                 
-                # 检查是否是新闻链接
-                if '/article/' in href:
-                    # 移除广告过滤
-                    # if '/article/' in href and not self.ad_filter.is_ad(href, link.text):
+                # 检查URL是否有效
+                if self.is_valid_url(href):
                     news_links.append(href)
             
-            crawler_logger.info(f"从首页提取到 {len(news_links)} 个新闻链接")
-            print(f"从首页提取到 {len(news_links)} 个新闻链接")
+            # 去重
+            news_links = list(set(news_links))
+            
+            self.logger.info(f"从{category}分类首页提取到{len(news_links)}个有效新闻链接")
             return news_links
+            
         except Exception as e:
-            crawler_logger.error(f"从首页提取新闻链接失败: {str(e)}")
-            print(f"从首页提取新闻链接失败: {str(e)}")
+            self.logger.error(f"提取新闻链接时发生错误: {str(e)}")
             return []
     
     def extract_news_links(self, html, category):
@@ -272,8 +266,7 @@ class NeteaseCrawler(BaseCrawler):
             list: 新闻链接列表
         """
         if not html:
-            crawler_logger.warning(f"分类 {category} 页面HTML内容为空，无法提取新闻链接")
-            print(f"分类 {category} 页面HTML内容为空，无法提取新闻链接")
+            self.logger.warning(f"分类 {category} 页面HTML内容为空，无法提取新闻链接")
             return []
         
         try:
@@ -322,12 +315,10 @@ class NeteaseCrawler(BaseCrawler):
                     # if '/article/' in href and not self.ad_filter.is_ad(href, container.text):
                     news_links.append(href)
             
-            crawler_logger.info(f"从分类 {category} 页面提取到 {len(news_links)} 个新闻链接")
-            print(f"从分类 {category} 页面提取到 {len(news_links)} 个新闻链接")
+            self.logger.info(f"从分类 {category} 页面提取到 {len(news_links)} 个新闻链接")
             return news_links
         except Exception as e:
-            crawler_logger.error(f"从分类 {category} 页面提取新闻链接失败: {str(e)}")
-            print(f"从分类 {category} 页面提取新闻链接失败: {str(e)}")
+            self.logger.error(f"从分类 {category} 页面提取新闻链接失败: {str(e)}")
             return []
     
     def extract_news_detail(self, url, category):
@@ -341,14 +332,12 @@ class NeteaseCrawler(BaseCrawler):
         Returns:
             dict: 新闻详情
         """
-        crawler_logger.info(f"开始提取新闻详情: {url}")
-        print(f"开始提取新闻详情: {url}")
+        self.logger.info(f"开始提取新闻详情: {url}")
         
         # 获取页面内容
         html = self.fetch_page(url)
         if not html:
-            crawler_logger.warning(f"获取新闻页面失败: {url}")
-            print(f"获取新闻页面失败: {url}")
+            self.logger.warning(f"获取新闻页面失败: {url}")
             return None
         
         try:
@@ -357,8 +346,7 @@ class NeteaseCrawler(BaseCrawler):
             # 提取标题
             title_elem = soup.select_one('.post_title')
             if not title_elem:
-                crawler_logger.warning(f"未找到标题元素: {url}")
-                print(f"未找到标题元素: {url}")
+                self.logger.warning(f"未找到标题元素: {url}")
                 return None
             
             title = title_elem.text.strip()
@@ -366,8 +354,7 @@ class NeteaseCrawler(BaseCrawler):
             # 提取发布时间
             time_elem = soup.select_one('.post_time')
             if not time_elem:
-                crawler_logger.warning(f"未找到时间元素: {url}")
-                print(f"未找到时间元素: {url}")
+                self.logger.warning(f"未找到时间元素: {url}")
                 pub_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             else:
                 pub_time = time_elem.text.strip()
@@ -388,8 +375,7 @@ class NeteaseCrawler(BaseCrawler):
             # 提取内容
             content_elem = soup.select_one('#content')
             if not content_elem:
-                crawler_logger.warning(f"未找到内容元素: {url}")
-                print(f"未找到内容元素: {url}")
+                self.logger.warning(f"未找到内容元素: {url}")
                 return None
             
             # 移除内容中的广告
@@ -416,54 +402,22 @@ class NeteaseCrawler(BaseCrawler):
             
             # 构建新闻数据
             news_data = {
-                'id': self.generate_news_id(url, title),
-                'title': title,
+                # 'id': self.generate_news_id(url, title), # Let SQLiteManager handle ID
                 'url': url,
+                'title': title,
                 'pub_time': pub_time,
-                'author': author,
                 'content': content,
-                'images': images,
+                'source': self.source,
+                'author': author,
                 'category': category,
-                'source': self.source
+                'crawl_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
             
-            crawler_logger.info(f"成功提取新闻详情: {title}")
-            print(f"成功提取新闻详情: {title}")
+            self.logger.info(f"成功提取新闻详情: {title}")
             return news_data
         except Exception as e:
-            crawler_logger.error(f"提取新闻详情失败: {url}, 错误: {str(e)}")
-            print(f"提取新闻详情失败: {url}, 错误: {str(e)}")
+            self.logger.error(f"提取新闻详情失败: {url}, 错误: {str(e)}")
             return None
-    
-    def generate_news_id(self, url, title):
-        """
-        生成新闻唯一ID
-        
-        Args:
-            url: 新闻URL
-            title: 新闻标题
-            
-        Returns:
-            str: 新闻唯一ID
-        """
-        import hashlib
-        
-        # 从URL中提取文章ID
-        try:
-            # 网易新闻URL格式通常为 https://www.163.com/xxx/article/ABCDEFGH.html
-            # 尝试提取ABCDEFGH部分作为ID
-            if '/article/' in url:
-                article_id = url.split('/article/')[1].split('.')[0]
-                # 如果ID包含额外路径，只取ID部分
-                if '/' in article_id:
-                    article_id = article_id.split('/')[-1]
-                return article_id
-        except Exception as e:
-            crawler_logger.warning(f"从URL提取文章ID失败: {e}")
-        
-        # 如果无法从URL提取ID，则使用URL和标题的组合生成哈希
-        unique_string = f"{url}_{title}_{self.source}"
-        return hashlib.md5(unique_string.encode('utf-8')).hexdigest()
     
     def crawl(self, days=1, max_news=10):
         """
@@ -476,7 +430,7 @@ class NeteaseCrawler(BaseCrawler):
         Returns:
             list: 爬取的新闻列表
         """
-        crawler_logger.info(f"开始爬取网易财经新闻，爬取天数: {days}")
+        self.logger.info(f"开始爬取网易财经新闻，爬取天数: {days}")
         print(f"\n===== 开始爬取网易财经新闻 =====")
         print(f"爬取天数: {days}, 最大新闻数: {max_news}")
         print(f"日志文件: {os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'logs', '网易财经', f'网易财经_{datetime.now().strftime('%Y-%m-%d')}.log')}")
@@ -495,7 +449,7 @@ class NeteaseCrawler(BaseCrawler):
         
         # 尝试直接从首页获取新闻
         try:
-            crawler_logger.info("尝试从首页获取新闻")
+            self.logger.info("尝试从首页获取新闻")
             home_url = "https://money.163.com/"
             print(f"\n[1] 正在获取首页: {home_url}")
             
@@ -504,7 +458,7 @@ class NeteaseCrawler(BaseCrawler):
                 if response.status_code == 200:
                     html = response.text
                     news_links = self.extract_news_links_from_home(html, "财经")
-                    crawler_logger.info(f"从首页提取到新闻链接数量: {len(news_links)}")
+                    self.logger.info(f"从首页提取到新闻链接数量: {len(news_links)}")
                     print(f"从首页提取到新闻链接数量: {len(news_links)}")
                     
                     # 爬取每个新闻详情
@@ -514,7 +468,7 @@ class NeteaseCrawler(BaseCrawler):
                             
                         print(f"\n[1.{i+1}] 爬取新闻: {news_link}")
                         if news_link in self.crawled_urls:
-                            crawler_logger.info(f"新闻 {news_link} 已经爬取过，跳过")
+                            self.logger.info(f"新闻 {news_link} 已经爬取过，跳过")
                             print(f"新闻 {news_link} 已经爬取过，跳过")
                             continue
                         self.crawled_urls.add(news_link)
@@ -527,56 +481,70 @@ class NeteaseCrawler(BaseCrawler):
                         try:
                             news_date = datetime.strptime(news_data['pub_time'].split(' ')[0], '%Y-%m-%d')
                             if news_date < start_date:
-                                crawler_logger.debug(f"新闻日期 {news_date} 早于开始日期 {start_date}，跳过")
+                                self.logger.debug(f"新闻日期 {news_date} 早于开始日期 {start_date}，跳过")
                                 print(f"  - 新闻日期 {news_date} 早于开始日期 {start_date}，跳过")
                                 continue
                         except Exception as e:
-                            crawler_logger.warning(f"解析新闻日期失败: {news_data['pub_time']}, 错误: {str(e)}")
+                            self.logger.warning(f"解析新闻日期失败: {news_data['pub_time']}, 错误: {str(e)}")
                             print(f"  - 解析新闻日期失败: {news_data['pub_time']}, 错误: {str(e)}")
                         
-                        # 保存新闻数据
-                        save_result = self.save_news_to_db(news_data)
-                        self.news_data.append(news_data)
-                        print(f"  - 标题: {news_data['title']}")
-                        print(f"  - 发布时间: {news_data['pub_time']}")
+                        # 保存新闻数据 - Modified to use BaseCrawler's saving mechanism
+                        # BaseCrawler.save_news_to_db calls SQLiteManager.save_to_source_db
+                        if news_data:
+                            news_data['source'] = self.source # Ensure source is in news_data
+                            if 'category' not in news_data or not news_data['category']:
+                                news_data['category'] = category # Add category if missing
+                            
+                            # Call the method from BaseCrawler (which handles db_manager)
+                            save_result = super().save_news_to_db(news_data)
+                            
+                            if save_result:
+                                self.news_data.append(news_data) # Optionally, still collect successfully saved items
+                                self.crawled_urls.add(news_link) # Add to crawled_urls only if save was successful
+                            
+                            print(f"  - 标题: {news_data.get('title', 'N/A')}")
+                            print(f"  - 发布时间: {news_data.get('pub_time', 'N/A')}")
                         print(f"  - 保存结果: {'成功' if save_result else '失败'}")
+                        else:
+                            print(f"  - 提取新闻数据失败，无法保存")
+                            save_result = False # Ensure save_result is defined
                 else:
-                    crawler_logger.warning(f"首页请求失败，状态码: {response.status_code}")
+                    self.logger.warning(f"首页请求失败，状态码: {response.status_code}")
                     print(f"首页请求失败，状态码: {response.status_code}")
             except requests.exceptions.Timeout:
-                crawler_logger.warning("首页请求超时，将继续尝试分类页面")
+                self.logger.warning("首页请求超时，将继续尝试分类页面")
                 print("首页请求超时，将继续尝试分类页面")
             except requests.exceptions.ConnectionError:
-                crawler_logger.warning("首页连接错误，将继续尝试分类页面")
+                self.logger.warning("首页连接错误，将继续尝试分类页面")
                 print("首页连接错误，将继续尝试分类页面")
             except Exception as e:
-                crawler_logger.error(f"从首页爬取新闻失败: {str(e)}")
+                self.logger.error(f"从首页爬取新闻失败: {str(e)}")
                 print(f"从首页爬取新闻失败: {str(e)}")
         except Exception as e:
-            crawler_logger.error(f"从首页爬取新闻失败: {str(e)}")
+            self.logger.error(f"从首页爬取新闻失败: {str(e)}")
             print(f"从首页爬取新闻失败: {str(e)}")
         
         # 爬取各个分类的新闻
         category_index = 2
         for category, url in self.CATEGORY_URLS.items():
             try:
-                crawler_logger.info(f"开始爬取分类: {category}, URL: {url}")
+                self.logger.info(f"开始爬取分类: {category}, URL: {url}")
                 print(f"\n[{category_index}] 开始爬取分类: {category}, URL: {url}")
                 category_index += 1
                 
                 # 对于特定分类，使用API接口获取数据
                 if category in self.API_URLS:
                     api_url = self.API_URLS[category]
-                    crawler_logger.info(f"使用API接口获取数据: {api_url}")
+                    self.logger.info(f"使用API接口获取数据: {api_url}")
                     print(f"使用API接口获取数据: {api_url}")
                     
                     news_links = self.fetch_news_from_api(api_url, category)
                     if news_links:
-                        crawler_logger.info(f"从API获取到 {len(news_links)} 条新闻链接")
+                        self.logger.info(f"从API获取到 {len(news_links)} 条新闻链接")
                         print(f"从API获取到 {len(news_links)} 条新闻链接")
                     else:
                         # 如果API获取失败，尝试从页面提取
-                        crawler_logger.info(f"API获取失败，尝试从页面提取")
+                        self.logger.info(f"API获取失败，尝试从页面提取")
                         print(f"API获取失败，尝试从页面提取")
                         
                         try:
@@ -584,22 +552,22 @@ class NeteaseCrawler(BaseCrawler):
                             if response.status_code == 200:
                                 html = response.text
                                 news_links = self.extract_news_links(html, category)
-                                crawler_logger.info(f"从页面提取到 {len(news_links)} 条新闻链接")
+                                self.logger.info(f"从页面提取到 {len(news_links)} 条新闻链接")
                                 print(f"从页面提取到 {len(news_links)} 条新闻链接")
                             else:
-                                crawler_logger.warning(f"请求分类页面失败，状态码: {response.status_code}")
+                                self.logger.warning(f"请求分类页面失败，状态码: {response.status_code}")
                                 print(f"请求分类页面失败，状态码: {response.status_code}")
                                 continue
                         except requests.exceptions.Timeout:
-                            crawler_logger.warning(f"分类 {category} 请求超时，跳过")
+                            self.logger.warning(f"分类 {category} 请求超时，跳过")
                             print(f"分类 {category} 请求超时，跳过")
                             continue
                         except requests.exceptions.ConnectionError:
-                            crawler_logger.warning(f"分类 {category} 连接错误，跳过")
+                            self.logger.warning(f"分类 {category} 连接错误，跳过")
                             print(f"分类 {category} 连接错误，跳过")
                             continue
                         except Exception as e:
-                            crawler_logger.error(f"请求分类 {category} 页面失败: {str(e)}")
+                            self.logger.error(f"请求分类 {category} 页面失败: {str(e)}")
                             print(f"请求分类 {category} 页面失败: {str(e)}")
                             continue
                 else:
@@ -611,7 +579,7 @@ class NeteaseCrawler(BaseCrawler):
                             
                             # 检查是否有反爬虫措施
                             if "验证码" in html or "人机验证" in html or len(html) < 1000:
-                                crawler_logger.warning(f"检测到反爬虫措施，尝试更换User-Agent和IP")
+                                self.logger.warning(f"检测到反爬虫措施，尝试更换User-Agent和IP")
                                 print(f"检测到反爬虫措施，尝试更换User-Agent和IP")
                                 # 更换User-Agent
                                 self.headers['User-Agent'] = self.get_random_ua()
@@ -625,27 +593,27 @@ class NeteaseCrawler(BaseCrawler):
                                 if response.status_code == 200:
                                     html = response.text
                                 else:
-                                    crawler_logger.warning(f"重试请求失败，状态码: {response.status_code}")
+                                    self.logger.warning(f"重试请求失败，状态码: {response.status_code}")
                                     print(f"重试请求失败，状态码: {response.status_code}")
                                     continue
                             
                             news_links = self.extract_news_links(html, category)
-                            crawler_logger.info(f"分类 '{category}' 找到 {len(news_links)} 个潜在新闻项")
+                            self.logger.info(f"分类 '{category}' 找到 {len(news_links)} 个潜在新闻项")
                             print(f"分类 '{category}' 找到 {len(news_links)} 个潜在新闻项")
                         else:
-                            crawler_logger.warning(f"请求分类页面失败，状态码: {response.status_code}")
+                            self.logger.warning(f"请求分类页面失败，状态码: {response.status_code}")
                             print(f"请求分类页面失败，状态码: {response.status_code}")
                             continue
                     except requests.exceptions.Timeout:
-                        crawler_logger.warning(f"分类 {category} 请求超时，跳过")
+                        self.logger.warning(f"分类 {category} 请求超时，跳过")
                         print(f"分类 {category} 请求超时，跳过")
                         continue
                     except requests.exceptions.ConnectionError:
-                        crawler_logger.warning(f"分类 {category} 连接错误，跳过")
+                        self.logger.warning(f"分类 {category} 连接错误，跳过")
                         print(f"分类 {category} 连接错误，跳过")
                         continue
                     except Exception as e:
-                        crawler_logger.error(f"请求分类 {category} 页面失败: {str(e)}")
+                        self.logger.error(f"请求分类 {category} 页面失败: {str(e)}")
                         print(f"请求分类 {category} 页面失败: {str(e)}")
                         continue
                 
@@ -656,7 +624,7 @@ class NeteaseCrawler(BaseCrawler):
                     
                     print(f"\n[{category_index-1}.{i+1}] 爬取新闻: {news_link}")
                     if news_link in self.crawled_urls:
-                        crawler_logger.info(f"新闻 {news_link} 已经爬取过，跳过")
+                        self.logger.info(f"新闻 {news_link} 已经爬取过，跳过")
                         print(f"新闻 {news_link} 已经爬取过，跳过")
                         continue
                     self.crawled_urls.add(news_link)
@@ -669,23 +637,37 @@ class NeteaseCrawler(BaseCrawler):
                     try:
                         news_date = datetime.strptime(news_data['pub_time'].split(' ')[0], '%Y-%m-%d')
                         if news_date < start_date:
-                            crawler_logger.debug(f"新闻日期 {news_date} 早于开始日期 {start_date}，跳过")
+                            self.logger.debug(f"新闻日期 {news_date} 早于开始日期 {start_date}，跳过")
                             print(f"  - 新闻日期 {news_date} 早于开始日期 {start_date}，跳过")
                             continue
                     except Exception as e:
-                        crawler_logger.warning(f"解析新闻日期失败: {news_data['pub_time']}")
+                        self.logger.warning(f"解析新闻日期失败: {news_data['pub_time']}")
                         print(f"  - 解析新闻日期失败: {news_data['pub_time']}")
                     
-                    # 保存新闻数据
-                    save_result = self.save_news_to_db(news_data)
-                    self.news_data.append(news_data)
-                    print(f"  - 标题: {news_data['title']}")
-                    print(f"  - 发布时间: {news_data['pub_time']}")
+                    # 保存新闻数据 - Modified to use BaseCrawler's saving mechanism
+                    # BaseCrawler.save_news_to_db calls SQLiteManager.save_to_source_db
+                    if news_data:
+                        news_data['source'] = self.source # Ensure source is in news_data
+                        if 'category' not in news_data or not news_data['category']:
+                            news_data['category'] = category # Add category if missing
+                        
+                        # Call the method from BaseCrawler (which handles db_manager)
+                        save_result = super().save_news_to_db(news_data)
+                        
+                        if save_result:
+                            self.news_data.append(news_data) # Optionally, still collect successfully saved items
+                            self.crawled_urls.add(news_link) # Add to crawled_urls only if save was successful
+                        
+                        print(f"  - 标题: {news_data.get('title', 'N/A')}")
+                        print(f"  - 发布时间: {news_data.get('pub_time', 'N/A')}")
                     print(f"  - 保存结果: {'成功' if save_result else '失败'}")
+                    else:
+                        print(f"  - 提取新闻数据失败，无法保存")
+                        save_result = False # Ensure save_result is defined
                     
                 # 如果已经获取足够数量的新闻，停止爬取
                 if len(self.news_data) >= max_news:
-                    crawler_logger.info(f"已经爬取 {len(self.news_data)} 条新闻，达到最大数量 {max_news}")
+                    self.logger.info(f"已经爬取 {len(self.news_data)} 条新闻，达到最大数量 {max_news}")
                     print(f"\n已经爬取 {len(self.news_data)} 条新闻，达到最大数量 {max_news}")
                     break
                 
@@ -694,10 +676,10 @@ class NeteaseCrawler(BaseCrawler):
                 print(f"休眠 {sleep_time:.2f} 秒...")
                 time.sleep(sleep_time)
             except Exception as e:
-                crawler_logger.error(f"爬取分类 '{category}' 失败: {str(e)}")
+                self.logger.error(f"爬取分类 '{category}' 失败: {str(e)}")
                 print(f"爬取分类 '{category}' 失败: {str(e)}")
         
-        crawler_logger.info(f"网易财经爬取完成，共爬取新闻: {len(self.news_data)} 条，过滤广告: {self.ad_filter.get_filter_count()} 条")
+        self.logger.info(f"网易财经爬取完成，共爬取新闻: {len(self.news_data)} 条，过滤广告: {self.ad_filter.get_filter_count()} 条")
         print(f"\n===== 网易财经爬取完成 =====")
         print(f"共爬取新闻: {len(self.news_data)} 条")
         print(f"过滤广告: {self.ad_filter.get_filter_count()} 条")
@@ -709,61 +691,34 @@ class NeteaseCrawler(BaseCrawler):
         保存新闻到数据库
         
         Args:
-            news: 新闻数据
+            news: 新闻数据字典
             
         Returns:
             bool: 是否保存成功
         """
         try:
-            # 确保新闻数据有ID字段
-            if 'id' not in news:
-                if 'url' in news and 'title' in news:
-                    news['id'] = self.generate_news_id(news['url'], news['title'])
-                else:
-                    # 如果没有URL或标题，使用时间戳作为ID
-                    news['id'] = f"netease_{int(time.time())}_{random.randint(1000, 9999)}"
-                    crawler_logger.warning(f"使用随机ID: {news['id']}")
+            if not news.get('title'):
+                self.logger.warning("新闻标题为空，跳过保存")
+                return False
+                
+            if not news.get('content'):
+                self.logger.warning("新闻内容为空，跳过保存")
+                return False
+                
+            if not news.get('url'):
+                self.logger.warning("新闻URL为空，跳过保存")
+                return False
             
-            if hasattr(self, 'sqlite_manager') and self.sqlite_manager:
-                return self.sqlite_manager.save_news(news)
-            return super().save_news(news)
+            # 确保必要字段存在
+            news['source'] = self.source
+            if 'pub_time' not in news:
+                news['pub_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            return self.sqlite_manager.save_news(news)
+            
         except Exception as e:
-            crawler_logger.error(f"保存新闻到数据库失败: {str(e)}")
+            self.logger.error(f"保存新闻到数据库失败: {str(e)}")
             return False
-    
-    def is_valid_news_url(self, url):
-        """
-        判断URL是否为有效的新闻链接
-        
-        Args:
-            url: 链接URL
-        
-        Returns:
-            bool: 是否为有效的新闻链接
-        """
-        if not url:
-            return False
-            
-        # 检查URL是否为广告 - 已移除广告过滤
-        # if self.ad_filter.is_ad_url(url):
-        #     crawler_logger.info(f"过滤广告URL: {url}")
-        #     return False
-            
-        # 网易财经新闻URL通常包含以下特征
-        patterns = [
-            r'https?://money\.163\.com/\d+/\d+/\d+/\w+\.html',
-            r'https?://money\.163\.com/\w+/\d+/\d+/\d+/\w+\.html',
-            r'https?://www\.163\.com/money/article/\w+\.html',
-            r'https?://www\.163\.com/dy/article/\w+\.html',  # 新增网易号文章
-            r'https?://biz\.163\.com/\d+/\d+/\d+/\w+\.html',
-            r'https?://biz\.163\.com/article/\w+\.html'
-        ]
-        
-        for pattern in patterns:
-            if re.match(pattern, url):
-                return True
-        
-        return False
     
     def fetch_news_from_api(self, api_url, category):
         """
@@ -799,20 +754,20 @@ class NeteaseCrawler(BaseCrawler):
                         for item in data:
                             if 'docurl' in item:
                                 url = item['docurl']
-                                if self.is_valid_news_url(url):
+                                if self.is_valid_url(url):
                                     news_links.append(url)
                     except json.JSONDecodeError:
-                        crawler_logger.warning(f"解析JSON数据失败: {json_str[:100]}...")
+                        self.logger.warning(f"解析JSON数据失败: {json_str[:100]}...")
                 else:
                     # 尝试直接从响应中提取URL
                     urls = re.findall(r'https?://[^\s\'"]+\.html', content)
                     for url in urls:
-                        if self.is_valid_news_url(url):
+                        if self.is_valid_url(url):
                             news_links.append(url)
             else:
-                crawler_logger.warning(f"API请求失败，状态码: {response.status_code}")
+                self.logger.warning(f"API请求失败，状态码: {response.status_code}")
         except Exception as e:
-            crawler_logger.error(f"从API获取新闻数据失败: {str(e)}")
+            self.logger.error(f"从API获取新闻数据失败: {str(e)}")
         
         # 去重
         return list(set(news_links))

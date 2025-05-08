@@ -12,6 +12,7 @@ import random
 import urllib.parse
 from datetime import datetime, timedelta
 from urllib.parse import urlparse, parse_qs
+import traceback
 
 import requests
 from bs4 import BeautifulSoup
@@ -88,17 +89,41 @@ class IfengCrawler(BaseCrawler):
     # 标题选择器
     TITLE_SELECTOR = 'h1.title, h1.headline-title, div.headline-title, h1.news-title-h1, h1.yc-title, h1.c-article-title, h1.news_title'
     
-    # 用户代理列表 - 更新为最新的浏览器User-Agent
+    # 更新User-Agent为更现代的浏览器标识
     USER_AGENTS = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 OPR/108.0.0.0',
+        # Chrome最新版本UA
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        
+        # Edge最新版本UA
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+        
+        # Firefox最新版本UA
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/118.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/118.0",
+        
+        # Safari最新版本UA
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
     ]
+    
+    # 浏览器默认请求头
+    DEFAULT_HEADERS = {
+        'User-Agent': None,  # 将在请求时随机选择
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'Referer': 'https://www.ifeng.com/'
+    }
     
     # 新凤凰财经API端点
     NEW_API_ENDPOINT = "https://finance.ifeng.com/mapi/getfeeds"
@@ -113,46 +138,24 @@ class IfengCrawler(BaseCrawler):
             use_proxy: 是否使用代理
             use_source_db: 是否使用源数据库
         """
-        super().__init__(db_manager, db_path, use_proxy, use_source_db, **kwargs)
-        self.ad_filter = AdFilter(source_name="凤凰财经")  # 初始化广告过滤器，提供source_name参数
+        # self.source 已在类级别定义
+        super().__init__(db_manager, db_path, use_proxy, use_source_db, source=self.source, **kwargs)
         
-        # 初始化图像识别模块
+        # 设置 spécifique 的 logger
+        self.logger = logger # 使用模块顶层定义的logger
+        
+        # 初始化特定于IfengCrawler的组件
+        self.ad_filter = AdFilter(source_name=self.source) 
         self.image_detector = ImageDetector(cache_dir='./image_cache')
         
-        # 设置db属性，用于数据库操作
-        self.db = None
+        # 编码修复功能的标志 (如果IfengCrawler有特殊处理，否则可考虑移至BaseCrawler或TextCleaner)
+        self.encoding_fix_enabled = True 
+        self.logger.info("已启用编码修复功能，自动处理中文乱码问题")
         
-        # 添加编码修复功能的标志，用于调试
-        self.encoding_fix_enabled = True
-        logger.info("已启用编码修复功能，自动处理中文乱码问题")
+        # BaseCrawler.__init__ 会处理 self.db_manager 的初始化
+        # 此处不再需要 IfengCrawler 特定的 SQLiteManager 初始化逻辑
         
-        # 确保SQLiteManager已正确导入
-        try:
-            from app.db.sqlite_manager import SQLiteManager
-            
-            # 如果提供了db_manager并且不是SQLiteManager类型，创建SQLiteManager
-            if db_manager and not isinstance(db_manager, SQLiteManager):
-                if hasattr(db_manager, 'db_path'):
-                    self.sqlite_manager = SQLiteManager(db_manager.db_path)
-                    self.db = self.sqlite_manager
-                else:
-                    # 使用传入的db_path或默认路径
-                    self.sqlite_manager = SQLiteManager(db_path or self.db_path)
-                    self.db = self.sqlite_manager
-            elif not db_manager:
-                # 如果没有提供db_manager，创建SQLiteManager
-                self.sqlite_manager = SQLiteManager(db_path or self.db_path)
-                self.db = self.sqlite_manager
-            else:
-                # 否则使用提供的db_manager
-                self.sqlite_manager = db_manager
-                self.db = db_manager
-        except ImportError as e:
-            logger.error(f"无法导入SQLiteManager: {str(e)}")
-            self.sqlite_manager = None
-            self.db = None
-        
-        logger.info("凤凰财经爬虫初始化完成，数据库路径: %s", self.db_path)
+        self.logger.info(f"凤凰财经爬虫 {self.source} 初始化完成，将使用数据库: {self.db_manager.db_path if self.db_manager else '未指定'}")
     
     def crawl(self, days=1, max_news=10):
         """
@@ -165,348 +168,89 @@ class IfengCrawler(BaseCrawler):
         Returns:
             list: 爬取的新闻数据列表
         """
-        # 存储爬取的新闻数据
-        news_data = []
+        crawled_news_items = [] # 用于收集实际爬取并尝试保存的新闻项
         
-        # 计算起始日期
         start_date = datetime.now() - timedelta(days=days)
+        self.logger.info(f"开始爬取凤凰财经新闻 ({self.source})，爬取天数: {days}, 最大新闻数: {max_news}")
         
-        logger.info("开始爬取凤凰财经新闻，爬取天数: %d", days)
+        # SQLiteManager 的初始化会负责创建表，此处的显式调用可能不再必要
+        # self._ensure_db_ready() 
         
-        # 确保数据库和表结构正确
-        self._ensure_db_ready()
-        
-        try:
-            # 先尝试从首页获取新闻
-            logger.info("尝试从首页获取新闻")
-            # 随机休眠，避免请求过快
-            sleep_time = random.uniform(1, 2)
-            logger.debug("随机休眠 %.2f 秒", sleep_time)
-            time.sleep(sleep_time)
-            
-            # 获取首页新闻链接
-            home_url = "https://finance.ifeng.com/"
-            home_links = self.get_news_links(home_url, "首页")
-            
-            logger.info("从首页提取到新闻链接数量: %d", len(home_links) if home_links else 0)
-            
-            # 处理首页新闻
-            for link in home_links:
-                # 检查是否达到最大新闻数量
-                if len(news_data) >= max_news:
-                    logger.info("已达到最大新闻数量 %d 条，停止爬取", max_news)
-                    break
-                
-                try:
-                    # 随机休眠，避免请求过快
-                    sleep_time = random.uniform(1, 5)
-                    logger.debug("随机休眠 %.2f 秒", sleep_time)
-                    time.sleep(sleep_time)
-                    
-                    # 获取新闻详情
-                    news = self.get_news_detail(link, "首页")
-                    
-                    if not news:
-                        logger.warning("无法获取新闻详情：%s", link)
-                        continue
-                    
-                    # 检查新闻日期是否在指定范围内
-                    news_date = datetime.strptime(news['pub_time'], '%Y-%m-%d %H:%M:%S')
-                    if news_date < start_date:
-                        logger.info("新闻日期 %s 早于起始日期 %s，跳过", news['pub_time'], start_date.strftime('%Y-%m-%d %H:%M:%S'))
-                        continue
-                    
-                    # 保存新闻到数据库
-                    self._save_news_to_db(news)
-                    
-                    # 添加到新闻数据列表
-                    news_data.append(news)
-                    
-                    # 记录新闻信息
-                    logger.info("成功爬取新闻：%s", news['title'])
-                    
-                except Exception as e:
-                    logger.error("处理新闻链接出错：%s，错误：%s", link, str(e))
-                    import traceback
-                    logger.error(traceback.format_exc())
-                    continue
-        except Exception as e:
-            logger.error("从首页提取新闻链接失败: %s", str(e))
-            import traceback
-            logger.error(traceback.format_exc())
-        
-        # 遍历所有分类
+        # 优先处理API（如果适用且高效）
+        # TODO: 如果有API爬取逻辑，可以在这里实现
+
+        # 网页爬取逻辑
+        page_urls_to_crawl = []
+        page_urls_to_crawl.append(("https://finance.ifeng.com/", "首页"))
         for category, url in self.CATEGORY_URLS.items():
+            page_urls_to_crawl.append((url, category))
+
+        for page_url, category_name in page_urls_to_crawl:
+            if len(crawled_news_items) >= max_news:
+                self.logger.info(f"已达到最大新闻数量 {max_news} 条，停止爬取更多分类页面。")
+                break
+            
+            self.logger.info(f"开始处理页面: {page_url} (分类: {category_name})")
             try:
-                # 检查是否达到最大新闻数量
-                if len(news_data) >= max_news:
-                    logger.info("已达到最大新闻数量 %d 条，停止爬取", max_news)
-                    break
-                
-                # 记录当前分类爬取信息
-                logger.info("开始爬取分类: %s, URL: %s", category, url)
-                
-                # 随机休眠，避免请求过快
-                sleep_time = random.uniform(1, 5)
-                logger.debug("随机休眠 %.2f 秒", sleep_time)
-                time.sleep(sleep_time)
-                
-                # 获取分类页面的新闻链接
-                news_links = self.get_news_links(url, category)
-                
+                time.sleep(random.uniform(1, 3)) # 礼貌性延迟
+                news_links = self.get_news_links(page_url, category_name)
                 if not news_links:
-                    logger.warning("未找到分类 %s 的新闻链接", category)
+                    self.logger.warning(f"在页面 {page_url} 未找到新闻链接。")
                     continue
                 
-                logger.info("分类 '%s' 找到 %d 个潜在新闻项", category, len(news_links))
+                self.logger.info(f"页面 {page_url} 找到 {len(news_links)} 个潜在新闻链接。")
                 
-                # 随机休眠，避免请求过快
-                sleep_time = random.uniform(1, 5)
-                logger.debug("随机休眠 %.2f 秒", sleep_time)
-                time.sleep(sleep_time)
-                
-                # 遍历新闻链接
-                for link in news_links:
-                    # 检查是否达到最大新闻数量
-                    if len(news_data) >= max_news:
-                        logger.info("已达到最大新闻数量 %d 条，停止爬取", max_news)
+                for link_url in news_links:
+                    if len(crawled_news_items) >= max_news:
+                        self.logger.info(f"已达到最大新闻数量 {max_news} 条，停止处理更多新闻链接。")
                         break
                     
+                    self.logger.debug(f"准备处理新闻链接: {link_url}")
                     try:
-                        # 随机休眠，避免请求过快
-                        sleep_time = random.uniform(1, 3)
-                        logger.debug("随机休眠 %.2f 秒", sleep_time)
-                        time.sleep(sleep_time)
+                        time.sleep(random.uniform(0.5, 1.5)) # 处理单个新闻前的延迟
+                        news_detail = self.get_news_detail(link_url, category_name)
                         
-                        # 获取新闻详情
-                        news = self.get_news_detail(link, category)
-                        
-                        if not news:
-                            logger.warning("无法获取新闻详情：%s", link)
+                        if not news_detail:
+                            self.logger.warning(f"无法获取新闻详情或内容无效: {link_url}")
                             continue
                         
-                        # 检查新闻日期是否在指定范围内
-                        news_date = datetime.strptime(news['pub_time'], '%Y-%m-%d %H:%M:%S')
-                        if news_date < start_date:
-                            logger.info("新闻日期 %s 早于起始日期 %s，跳过", news['pub_time'], start_date.strftime('%Y-%m-%d %H:%M:%S'))
-                            continue
-                        
-                        # 保存新闻到数据库
-                        self._save_news_to_db(news)
-                        
-                        # 添加到新闻数据列表
-                        news_data.append(news)
-                        
-                        # 记录新闻信息
-                        logger.info("成功爬取新闻：%s", news['title'])
-                        
-                    except Exception as e:
-                        logger.error("处理新闻链接出错：%s，错误：%s", link, str(e))
-                        import traceback
-                        logger.error(traceback.format_exc())
-                        continue
-                
-            except Exception as e:
-                logger.error("从分类页面提取新闻链接失败: %s, 错误: %s", category, str(e))
-                import traceback
-                logger.error(traceback.format_exc())
-                continue
+                        # 日期检查 (确保 pub_time 是存在的并且是有效格式)
+                        if 'pub_time' not in news_detail or not news_detail['pub_time']:
+                            self.logger.warning(f"新闻详情缺少 pub_time: {link_url}, 标题: {news_detail.get('title')}")
+                            # 可以选择跳过，或者让后续的SQLiteManager预处理设置默认时间
+                            # 此处选择信任后续处理，但记录警告
+
+                        try:
+                            # 如果pub_time存在，则进行日期范围检查
+                            if news_detail.get('pub_time'):
+                                news_date = datetime.strptime(news_detail['pub_time'], '%Y-%m-%d %H:%M:%S')
+                                if news_date < start_date:
+                                    self.logger.info(f"新闻日期 {news_detail['pub_time']} 早于起始日期 {start_date.strftime('%Y-%m-%d %H:%M:%S')}，跳过: {news_detail.get('title')}")
+                                    continue
+                        except ValueError as ve:
+                            self.logger.warning(f"日期格式错误 for pub_time '{news_detail.get('pub_time')}': {ve}. 新闻: {news_detail.get('title')}. 将尝试由后续流程处理。")
+                            # 不跳过，让SQLiteManager尝试处理或设置默认值
+
+                        # 调用基类的保存方法，它会处理预处理和数据库交互
+                        if super().save_news_to_db(news_detail): # 或者 self.save_news_to_db(news_detail)
+                            crawled_news_items.append(news_detail)
+                            self.logger.info(f"成功处理并尝试保存新闻: {news_detail.get('title')}")
+                        else:
+                            self.logger.warning(f"基类 save_news_to_db未能成功处理/保存新闻: {news_detail.get('title')}, URL: {link_url}")
+                            # 此处可以根据需要添加更多错误处理或重试逻辑
+
+                    except Exception as e_inner:
+                        self.logger.error(f"处理单个新闻链接 {link_url} 时出错: {str(e_inner)}")
+                        self.logger.error(traceback.format_exc())
+                        continue # 继续处理下一个链接
+            
+            except Exception as e_outer:
+                self.logger.error(f"处理页面 {page_url} (分类: {category_name}) 时出错: {str(e_outer)}")
+                self.logger.error(traceback.format_exc())
+                continue # 继续处理下一个分类页面
         
-        # 记录爬取结束信息
-        logger.info("凤凰财经新闻爬取完成，共爬取 %d 条新闻", len(news_data))
-        
-        return news_data
-    
-    def _ensure_db_ready(self):
-        """
-        确保数据库和表结构已经准备好
-        """
-        try:
-            # 检查sqlite_manager是否可用
-            if hasattr(self, 'sqlite_manager') and self.sqlite_manager:
-                if hasattr(self.sqlite_manager, 'ensure_source_table_exists'):
-                    self.sqlite_manager.ensure_source_table_exists("凤凰财经")
-                    logger.info("已确保数据库表结构正确")
-                    return True
-            
-            # 检查db_manager是否可用
-            if hasattr(self, 'db_manager') and self.db_manager:
-                if hasattr(self.db_manager, 'ensure_source_table_exists'):
-                    self.db_manager.ensure_source_table_exists("凤凰财经")
-                    logger.info("已确保数据库表结构正确")
-                    return True
-                    
-            # 检查db是否可用
-            if hasattr(self, 'db') and self.db:
-                if hasattr(self.db, 'ensure_source_table_exists'):
-                    self.db.ensure_source_table_exists("凤凰财经")
-                    logger.info("已确保数据库表结构正确")
-                    return True
-                    
-            # 如果以上都不可用，尝试直接使用sqlite3
-            import sqlite3
-            if hasattr(self, 'db_path') and self.db_path:
-                # 确保目录存在
-                os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-                
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
-                
-                # 创建新闻表
-                cursor.execute('''
-                CREATE TABLE IF NOT EXISTS news (
-                    id TEXT PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    content TEXT,
-                    content_html TEXT,
-                    pub_time TEXT,
-                    author TEXT,
-                    source TEXT,
-                    url TEXT UNIQUE,
-                    keywords TEXT,
-                    images TEXT,
-                    related_stocks TEXT,
-                    sentiment TEXT,
-                    classification TEXT,
-                    category TEXT,
-                    crawl_time TEXT
-                )
-                ''')
-                
-                # 提交更改
-                conn.commit()
-                conn.close()
-                
-                logger.info("已使用sqlite3直接创建数据库表")
-                return True
-                
-            logger.warning("无法确保数据库表结构，可能无法保存数据")
-            return False
-            
-        except Exception as e:
-            logger.error(f"确保数据库准备时出错: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return False
-    
-    def _save_news_to_db(self, news):
-        """
-        将新闻保存到数据库
-        
-        Args:
-            news: 新闻数据字典
-        
-        Returns:
-            bool: 是否成功保存
-        """
-        try:
-            # 添加爬取时间
-            if 'crawl_time' not in news:
-                news['crawl_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                
-            # 1. 尝试使用sqlite_manager
-            if hasattr(self, 'sqlite_manager') and self.sqlite_manager:
-                if hasattr(self.sqlite_manager, 'save_news'):
-                    self.sqlite_manager.save_news(news)
-                    logger.info(f"使用sqlite_manager保存新闻: {news['title']}")
-                    return True
-            
-            # 2. 尝试使用db_manager
-            if hasattr(self, 'db_manager') and self.db_manager:
-                if hasattr(self.db_manager, 'save_news'):
-                    self.db_manager.save_news(news)
-                    logger.info(f"使用db_manager保存新闻: {news['title']}")
-                    return True
-            
-            # 3. 尝试使用db
-            if hasattr(self, 'db') and self.db:
-                if hasattr(self.db, 'save_news'):
-                    self.db.save_news(news)
-                    logger.info(f"使用db保存新闻: {news['title']}")
-                    return True
-            
-            # 4. 尝试直接使用sqlite3
-            import sqlite3
-            if hasattr(self, 'db_path') and self.db_path:
-                # 尝试使用sqlite3直接保存
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
-                
-                # 准备插入语句
-                insert_sql = '''
-                INSERT OR REPLACE INTO news (
-                    id, title, content, pub_time, author, source, url, 
-                    keywords, images, related_stocks, category, crawl_time
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                '''
-                
-                # 准备数据
-                data = (
-                    news['id'],
-                    news['title'],
-                    news['content'],
-                    news['pub_time'],
-                    news['author'],
-                    news['source'],
-                    news['url'],
-                    news.get('keywords', ''),
-                    news.get('images', ''),
-                    news.get('related_stocks', ''),
-                    news.get('category', '未分类'),
-                    news.get('crawl_time', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-                )
-                
-                # 执行插入
-                cursor.execute(insert_sql, data)
-                
-                # 提交并关闭
-                conn.commit()
-                conn.close()
-                
-                logger.info(f"使用sqlite3直接保存新闻: {news['title']}")
-                return True
-                
-            logger.warning(f"无法保存新闻到数据库: {news['title']}")
-            return False
-            
-        except Exception as e:
-            logger.error(f"保存新闻到数据库时出错: {str(e)}, 标题: {news.get('title', 'Unknown')}")
-            import traceback
-            logger.error(traceback.format_exc())
-            
-            # 发生错误时尝试回退到基本sqlite3保存
-            try:
-                if hasattr(self, 'db_path') and self.db_path:
-                    # 尝试使用更基础的方式保存
-                    import sqlite3
-                    conn = sqlite3.connect(self.db_path)
-                    cursor = conn.cursor()
-                    
-                    # 简化的插入，只保存最基础的字段
-                    basic_sql = '''
-                    INSERT OR REPLACE INTO news (id, title, content, source, url, crawl_time)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    '''
-                    
-                    basic_data = (
-                        news['id'],
-                        news['title'],
-                        news['content'],
-                        news['source'],
-                        news['url'],
-                        datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    )
-                    
-                    cursor.execute(basic_sql, basic_data)
-                    conn.commit()
-                    conn.close()
-                    
-                    logger.info(f"使用基础sqlite3方法保存新闻: {news['title']}")
-                    return True
-            except Exception as fallback_e:
-                logger.error(f"基础sqlite3保存也失败: {str(fallback_e)}")
-                
-            return False
+        self.logger.info(f"凤凰财经新闻爬取完成，共尝试处理/保存 {len(crawled_news_items)} 条新闻。")
+        return crawled_news_items
     
     def get_news_links(self, url, category):
         """
@@ -528,9 +272,9 @@ class IfengCrawler(BaseCrawler):
             
             # 禁用SSL验证，避免某些证书问题
             try:
-                from requests.packages.urllib3.exceptions import InsecureRequestWarning
-                requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-            except ImportError:
+                import urllib3
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            except Exception:
                 pass
 
             try:
@@ -704,46 +448,48 @@ class IfengCrawler(BaseCrawler):
     
     def _handle_encoding(self, response):
         """
-        处理响应的编码问题
+        处理响应的编码问题，确保返回UTF-8字符串
         
         Args:
-            response: 响应对象
+            response: requests 响应对象
             
         Returns:
-            str: 处理后的文本内容
+            str: 处理后的文本内容 (UTF-8)
         """
+        content_bytes = response.content
+        apparent_encoding = response.apparent_encoding
+        final_encoding = None
+        decoded_text = None
+
         try:
-            # 检查是否是ISO-8859-1编码（通常是误判）
-            if response.encoding == 'ISO-8859-1' or response.encoding is None:
-                # 使用chardet检测实际编码
-                detected_encoding = self.detect_encoding(response.content)
-                
-                # 尝试使用检测到的编码解码
-                try:
-                    content = response.content.decode(detected_encoding)
-                    logger.debug("使用检测到的编码 %s 成功解码", detected_encoding)
-                    return content
-                except UnicodeDecodeError:
-                    # 检测失败，尝试常用中文编码
-                    encodings = ['utf-8', 'gbk', 'gb18030']
-                    for enc in encodings:
-                        try:
-                            content = response.content.decode(enc)
-                            logger.debug("成功使用 %s 解码", enc)
-                            return content
-                        except UnicodeDecodeError:
-                            continue
-                    
-                    # 所有尝试都失败，使用errors='ignore'强制解码
-                    logger.warning("所有编码尝试失败，使用ignore模式强制解码")
-                    return response.content.decode('utf-8', errors='ignore')
-            else:
-                # 使用响应的原始编码
-                return response.text
+            # 1. 使用统一的 _detect_encoding 方法获取最佳猜测编码
+            # 注意：这个方法现在在后面定义（约 L975）
+            # 它内部包含了 meta tag, apparent_encoding, 强制规则, 尝试解码列表, 默认utf-8 的逻辑
+            detected_encoding = self._detect_encoding(content_bytes)
+            final_encoding = detected_encoding # 以检测结果为准
+            
+            # 2. 尝试使用检测到的编码进行解码
+            try:
+                decoded_text = content_bytes.decode(final_encoding)
+                logger.debug(f"使用检测/推断出的编码 '{final_encoding}' 成功解码.")
+            except UnicodeDecodeError:
+                logger.warning(f"使用检测/推断出的编码 '{final_encoding}' 解码失败. 将回退到 utf-8 (ignore errors).")
+                final_encoding = 'utf-8' # 更新最终使用的编码记录
+                decoded_text = content_bytes.decode(final_encoding, errors='ignore')
+            except Exception as decode_err: # 其他可能的解码错误
+                logger.error(f"使用编码 '{final_encoding}' 解码时发生未知错误: {decode_err}. 将回退到 utf-8 (ignore errors).")
+                final_encoding = 'utf-8'
+                decoded_text = content_bytes.decode(final_encoding, errors='ignore')
+
+            # 3. （可选）进行文本清理
+            # decoded_text = self.clean_text(decoded_text) # 如果需要在这里进行清理
+            
+            return decoded_text
+
         except Exception as e:
-            logger.error("处理编码时出错: %s", str(e))
-            # 发生错误时，使用ignore模式强制解码
-            return response.content.decode('utf-8', errors='ignore')
+            logger.error(f"处理编码时发生意外错误: {str(e)}. 返回 utf-8 (ignore errors) 解码结果。")
+            # 最终回退
+            return content_bytes.decode('utf-8', errors='ignore')
     
     def clean_text(self, text):
         """
@@ -791,67 +537,29 @@ class IfengCrawler(BaseCrawler):
         
         return text.strip()
     
-    # 重写fetch_page方法，加强编码处理
-    def fetch_page(self, url, params=None, headers=None, max_retries=3, timeout=15):
+    def fetch_page(self, url, params=None, headers=None, max_retries=None, timeout=None):
         """
-        获取页面内容并处理编码
+        获取页面内容 (使用BaseCrawler的实现)
         
         Args:
-            url: 页面URL
-            params: 请求参数
-            headers: 自定义请求头
-            max_retries: 最大重试次数
-            timeout: 超时时间（秒）
-            
+            url (str): 页面URL
+            params (Optional[Dict]): 请求参数.
+            headers (Optional[Dict]): 请求头 (如果为None，将使用BaseCrawler的默认头).
+            max_retries (Optional[int]): 最大重试次数 (如果为None，使用BaseCrawler默认).
+            timeout (Optional[int]): 超时时间 (如果为None，使用BaseCrawler默认).
+
         Returns:
-            str: 页面内容或None
+            Optional[str]: 页面内容 (UTF-8)，获取失败则返回None
         """
-        if not headers:
-            headers = {
-                'User-Agent': random.choice(self.USER_AGENTS),
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-                'Referer': 'https://finance.ifeng.com/',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Cache-Control': 'max-age=0'
-            }
-        
-        for attempt in range(max_retries):
-            try:
-                session = requests.Session()
-                response = session.get(url, params=params, headers=headers, timeout=timeout)
-                response.raise_for_status()
-                
-                # 处理编码问题
-                content = self._handle_encoding(response)
-                
-                # 应用文本清理
-                content = self.clean_text(content)
-                
-                logger.debug("成功获取页面内容，URL: %s", url)
-                return content
-                
-            except requests.exceptions.RequestException as e:
-                logger.warning("请求异常 (尝试 %d/%d): %s, URL: %s", 
-                              attempt + 1, max_retries, str(e), url)
-                time.sleep(2 * (attempt + 1))  # 指数退避
-        
-        logger.error("获取页面内容失败，已达到最大重试次数: %d, URL: %s", max_retries, url)
-        return None
+        self.logger.debug(f"[IfengCrawler.fetch_page] Calling super().fetch_page() for URL: {url}")
+        try:
+            return super().fetch_page(url, params=params, headers=headers, max_retries=max_retries, timeout=timeout)
+        except Exception as e:
+            self.logger.error(f"[IfengCrawler.fetch_page] Error calling super().fetch_page() for {url}: {e}", exc_info=True)
+            return None
     
     def get_news_detail(self, url, category=None, retry=0):
-        """
-        获取新闻详情
-        
-        Args:
-            url: 新闻URL
-            category: 分类名称（可选）
-            retry: 重试次数
-            
-        Returns:
-            dict: 新闻详情
-        """
+        """获取新闻详情并处理"""
         if retry > 3:
             logger.error(f"获取新闻详情失败，已重试{retry}次，放弃: {url}")
             return None
@@ -862,8 +570,8 @@ class IfengCrawler(BaseCrawler):
             # 更健壮的请求处理
             try:
                 # 禁用SSL验证，避免某些证书问题
-                from requests.packages.urllib3.exceptions import InsecureRequestWarning
-                requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+                import urllib3
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
                 
                 # 创建自定义请求头
                 headers = {
@@ -926,141 +634,30 @@ class IfengCrawler(BaseCrawler):
                 except Exception as e:
                     logger.error(f"标题编码修复失败: {str(e)}")
             
-            # 获取内容 - 使用更灵活的内容获取策略
-            content_elem = None
-            
-            # 1. 首先尝试使用选择器列表
-            selectors = [
-                '.main_content', '.article', '.article-main', '.text-3w2e3DBc', 
-                '.main-content-section', '.js-video-content', '.content', 
-                '.article_content', 'article.article-main-content', 
-                '.detailArticle-content', '#artical_real', '.yc-artical', 
-                '.art_content', '.article-cont', '.news-content', '.news_txt', 
-                '.c-article-content', '#main_content', '.hqy-ArticleInfo-article',
-                '.article-main-inner', '.article__content', '.c-article-body'
+            # 获取内容 - 使用多种可能的内容选择器
+            content = None
+            content_selectors = [
+                'div.main-content', 'div.article-content', 'div.news-content', 
+                'div.content', 'article', '.story', '#main_content',
+                '.news-body', '.article_body'
             ]
-            for selector in selectors:
+            
+            for selector in content_selectors:
                 content_elem = soup.select_one(selector)
                 if content_elem:
-                    logger.info(f"使用选择器 '{selector}' 找到内容")
+                    # 过滤掉不需要的元素
+                    for tag in content_elem.select('script, style, .advertisement, .ad, .recommend, .related, .footer, .copyright'):
+                        tag.decompose()
+                    
+                    # 提取内容HTML
+                    content = str(content_elem)
                     break
-            
-            # 2. 如果选择器方法失败，尝试查找包含大量文本的div
-            if not content_elem:
-                logger.info("使用备用策略查找内容元素")
-                # 查找所有div元素
-                divs = soup.find_all('div')
-                # 按文本长度排序
-                divs_by_length = sorted(divs, key=lambda div: len(div.get_text()), reverse=True)
-                # 如果有足够长的div，可能是内容区
-                for div in divs_by_length[:5]:  # 检查前5个最长的div
-                    text = div.get_text().strip()
-                    if len(text) > 200 and not div.find_parent('script'):  # 排除脚本内的div
-                        content_elem = div
-                        logger.info(f"使用文本长度策略找到可能的内容元素，长度: {len(text)}")
-                        break
-            
-            # 3. 尝试根据JavaScript数据对象提取内容（新版凤凰网常用这种方式）
-            if not content_elem:
-                logger.info("尝试从JS数据中提取内容")
-                script_tags = soup.find_all('script')
-                for script in script_tags:
-                    script_text = script.string
-                    if script_text and ('var article_data' in script_text or '"content":' in script_text):
-                        # 查找JSON结构的内容字段
-                        content_match = re.search(r'"content"\s*:\s*"(.+?[^\\])"', script_text, re.DOTALL)
-                        if content_match:
-                            content_json = content_match.group(1)
-                            # 处理转义字符
-                            content_json = content_json.replace('\\"', '"').replace('\\\\', '\\')
-                            content_json = decode_unicode_escape(content_json)
-                            # 创建一个临时的内容元素
-                            content_elem = BeautifulSoup(f"<div>{content_json}</div>", 'html.parser')
-                            logger.info("从JS数据中成功提取内容")
-                            break
-            
-            # 如果仍未找到内容元素，保存HTML并返回失败
-            if not content_elem:
-                logger.error(f"无法找到内容元素，URL: {url}")
-                # 尝试保存获取的HTML以便调试
-                debug_file = f"debug_html_{datetime.now().strftime('%Y%m%d%H%M%S')}.html"
-                try:
-                    with open(debug_file, "w", encoding="utf-8") as f:
-                        f.write(html)
-                    logger.info(f"已保存HTML到文件: {debug_file}")
-                except Exception as save_e:
-                    logger.error(f"保存HTML失败: {str(save_e)}")
-                return None
-            
-            # 剔除不需要的元素
-            for selector in ['.textimg', 'table', 'style', '.ad', '.advertisement', 'script', '.share', '.tool', '.relate', '.recommend']:
-                for elem in content_elem.select(selector):
-                    elem.decompose()
-            
-            # 获取文本内容
-            content = content_elem.get_text().strip()
-            
-            # 移除特定的广告或无关文本
-            ad_patterns = [
-                r'凤凰网财经讯.*?$',
-                r'更多财经资讯.*?$',
-                r'更多.*?资讯，请下载.*?$',
-                r'APP内打开.*?$',
-                r'原标题：.*?$',
-                r'【声明】.*?$',
-                r'【免责声明】.*?$'
-            ]
-            for pattern in ad_patterns:
-                content = re.sub(pattern, '', content, flags=re.MULTILINE)
-            
-            # 清理多余空白行
-            content = re.sub(r'\n\s*\n', '\n\n', content)
-            
-            # 使用编码修复功能处理内容
-            if hasattr(self, 'encoding_fix_enabled') and self.encoding_fix_enabled and content:
-                try:
-                    content = self.clean_text(content)
-                    logger.info(f"内容编码修复成功: {content[:30]}...")
-                except Exception as e:
-                    logger.error(f"内容编码修复失败: {str(e)}")
-            
-            # 提取图片
-            images = []
-            img_elems = content_elem.select('img')
-            for img in img_elems:
-                src = img.get('src', '')
-                if not src:
-                    # 尝试从data-lazyload属性获取
-                    src = img.get('data-lazyload', '')
-                if not src:
-                    # 尝试从data-original属性获取
-                    src = img.get('data-original', '')
-                    
-                if src and src.startswith('http'):
-                    images.append(src)
-                elif src and src.startswith('//'):
-                    images.append('https:' + src)
-            
-            # 如果从HTML中找不到图片，尝试从元数据中获取
-            if not images:
-                og_image = soup.select_one('meta[property="og:image"]')
-                if og_image and og_image.get('content'):
-                    images.append(og_image.get('content'))
-            
-            # 提取关键词
-            keywords = []
-            keywords_elem = soup.select_one('meta[name="keywords"]')
-            if keywords_elem:
-                keywords_content = keywords_elem.get('content', '')
-                if keywords_content:
-                    keywords = [k.strip() for k in keywords_content.split(',') if k.strip()]
-                    
-                    # 使用编码修复功能处理关键词
-                    if hasattr(self, 'encoding_fix_enabled') and self.encoding_fix_enabled:
-                        try:
-                            keywords = [self.clean_text(k) for k in keywords]
-                        except Exception as e:
-                            logger.error(f"关键词编码修复失败: {str(e)}")
+                
+            if not content:
+                # 最后的尝试：使用p标签
+                paragraphs = soup.select('p')
+                if paragraphs:
+                    content = ''.join(str(p) for p in paragraphs)
             
             # 提取发布时间
             pub_time = self.extract_pub_time(soup)
@@ -1068,26 +665,37 @@ class IfengCrawler(BaseCrawler):
             # 提取作者
             author = self.extract_author(soup)
             
-            # 生成新闻ID
-            news_id = self.generate_news_id(url, title)
+            # 提取分类
+            category = None
+            category_patterns = [
+                '.category', '.channel', '.belong', '.article-channel',
+                '.breadcrumb a', '.nav-wrap a', '.site-nav a'
+            ]
             
-            # 构建结果
-            result = {
-                'id': news_id,
+            for pattern in category_patterns:
+                category_elems = soup.select(pattern)
+                if category_elems:
+                    # 使用最后一个面包屑或导航项作为分类
+                    category = category_elems[-1].get_text().strip()
+                    break
+                
+            if not category:
+                # 默认分类
+                category = "财经"
+            
+            # 构建新闻数据
+            news_data = {
+                'url': url,
                 'title': title,
                 'content': content,
                 'pub_time': pub_time,
                 'author': author,
-                'source': self.source,
-                'url': url,
-                'category': category or '未分类',
-                'keywords': ','.join(keywords) if keywords else '',
-                'images': ','.join(images) if images else '',
-                'related_stocks': ''
+                'category': category,
+                'sentiment': None,  # SQLiteManager._preprocess_news_data 会处理默认值
             }
             
-            logger.info(f"成功获取新闻详情：{title}")
-            return result
+            return news_data
+            
         except Exception as e:
             logger.error(f"获取新闻详情异常: {str(e)}, URL: {url}")
             import traceback
@@ -1182,21 +790,6 @@ class IfengCrawler(BaseCrawler):
             logger.warning("提取相关股票失败：%s", str(e))
             return []
     
-    def generate_news_id(self, url, title):
-        """
-        生成新闻ID
-        
-        Args:
-            url (str): 新闻URL
-            title (str): 新闻标题
-            
-        Returns:
-            str: 新闻ID
-        """
-        # 使用URL和标题的组合生成唯一ID
-        text = url + title
-        return hashlib.md5(text.encode('utf-8')).hexdigest()
-    
     def is_valid_news_url(self, url):
         """
         判断URL是否为有效的新闻链接
@@ -1237,6 +830,274 @@ class IfengCrawler(BaseCrawler):
         
         return False
 
+    def _process_news_content(self, content, news_id=None, url=None):
+        """
+        处理新闻内容，提取图片、优化格式
+        
+        Args:
+            content: HTML内容
+            news_id: 新闻ID，用于图片保存
+            url: 原始URL，用于处理相对路径
+            
+        Returns:
+            处理后的内容和提取的图片列表
+        """
+        if not content:
+            return content, []
+        
+        try:
+            # 解析HTML
+            soup = BeautifulSoup(content, 'html.parser')
+            
+            # 清理不需要的元素
+            for selector in [
+                'script', 'style', '.ad', '.advertisement', '.recommend', '.footer',
+                '.copyright', '.tool-bar', '.share-bar', 'iframe', 'ins', 
+                'link', 'meta', 'noscript', 'object', 'embed', '.comment'
+            ]:
+                for element in soup.select(selector):
+                    element.decompose()
+            
+            # 提取图片
+            images = []
+            processed_urls = set()  # 用于去重
+            
+            # 1. 查找所有常规图片标签
+            img_tags = soup.select('img')
+            self.logger.info(f"在内容中找到 {len(img_tags)} 个图片标签")
+            
+            for img in img_tags:
+                # 尝试不同属性获取图片URL
+                img_url = None
+                
+                # 检查各种可能的图片属性
+                for attr in ['src', 'data-src', 'data-original', 'data-original-src', 'data-lazy-src', 'data-lazysrc', 'data-lazyload']:
+                    if img.get(attr):
+                        img_url = img.get(attr)
+                        if img_url and img_url.strip():
+                            break
+                
+                # 如果没有找到图片URL，跳过
+                if not img_url or not img_url.strip():
+                    continue
+                
+                img_url = img_url.strip()
+                
+                # 处理相对URL
+                if not img_url.startswith(('http://', 'https://')):
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
+                    elif url:
+                        base_url = '/'.join(url.split('/')[:3])  # http(s)://domain.com
+                        if img_url.startswith('/'):
+                            img_url = base_url + img_url
+                        else:
+                            img_url = base_url + '/' + img_url
+                    else:
+                        continue
+                
+                # 过滤小图标、广告等无用图片
+                skip_patterns = ['logo', 'icon', 'avatar', 'ad', 'banner', '.gif', '.svg', 'pixel.', 'blank.', 
+                                'stat', 'tracker', 'analytics', '1x1', 'spacer', 'transparent']
+                if any(pattern in img_url.lower() for pattern in skip_patterns):
+                    self.logger.debug(f"跳过无用图片: {img_url}")
+                    continue
+                
+                # 去重
+                if img_url in processed_urls:
+                    continue
+                processed_urls.add(img_url)
+                
+                # 处理alt文本
+                alt = img.get('alt', '').strip()
+                if not alt and img.get('title'):
+                    alt = img.get('title').strip()
+                
+                # 如果alt为空，尝试从周围文本提取描述
+                if not alt:
+                    parent = img.parent
+                    if parent:
+                        parent_text = parent.get_text().strip()
+                        if parent_text:
+                            alt = parent_text[:50] + ('...' if len(parent_text) > 50 else '')
+                
+                # 保存图片信息
+                images.append({
+                    'url': img_url,
+                    'alt': alt or '凤凰财经图片',
+                    'original_url': img_url
+                })
+                
+                # 优化图片标签
+                img['loading'] = 'lazy'
+                img['src'] = img_url  # 统一使用找到的URL
+                img_classes = img.get('class', [])
+                if isinstance(img_classes, str):
+                    img_classes = [img_classes]
+                if 'img-fluid' not in img_classes:
+                    img_classes.append('img-fluid')
+                if 'rounded' not in img_classes:
+                    img_classes.append('rounded')
+                img['class'] = ' '.join(img_classes)
+                img['alt'] = alt or '凤凰财经图片'
+                
+                # 添加错误处理
+                img['onerror'] = "this.onerror=null; this.src='/static/img/image-error.jpg'; this.alt='图片加载失败';"
+            
+            # 2. 查找背景图片样式
+            for element in soup.select('[style*="background"]'):
+                style = element.get('style', '')
+                # 使用正则表达式提取背景图片URL
+                bg_match = re.search(r'background(-image)?:\s*url\([\'"]?([^\'")]+)[\'"]?\)', style)
+                if bg_match:
+                    bg_url = bg_match.group(2).strip()
+                    
+                    # 处理相对URL
+                    if not bg_url.startswith(('http://', 'https://')):
+                        if bg_url.startswith('//'):
+                            bg_url = 'https:' + bg_url
+                        elif url:
+                            base_url = '/'.join(url.split('/')[:3])
+                            if bg_url.startswith('/'):
+                                bg_url = base_url + bg_url
+                            else:
+                                bg_url = base_url + '/' + bg_url
+                        else:
+                            continue
+                    
+                    # 过滤和去重
+                    if any(pattern in bg_url.lower() for pattern in skip_patterns) or bg_url in processed_urls:
+                        continue
+                    
+                    processed_urls.add(bg_url)
+                    
+                    # 提取alt文本
+                    alt = element.get('alt', '') or element.get('title', '')
+                    if not alt:
+                        alt = element.get_text().strip()[:50]
+                    
+                    # 保存图片信息
+                    images.append({
+                        'url': bg_url,
+                        'alt': alt or '凤凰财经背景图片',
+                        'original_url': bg_url
+                    })
+            
+            # 3. 查找JSON数据中的图片URL
+            for script in soup.find_all('script'):
+                script_text = script.string
+                if not script_text:
+                    continue
+                
+                # 尝试查找常见的图片JSON格式
+                img_patterns = [
+                    r'"imageUrl"\s*:\s*"([^"]+)"',
+                    r'"coverImage"\s*:\s*"([^"]+)"',
+                    r'"image"\s*:\s*"([^"]+)"',
+                    r'"img"\s*:\s*"([^"]+)"',
+                    r'"pic"\s*:\s*"([^"]+)"'
+                ]
+                
+                for pattern in img_patterns:
+                    for match in re.finditer(pattern, script_text):
+                        json_img_url = match.group(1).strip()
+                        
+                        # 处理相对URL
+                        if not json_img_url.startswith(('http://', 'https://')):
+                            if json_img_url.startswith('//'):
+                                json_img_url = 'https:' + json_img_url
+                            elif url:
+                                base_url = '/'.join(url.split('/')[:3])
+                                if json_img_url.startswith('/'):
+                                    json_img_url = base_url + json_img_url
+                                else:
+                                    json_img_url = base_url + '/' + json_img_url
+                            else:
+                                continue
+                        
+                        # 过滤和去重
+                        if any(pattern in json_img_url.lower() for pattern in skip_patterns) or json_img_url in processed_urls:
+                            continue
+                        
+                        processed_urls.add(json_img_url)
+                        
+                        # 保存图片信息
+                        images.append({
+                            'url': json_img_url,
+                            'alt': '凤凰财经文章图片',
+                            'original_url': json_img_url
+                        })
+            
+            # 4. 检查meta标签中的图片
+            og_image = soup.select_one('meta[property="og:image"]')
+            if og_image and og_image.get('content'):
+                og_img_url = og_image.get('content').strip()
+                
+                # 处理相对URL
+                if not og_img_url.startswith(('http://', 'https://')):
+                    if og_img_url.startswith('//'):
+                        og_img_url = 'https:' + og_img_url
+                    elif url:
+                        base_url = '/'.join(url.split('/')[:3])
+                        if og_img_url.startswith('/'):
+                            og_img_url = base_url + og_img_url
+                        else:
+                            og_img_url = base_url + '/' + og_img_url
+                
+                # 只有URL开始于http时才添加
+                if og_img_url.startswith(('http://', 'https://')) and og_img_url not in processed_urls:
+                    processed_urls.add(og_img_url)
+                    
+                    # 获取可能的描述
+                    og_title = soup.select_one('meta[property="og:title"]')
+                    og_desc = soup.select_one('meta[property="og:description"]')
+                    alt_text = ''
+                    
+                    if og_title and og_title.get('content'):
+                        alt_text = og_title.get('content')
+                    elif og_desc and og_desc.get('content'):
+                        alt_text = og_desc.get('content')
+                    
+                    # 保存图片信息
+                    images.append({
+                        'url': og_img_url,
+                        'alt': alt_text or '凤凰财经封面图片',
+                        'original_url': og_img_url
+                    })
+            
+            # 处理链接
+            for a in soup.select('a'):
+                href = a.get('href', '')
+                if href:
+                    a['target'] = '_blank'
+                    a['rel'] = 'noopener noreferrer'
+                    
+                    # 如果是相对链接，转换为绝对链接
+                    if not href.startswith(('http://', 'https://', '#', 'mailto:', 'tel:')) and url:
+                        base_url = '/'.join(url.split('/')[:3])
+                        if href.startswith('/'):
+                            a['href'] = base_url + href
+                        else:
+                            a['href'] = base_url + '/' + href
+            
+            # 优化段落和标题
+            for p in soup.select('p'):
+                if not p.get('class'):
+                    p['class'] = 'article-paragraph'
+            
+            for h in soup.select('h1, h2, h3, h4, h5, h6'):
+                if not h.get('class'):
+                    h['class'] = f'article-heading article-{h.name}'
+            
+            # 返回处理后的内容和图片列表
+            self.logger.info(f"成功提取 {len(images)} 个有效图片")
+            return str(soup), images
+            
+        except Exception as e:
+            self.logger.error(f"处理新闻内容失败: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            return content, []
 
 if __name__ == "__main__":
     # 测试爬虫

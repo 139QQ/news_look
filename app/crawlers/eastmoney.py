@@ -4,6 +4,7 @@
 """
 财经新闻爬虫系统 - 东方财富网爬虫
 使用requests库直接爬取，无需浏览器
+整合了简化版功能
 """
 
 import os
@@ -14,6 +15,8 @@ import random
 import logging
 import hashlib
 import requests
+import json
+import sqlite3
 from datetime import datetime, timedelta
 from urllib.parse import urljoin, urlparse
 
@@ -34,14 +37,27 @@ class EastMoneyCrawler(BaseCrawler):
         初始化东方财富网爬虫
         
         Args:
-            db_manager: 数据库管理器对象
-            db_path: 数据库路径，如果为None则使用默认路径
+            db_manager: 数据库管理器
+            db_path: 数据库路径
             use_proxy: 是否使用代理
             use_source_db: 是否使用来源专用数据库
             **kwargs: 其他参数
         """
+        # 确保日志记录器已初始化
+        self.logger = logger
+        
+        # 设置source属性，确保父类初始化能够正确设置数据库路径
         self.source = "东方财富"
-        super().__init__(db_manager=db_manager, db_path=db_path, use_proxy=use_proxy, use_source_db=use_source_db, **kwargs)
+        
+        # 调用父类初始化方法
+        super().__init__(
+            db_manager=db_manager, 
+            db_path=db_path, 
+            use_proxy=use_proxy, 
+            use_source_db=use_source_db,
+            source=self.source, # Pass source to base class
+            **kwargs
+        )
         
         self.status = 'idle'
         self.last_run = None
@@ -49,50 +65,43 @@ class EastMoneyCrawler(BaseCrawler):
         self.error_count = 0
         self.success_count = 0
         
-        # 设置请求头
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1'
-        }
-        
         # 分类URL映射
         self.category_urls = {
-            '财经': ['https://finance.eastmoney.com/'],
-            '股票': ['https://stock.eastmoney.com/'],
-            '基金': ['https://fund.eastmoney.com/'],
-            '债券': ['https://bond.eastmoney.com/'],
+            '财经': [
+                "https://finance.eastmoney.com/",
+                "https://finance.eastmoney.com/a/cjdd.html"
+            ],
+            '股票': [
+                "https://stock.eastmoney.com/",
+                "https://stock.eastmoney.com/a/cgspl.html"
+            ],
+            '基金': [
+                "https://fund.eastmoney.com/",
+                "https://fund.eastmoney.com/news/cjjj.html"
+            ],
+            '债券': [
+                "https://bond.eastmoney.com/",
+                "https://bond.eastmoney.com/news/czqzx.html"
+            ]
         }
         
-        # 初始化数据列表
-        self.news_data = []
-        
-        # 随机User-Agent
+        # 设置请求头
         self.user_agents = [
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
-            "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
-            "Mozilla/5.0 (iPad; CPU OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:90.0) Gecko/20100101 Firefox/90.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36'
         ]
         
-        # 如果提供了db_manager并且不是SQLiteManager类型，创建SQLiteManager
-        if self.db_manager and not isinstance(self.db_manager, SQLiteManager):
-            if hasattr(self.db_manager, 'db_path'):
-                self.sqlite_manager = SQLiteManager(self.db_manager.db_path)
-            else:
-                # 使用传入的db_path或默认路径
-                self.sqlite_manager = SQLiteManager(self.db_path or self.db_path)
-        elif not self.db_manager:
-            # 如果没有提供db_manager，创建SQLiteManager
-            self.sqlite_manager = SQLiteManager(self.db_path or self.db_path)
-        else:
-            # 否则使用提供的db_manager
-            self.sqlite_manager = self.db_manager
+        # BaseCrawler.__init__ now handles db_manager setup.
+        # Remove redundant setup here:
+        # if db_manager:
+        #     # ... (old logic removed) ...
         
-        logger.info(f"东方财富网爬虫初始化完成，数据库路径: {self.db_path}")
+        # Ensure self.db_manager is accessible (it should be set by super().__init__)
+        db_display_path = getattr(self.db_manager, 'db_path', '未正确初始化')
+        logger.info("东方财富网爬虫初始化完成，数据库路径: %s", db_display_path)
     
     def get_random_user_agent(self):
         """返回一个随机的User-Agent"""
@@ -113,142 +122,281 @@ class EastMoneyCrawler(BaseCrawler):
     def crawl(self, category=None, max_news=5, days=1, use_selenium=False):
         """
         爬取东方财富网新闻
-        
-        Args:
-            category: 要爬取的新闻分类，如'财经'，'股票'等
-            max_news: 最大爬取新闻数量
-            days: 爬取多少天内的新闻
-            use_selenium: 是否使用Selenium爬取，默认False使用requests
-            
-        Returns:
-            list: 爬取到的新闻列表
         """
-        # selenium参数在简化版中被忽略，为了保持接口兼容而保留
         try:
-            # 确定要爬取的分类
             categories_to_crawl = []
             if category:
-                if category in self.category_urls:
-                    categories_to_crawl = [category]
+                # Allow multiple categories separated by comma
+                categories = [c.strip() for c in category.split(',') if c.strip() in self.category_urls]
+                if categories:
+                    categories_to_crawl = categories
                 else:
-                    logger.warning(f"未知分类: {category}，将使用默认分类'财经'")
-                    categories_to_crawl = ['财经']
+                    logger.warning(f"提供的分类无效或不支持: {category}，将爬取所有分类。")
+                    categories_to_crawl = list(self.category_urls.keys())
             else:
-                # 默认爬取所有分类
                 categories_to_crawl = list(self.category_urls.keys())
             
-            # 爬取结果
             news_list = []
+            processed_count = 0
             
-            # 爬取每个分类
             for cat in categories_to_crawl:
-                logger.info(f"开始爬取'{cat}'分类的新闻")
-                cat_news = self._crawl_category(cat, max_news, days)
-                news_list.extend(cat_news)
-                
-                # 如果已达到最大数量，停止爬取
-                if len(news_list) >= max_news:
-                    logger.info(f"已达到最大爬取数量({max_news})，停止爬取")
+                if processed_count >= max_news:
+                    logger.info(f"已达到最大处理数量({max_news})，停止爬取更多分类")
                     break
             
-            logger.info(f"爬取完成，共获取{len(news_list)}条新闻")
+                logger.info(f"开始爬取'{cat}'分类的新闻")
+                # _crawl_category now returns the count of successfully processed items in that category
+                count_in_cat = self._crawl_category(cat, max_news - processed_count, days)
+                processed_count += count_in_cat
             
-            # 爬取结束后，确保数据被保存到数据库
-            if hasattr(self, 'news_data') and self.news_data:
-                saved_count = 0
-                for news in self.news_data:
-                    if self.save_news_to_db(news):
-                        saved_count += 1
-                
-                logger.info(f"成功保存 {saved_count}/{len(self.news_data)} 条新闻到数据库")
+            logger.info(f"爬取完成，共处理/尝试保存 {processed_count} 条新闻")
+            # Removed the loop processing self.news_data, assuming direct DB save is primary path now.
             
-            return news_list
+            # crawl method might not return a list anymore if save_news isn't used for memory fallback
+            # Returning the count might be more appropriate, or None.
+            # Let's return the count for now.
+            return processed_count
         
         except Exception as e:
             logger.error(f"爬取过程发生错误: {str(e)}")
-            return []
+            return 0 # Return 0 on error
     
-    def _crawl_category(self, category, max_news, days):
+    def _crawl_category(self, category, max_to_process, days):
         """
         爬取特定分类的新闻
-        
         Args:
             category: 分类名称
-            max_news: 最大爬取数量
+            max_to_process: 此分类中最多处理的新闻数量
             days: 爬取天数
+        Returns:
+            int: 在此分类中成功处理/尝试保存的新闻数量
+        """
+        processed_count_in_cat = 0
+        # ... (get category_urls, calculate start_date) ...
+        start_date = datetime.now() - timedelta(days=days)
+        category_urls = self.get_category_url(category)
+        if not category_urls: return 0
+        logger.info(f"开始爬取'{category}'分类，日期范围: {start_date.strftime('%Y-%m-%d')} 至今")
+        
+        crawled_urls = set()
+        if not hasattr(self, 'processed_urls'): self.processed_urls = set()
+        
+        for list_page_url in category_urls:
+            if processed_count_in_cat >= max_to_process: break
+            try:
+                # ... (check list_page_url accessibility) ...
+                logger.info(f"正在处理分类列表页: {list_page_url}")
+                article_links = self.extract_news_links(list_page_url)
+                if not article_links: continue
+                logger.info(f"从 {list_page_url} 提取到 {len(article_links)} 个链接")
+                time.sleep(random.uniform(1, 2))
+                
+                for link in article_links:
+                    if processed_count_in_cat >= max_to_process: break
+                    if link in crawled_urls or link in self.processed_urls: continue
+                    crawled_urls.add(link)
+                    self.processed_urls.add(link)
+                    
+                    try:
+                        # ... (check link accessibility) ...
+                        pub_date_from_url = self._extract_date_from_url(link)
+                        if pub_date_from_url and pub_date_from_url < start_date:
+                            logger.debug(f"URL日期 {pub_date_from_url.strftime('%Y-%m-%d')} 早于要求，跳过: {link}")
+                            continue
+                            
+                        news_detail = self.crawl_news_detail(link, category)
+                        
+                        if news_detail:
+                            # 进一步检查从页面提取的 pub_time (如果存在)
+                            pub_time_str = news_detail.get('pub_time')
+                            should_save = True
+                            if pub_time_str:
+                                try:
+                                    pub_time_str = pub_time_str.replace('/', '-')
+                                    if not re.match(r'\d{4}', pub_time_str):
+                                        current_year = datetime.now().year
+                                        pub_time_str = f"{current_year}-{pub_time_str}"
+                                    pub_dt = datetime.strptime(pub_time_str.split(' ')[0], '%Y-%m-%d')
+                                    if pub_dt < start_date:
+                                        logger.debug(f"内容发布日期 {pub_time_str} 早于要求，跳过: {link}")
+                                        should_save = False
+                                except Exception as e:
+                                    logger.warning(f"解析内容日期 {pub_time_str} 失败: {e}. 仍尝试保存。")
+                            
+                            if should_save:
+                                # 调用基类保存方法
+                                if super().save_news_to_db(news_detail):
+                                    processed_count_in_cat += 1
+                                    # self.success_count += 1 # BaseCrawler.update_stats handles counts now
+                                    # news_list.append(news) # Not collecting list anymore
+                                    # logger.info(f"成功保存新闻: {news_detail.get('title')}") # BaseCrawler method logs success
+                            else:
+                                    logger.warning(f"基类save_news_to_db未能保存新闻: {news_detail.get('title')}")
+                        else:
+                            logger.warning(f"爬取新闻详情失败: {link}")
+                        
+                    except Exception as e:
+                        logger.error(f"处理新闻链接 {link} 失败: {str(e)}")
+                    
+                    time.sleep(random.uniform(0.5, 1.5)) # Shorter delay between articles
+                
+            except Exception as e:
+                logger.error(f"处理列表页 {list_page_url} 失败: {str(e)}")
+        
+        logger.info(f"分类'{category}'处理完成，共尝试保存 {processed_count_in_cat} 条新闻")
+        return processed_count_in_cat
+    
+    def _check_url_accessibility(self, url):
+        """
+        检查URL是否可访问
+        
+        Args:
+            url: 要检查的URL
             
         Returns:
-            list: 该分类下爬取到的新闻列表
+            bool: URL是否可访问
         """
-        news_list = []
+        max_retries = 2  # 设置最大重试次数
+        retry_count = 0
         
-        # 获取该分类的URL列表
-        urls = self.category_urls.get(category, [])
-        if not urls:
-            logger.warning(f"分类'{category}'没有对应的URL")
-            return []
-        
-        # 爬取每个URL
-        for url in urls:
-            # 如果已达到最大数量，停止爬取
-            if len(news_list) >= max_news:
-                break
-            
+        while retry_count <= max_retries:
             try:
-                # 获取新闻链接
-                logger.info(f"从 {url} 提取新闻链接")
-                news_links = self.extract_news_links(url)
+                # 使用GET请求而不是HEAD请求，某些服务器可能不正确处理HEAD请求
+                headers = self.get_headers()
                 
-                # 随机排序链接，增加多样性
-                random.shuffle(news_links)
+                # 使用requests.get代替head请求，但设置stream=True避免下载整个内容
+                response = requests.get(
+                    url, 
+                    headers=headers, 
+                    timeout=10,
+                    allow_redirects=True,
+                    stream=True
+                )
                 
-                # 爬取每个新闻详情
-                for link in news_links:
-                    # 如果已达到最大数量，停止爬取
-                    if len(news_list) >= max_news:
-                        break
-                    
-                    # 爬取新闻详情
-                    news = self.crawl_news_detail(link, category)
-                    
-                    # 如果成功爬取，检查日期并添加到结果列表
-                    if news:
-                        try:
-                            # 解析发布时间
-                            pub_time = datetime.strptime(news['pub_time'], '%Y-%m-%d %H:%M:%S')
-                            
-                            # 计算日期范围
-                            date_limit = datetime.now() - timedelta(days=days)
-                            
-                            # 检查日期是否在范围内
-                            if pub_time >= date_limit:
-                                # 保存到结果列表
-                                news_list.append(news)
-                                
-                                # 保存到数据库
-                                try:
-                                    self.save_news_to_db(news)
-                                    logger.info(f"已将新闻保存到数据库: {news['title']}")
-                                except Exception as e:
-                                    logger.error(f"保存新闻到数据库失败: {news['title']}, 错误: {str(e)}")
-                                
-                                # 如果达到最大新闻数，跳出循环
-                                if len(news_list) >= max_news:
-                                    break
-                            else:
-                                logger.info(f"新闻发布日期 {pub_time} 不在范围内，跳过")
+                # 检查状态码
+                if response.status_code == 200:
+                    # 关闭连接释放资源
+                    response.close()
+                    return True
+                elif response.status_code == 404:
+                    logger.warning(f"页面不存在 (404): {url}")
+                    return False
+                elif response.status_code in [301, 302, 307, 308]:
+                    # 处理重定向情况
+                    if 'location' in response.headers:
+                        redirect_url = response.headers['location']
+                        # 规范化重定向URL
+                        if not redirect_url.startswith(('http://', 'https://')):
+                            # 相对URL，需要与原始URL的域名结合
+                            from urllib.parse import urlparse, urljoin
+                            base_url = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
+                            redirect_url = urljoin(base_url, redirect_url)
                         
-                        except Exception as e:
-                            logger.warning(f"处理新闻日期失败: {str(e)}")
+                        logger.info(f"URL重定向: {url} -> {redirect_url}")
                         
-                        # 随机延迟，避免请求过于频繁
+                        # 检查重定向URL是否有效
+                        if self.is_valid_news_url(redirect_url):
+                            # 如果重定向URL有效，则返回True
+                            return True
+                    
+                    # 重定向但没有有效的location头，或重定向URL无效
+                    return False
+                elif response.status_code == 403:
+                    # 服务器禁止访问，但可能是临时的或需要特殊处理
+                    logger.warning(f"访问被禁止 (403): {url}, 尝试更换请求头")
+                    
+                    # 每次重试更换User-Agent
+                    headers['User-Agent'] = self.get_random_user_agent()
+                    # 添加额外的header尝试绕过反爬
+                    headers.update({
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                        'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache',
+                        'Referer': 'https://www.eastmoney.com/'
+                    })
+                    
+                    # 递增重试计数
+                    retry_count += 1
+                    if retry_count <= max_retries:
+                        # 增加等待时间
                         time.sleep(random.uniform(1, 3))
-            
+                        continue
+                    else:
+                        logger.warning(f"最大重试次数已用尽，URL不可访问: {url}")
+                        return False
+                else:
+                    logger.warning(f"无法访问URL，状态码: {response.status_code}: {url}")
+                    
+                    # 对于5xx服务器错误，可以尝试重试
+                    if response.status_code >= 500:
+                        retry_count += 1
+                        if retry_count <= max_retries:
+                            # 增加等待时间
+                            time.sleep(random.uniform(2, 5))
+                            continue
+                    
+                    return False
+                
+            except requests.exceptions.Timeout:
+                logger.warning(f"请求超时: {url}")
+                retry_count += 1
+                if retry_count <= max_retries:
+                    time.sleep(random.uniform(1, 3))
+                    continue
+                return False
+            except requests.exceptions.ConnectionError:
+                logger.warning(f"连接错误: {url}")
+                retry_count += 1
+                if retry_count <= max_retries:
+                    time.sleep(random.uniform(2, 5))
+                    continue
+                return False
+            except requests.RequestException as e:
+                logger.warning(f"检查URL可访问性时出错: {url}, 错误: {str(e)}")
+                return False
             except Exception as e:
-                logger.error(f"从 {url} 提取新闻链接失败: {str(e)}")
+                logger.error(f"未知错误：{str(e)}")
+                return False
+                
+        # 如果所有重试都失败
+        return False
+    
+    def _extract_date_from_url(self, url):
+        """
+        从URL中提取日期
         
-        logger.info(f"分类'{category}'爬取完成，共获取{len(news_list)}条新闻")
-        return news_list
+        Args:
+            url: 新闻URL
+            
+        Returns:
+            datetime: 提取的日期对象，如果无法提取则返回None
+        """
+        # 尝试匹配URL中的日期格式
+        # 格式1: /20230723/ 或类似格式
+        pattern1 = r'/(\d{4})(\d{2})(\d{2})/'
+        # 格式2: /202307/23/ 或类似格式
+        pattern2 = r'/(\d{4})(\d{2})/(\d{2})/'
+        # 格式3: /2023-07-23/ 或类似格式
+        pattern3 = r'/(\d{4})-(\d{2})-(\d{2})/'
+        # 格式4: 路径中包含日期，如 news_20230723
+        pattern4 = r'_(\d{4})(\d{2})(\d{2})'
+        
+        for pattern in [pattern1, pattern2, pattern3, pattern4]:
+            match = re.search(pattern, url)
+            if match:
+                try:
+                    year = int(match.group(1))
+                    month = int(match.group(2))
+                    day = int(match.group(3))
+                    
+                    # 验证日期有效性
+                    if 2000 <= year <= datetime.now().year and 1 <= month <= 12 and 1 <= day <= 31:
+                        return datetime(year, month, day)
+                except ValueError:
+                    pass
+        
+        return None
     
     def extract_news_links(self, url):
         """
@@ -261,62 +409,101 @@ class EastMoneyCrawler(BaseCrawler):
             list: 新闻链接列表
         """
         try:
-            # 发送请求
+            # 使用带有特定headers的请求获取页面
             response = requests.get(url, headers=self.get_headers(), timeout=30)
-            response.encoding = 'utf-8'  # 确保编码正确
-            
-            # 检查响应状态
-            if response.status_code != 200:
-                logger.warning(f"请求失败，状态码: {response.status_code}")
-                return []
+            response.raise_for_status()
             
             # 解析HTML并提取链接
-            return self._parse_html_for_links(response.text, url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # 使用适合东方财富网的CSS选择器提取新闻链接
+            news_links = []
+            
+            # 主要新闻选择器
+            selectors = [
+                '.news-list li a', 
+                '.news-item a', 
+                '.title a',
+                '.news_item a', 
+                '.news-body a',
+                '.news-cnt h3 a', 
+                '.news-tab .item>a', 
+                '.slider-news-list a.news-item',
+                '.list-wrap .list-item a',
+                '.listContent .list-item a',
+                'ul.list li a',
+                '.text-list li a',
+                'a.news-link',
+                '.content-list li a'
+            ]
+            
+            # 对于不同类型的页面使用不同的选择器
+            for selector in selectors:
+                links = soup.select(selector)
+                for link in links:
+                    href = link.get('href')
+                    if href:
+                        # 规范化链接
+                        full_url = self._normalize_url(href, url)
+                        if full_url and self.is_valid_news_url(full_url):
+                            news_links.append(full_url)
+            
+            # 特殊处理股票和基金页面
+            if 'stock.eastmoney.com' in url or 'fund.eastmoney.com' in url:
+                # 添加针对股票和基金页面特有的选择器
+                stock_fund_selectors = [
+                    '.stock-news a', 
+                    '.fund-news a',
+                    '.article-list a',
+                    '.news-panel a', 
+                    '.main-list a',
+                    '.important-news a'
+                ]
+                
+                for selector in stock_fund_selectors:
+                    links = soup.select(selector)
+                    for link in links:
+                        href = link.get('href')
+                        if href:
+                            full_url = self._normalize_url(href, url)
+                            if full_url and self.is_valid_news_url(full_url):
+                                news_links.append(full_url)
+            
+            # 去重
+            news_links = list(dict.fromkeys(news_links))
+            
+            logger.info(f"从 {url} 提取到 {len(news_links)} 条有效新闻链接")
+            return news_links
             
         except Exception as e:
             logger.error(f"提取新闻链接失败: {str(e)}")
             return []
     
-    def _parse_html_for_links(self, html, base_url):
+    def _normalize_url(self, href, base_url):
         """
-        解析HTML提取链接
+        规范化URL，将相对路径转为绝对路径
         
         Args:
-            html: HTML内容
-            base_url: 基础URL用于相对链接转绝对链接
+            href: 原始链接
+            base_url: 基础URL
             
         Returns:
-            list: 新闻链接列表
+            str: 规范化后的URL
         """
-        # 使用BeautifulSoup解析HTML
-        soup = BeautifulSoup(html, 'html.parser')
-        
-        # 提取所有链接
-        links = soup.find_all('a', href=True)
-        
-        # 过滤有效的新闻链接
-        news_links = []
-        for link in links:
-            href = link.get('href')
+        if not href:
+            return None
             
-            # 确保链接不为空
-            if not href:
-                continue
+        # 跳过JavaScript链接和锚点链接
+        if href.startswith(('javascript:', '#', 'mailto:')):
+            return None
             
-            # 规范化链接
-            if href.startswith('//'):
-                href = 'https:' + href
-            elif not href.startswith(('http://', 'https://')):
-                href = urljoin(base_url, href)
+        # 处理相对路径
+        if href.startswith('//'):
+            return 'https:' + href
+        elif not href.startswith(('http://', 'https://')):
+            return urljoin(base_url, href)
             
-            # 检查是否是有效的新闻链接
-            if self.is_valid_news_url(href):
-                # 确保链接不重复
-                if href not in news_links:
-                    news_links.append(href)
-        
-        logger.info(f"从 {base_url} 提取到 {len(news_links)} 条有效新闻链接")
-        return news_links
+        return href
     
     def is_valid_news_url(self, url):
         """
@@ -329,31 +516,63 @@ class EastMoneyCrawler(BaseCrawler):
             bool: 是否是有效的新闻链接
         """
         # 检查是否是东方财富网的链接
-        if not any(domain in url for domain in [
+        valid_domains = [
             'eastmoney.com',
             'finance.eastmoney.com',
             'stock.eastmoney.com',
             'fund.eastmoney.com',
-            'bond.eastmoney.com'
-        ]):
+            'bond.eastmoney.com',
+            'forex.eastmoney.com',
+            'money.eastmoney.com',
+            'futures.eastmoney.com',
+            'global.eastmoney.com',
+            'tech.eastmoney.com',
+            'hk.eastmoney.com',
+            'data.eastmoney.com'
+        ]
+        
+        if not any(domain in url for domain in valid_domains):
             return False
         
-        # 排除非新闻页面
-        if any(keyword in url for keyword in [
+        # 排除无效的页面类型
+        invalid_keywords = [
             'list', 'index.html', 'search', 'help', 'about', 'contact',
-            'login', 'register', 'download', 'app'
-        ]):
-            return False
+            'login', 'register', 'download', 'app', 'special', 'zhuanti',
+            'data', 'f10', 'api', 'static', 'so.eastmoney', 'guba', 'bbs',
+            'blog', 'live', 'wap'
+        ]
         
-        # 检查URL是否包含年份数字（通常新闻URL包含发布日期）
-        if not re.search(r'/20\d{2}', url):
+        # 一些特殊的有效关键字（覆盖无效关键字检查）
+        valid_overrides = [
+            '/a/', '/news/', '/article/', '/content/', '/yw/', '/cj/',
+            '/stock/news', '/fund/news', '/bond/news',
+            '/article_', '/2023', '/2024'
+        ]
+        
+        # 检查是否包含有效覆盖关键字
+        if any(override in url for override in valid_overrides):
+            return True
+            
+        # 检查是否包含无效关键字
+        if any(keyword in url for keyword in invalid_keywords):
             return False
         
         # 检查URL是否是新闻页面（通常包含/a/、/news/等路径）
-        if not any(path in url for path in ['/a/', '/news/', '/article/', '/content/']):
-            return False
+        if any(path in url for path in ['/a/', '/news/', '/article/', '/content/']):
+            return True
+            
+        # 检查URL是否包含年份数字（通常新闻URL包含发布日期）
+        if re.search(r'/20\d{2}', url):
+            return True
+            
+        # 针对股票、基金页面的特殊检查
+        if 'stock.eastmoney.com' in url and re.search(r'\.html$', url):
+            return True
+            
+        if 'fund.eastmoney.com' in url and re.search(r'\.html$', url):
+            return True
         
-        return True
+        return False
     
     def crawl_news_detail(self, url, category):
         """
@@ -361,90 +580,82 @@ class EastMoneyCrawler(BaseCrawler):
         
         Args:
             url: 新闻URL
-            category: 新闻分类
+            category: 分类
             
         Returns:
             dict: 新闻详情
         """
         try:
-            # 发送请求
-            logger.info(f"爬取新闻详情: {url}")
-            response = requests.get(url, headers=self.get_headers(), timeout=30)
-            response.encoding = 'utf-8'  # 确保编码正确
+            # 准备特定的请求头，避免反爬
+            headers = self.get_headers()
             
-            # 检查响应状态
-            if response.status_code != 200:
-                logger.warning(f"请求失败，状态码: {response.status_code}")
+            # 请求页面内容
+            html = self.fetch_page_with_requests(url)
+            
+            if not html:
+                logger.warning(f"获取新闻详情页失败: {url}")
                 return None
             
-            # 解析新闻详情
-            return self._parse_news_detail(response.text, url, category)
+            # 使用策略解析详情页
+            from app.crawlers.strategies.eastmoney_strategy import EastMoneyStrategy
             
+            # 使用策略解析新闻详情
+            strategy = EastMoneyStrategy(self.source)
+            
+            try:
+                news_data = strategy.parse_detail_page(html, url)
+                
+                # 验证解析结果
+                if not news_data.get('title') or news_data.get('title') in ["内容为空", "解析失败"]:
+                    logger.warning(f"解析新闻 {url} 失败: 标题为空或解析失败")
+                    if not news_data.get('content'):
+                        # 如果内容也为空，则尝试自己解析
+                        news_data = self._parse_news_detail(html, url, category)
+                else:
+                    # 解析成功，但需确保分类正确
+                    if category and 'category' in news_data:
+                        # 如果指定了分类，使用指定的分类
+                        news_data['category'] = category
+                
+                return news_data
+                
+            except Exception as e:
+                logger.error(f"使用策略解析新闻 {url} 时出错: {str(e)}，尝试使用备用解析方法")
+                # 如果策略解析失败，回退到自己的解析方法
+                return self._parse_news_detail(html, url, category)
+                
         except Exception as e:
             logger.error(f"爬取新闻详情失败: {url}, 错误: {str(e)}")
             return None
     
     def _parse_news_detail(self, html, url, category):
         """
-        解析新闻详情
-        
-        Args:
-            html: HTML内容
-            url: 新闻URL
-            category: 新闻分类
-            
-        Returns:
-            dict: 新闻详情
+        解析新闻详情 (简化版，移除冗余预处理)
         """
-        # 使用BeautifulSoup解析HTML
         soup = BeautifulSoup(html, 'html.parser')
         
-        # 提取标题
         title = self.extract_title(soup)
-        if not title:
-            logger.warning(f"未能提取到标题: {url}")
-            return None
+        if not title: return None
         
-        # 提取发布时间
-        pub_time = self.extract_pub_time(soup)
-        if not pub_time:
-            # 如果无法提取时间，使用当前时间
-            pub_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            logger.warning(f"未能提取到发布时间，使用当前时间: {pub_time}")
+        pub_time = self.extract_pub_time(soup) # Extract raw time string or None
+        author = self.extract_author(soup) # Extract raw author or None
+        text_content, html_content = self.extract_content(soup)
+        keywords_list = self.extract_keywords(soup, text_content) # Expect list of strings
         
-        # 提取作者
-        author = self.extract_author(soup)
-        if not author:
-            author = "东方财富网"
-        
-        # 提取内容
-        content = self.extract_content(soup)
-        if not content or len(content) < 100:  # 内容太短可能是提取失败
-            logger.warning(f"未能提取到有效内容: {url}")
-            return None
-        
-        # 提取关键词
-        keywords = self.extract_keywords(soup, content)
-        
-        # 生成新闻ID
-        news_id = hashlib.md5(url.encode('utf-8')).hexdigest()
-        
-        # 构建新闻对象
+        # 构建只包含提取信息的新闻字典
+        # 其他字段（id, source, crawl_time, sentiment, defaults）由下游处理
         news = {
-            'id': news_id,
             'url': url,
             'title': title,
-            'content': content,
-            'pub_time': pub_time,
-            'author': author,
-            'keywords': ','.join(keywords) if keywords else '',
-            'sentiment': '中性',  # 默认情感
-            'category': category,
-            'crawl_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'source': self.source
+            'content': text_content,
+            'content_html': html_content,
+            'pub_time': pub_time, # Pass raw extracted value
+            'author': author,   # Pass raw extracted value
+            'keywords': ','.join(keywords_list) if keywords_list else None, # Pass csv or None
+            'category': category # Keep category from crawl context
         }
         
-        logger.info(f"成功爬取新闻: {title}")
+        logger.info(f"[_parse_news_detail] 成功提取新闻: {title}")
         return news
     
     def extract_title(self, soup):
@@ -596,64 +807,103 @@ class EastMoneyCrawler(BaseCrawler):
     
     def extract_content(self, soup):
         """
-        提取新闻内容
+        从BeautifulSoup对象中提取新闻正文内容
         
         Args:
             soup: BeautifulSoup对象
             
         Returns:
-            str: 新闻内容
+            tuple: (纯文本内容, HTML内容)
         """
-        # 尝试常见的内容选择器
-        selectors = [
-            'div.article-content',
-            'div.contentbox',
-            'div.detail-content',
-            'div#ContentBody',
-            'div.Body',
-            'div.content',
-            'article'
-        ]
-        
-        content = None
-        
-        for selector in selectors:
-            elements = soup.select(selector)
-            if elements:
-                content_element = elements[0]
-                
-                # 移除不需要的元素
-                for tag in content_element.select('script, style, iframe, .share, .related, .advertisement, .recommend, .footer, .copyright, .statement'):
-                    tag.decompose()
-                
-                # 提取段落文本
-                paragraphs = content_element.select('p')
-                
-                # 如果找到段落，组合段落内容
-                if paragraphs:
-                    content = '\n'.join([p.get_text().strip() for p in paragraphs if p.get_text().strip()])
-                    if content:
-                        break
-                
-                # 如果没有找到段落，直接使用内容元素的文本
-                content = content_element.get_text().strip()
-                break
-        
-        # 如果常规方法失败，尝试提取所有段落
-        if not content:
-            paragraphs = soup.select('p')
-            valid_paragraphs = [p.get_text().strip() for p in paragraphs if len(p.get_text().strip()) > 20]
+        try:
+            # 查找文章内容容器
+            content_div = None
             
-            if valid_paragraphs:
-                content = '\n'.join(valid_paragraphs)
-        
-        # 如果没有提取到内容，返回None
-        if not content:
-            return None
+            # 查找可能的内容容器
+            selectors = [
+                'div.txtinfos',  # 新版详情页
+                'div#ContentBody',  # 老版详情页
+                'div.newsContent', # 另一种详情页
+                'div.Container', # 可能的容器
+                'div.article-content', # 可能的容器
+                'div.content', # 通用
+                'div#ctrlfscont', # 东方财富网文章内容ID
+                'div.Body', # 东方财富网文章正文
+                'div.news-content' # 另一种可能的容器
+            ]
             
-        # 过滤广告和无关内容
-        filtered_content = self.filter_advertisements(content)
-        return filtered_content
+            # 依次尝试各种选择器
+            for selector in selectors:
+                content_div = soup.select_one(selector)
+                if content_div and len(content_div.text.strip()) > 100:
+                    # 内容长度大于100个字符，认为是有效内容
+                    break
+            
+            # 如果找不到特定容器，尝试其他方法找到最可能的内容区域
+            if not content_div or len(content_div.text.strip()) < 100:
+                # 获取页面中最长的div元素作为内容
+                divs = soup.find_all('div')
+                if divs:
+                    divs_with_text = [(div, len(div.text.strip())) for div in divs if len(div.text.strip()) > 100]
+                    if divs_with_text:
+                        divs_with_text.sort(key=lambda x: x[1], reverse=True)
+                        content_div = divs_with_text[0][0]
+            
+            if not content_div:
+                logger.warning("找不到新闻内容")
+                return "", ""
+            
+            # 移除不需要的元素
+            for remove_tag in content_div.select('script, style, iframe, .advertise, .advert, .ad-content, .no-print, .related-news, .clear, #backsohucom'):
+                remove_tag.decompose()
+            
+            # 保存原始HTML内容
+            html_content = str(content_div)
+            
+            # 获取图片
+            images = []
+            for img in content_div.find_all('img'):
+                if img.get('src'):
+                    images.append(img['src'])
+            
+            # 从HTML中提取纯文本，但保留段落结构
+            paragraphs = []
+            for p in content_div.find_all(['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5']):
+                text = p.get_text().strip()
+                if text and not text.isspace() and len(text) > 5:  # 忽略太短的段落
+                    paragraphs.append(text)
+            
+            # 过滤掉广告
+            clean_paragraphs = [p for p in paragraphs if not self.filter_advertisements(p)]
+            
+            # 将段落以换行符连接
+            text_content = '\n\n'.join(clean_paragraphs)
+            
+            # 特殊处理：修复HTML内容中的排版问题
+            # 确保每个段落有正确的标签和间距
+            soup_html = BeautifulSoup(html_content, 'html.parser')
+            for p_tag in soup_html.find_all(['p']):
+                # 添加CSS样式确保段落间距
+                p_tag['style'] = 'margin-bottom: 1em; line-height: 1.6;'
+            
+            # 添加响应式样式确保在移动设备上也能正常显示
+            style_tag = soup.new_tag('style')
+            style_tag.string = '''
+            img { max-width: 100%; height: auto; display: block; margin: 1em auto; }
+            p { margin-bottom: 1em; line-height: 1.6; }
+            h1, h2, h3, h4, h5 { margin: 1em 0 0.5em 0; }
+            table { width: 100%; max-width: 100%; overflow-x: auto; display: block; }
+            '''
+            soup_html.insert(0, style_tag)
+            
+            # 修复后的HTML内容
+            fixed_html_content = str(soup_html)
+            
+            return text_content, fixed_html_content
+        
+        except Exception as e:
+            logger.error(f"提取新闻内容失败: {str(e)}")
+            return "", ""
     
     def filter_advertisements(self, content):
         """
@@ -663,10 +913,10 @@ class EastMoneyCrawler(BaseCrawler):
             content: 原始内容文本
             
         Returns:
-            str: 过滤后的内容
+            bool: 是否包含广告
         """
         if not content:
-            return content
+            return True
             
         # 定义需要过滤的广告和无关内容模式
         ad_patterns = [
@@ -691,24 +941,11 @@ class EastMoneyCrawler(BaseCrawler):
         ]
         
         # 逐个应用过滤模式
-        filtered_content = content
         for pattern in ad_patterns:
-            filtered_content = re.sub(pattern, '', filtered_content, flags=re.DOTALL)
+            if re.search(pattern, content, re.DOTALL):
+                return True
         
-        # 移除空行和多余的空格
-        lines = filtered_content.split('\n')
-        cleaned_lines = [line.strip() for line in lines if line.strip()]
-        filtered_content = '\n'.join(cleaned_lines)
-        
-        # 移除重复的分隔线
-        filtered_content = re.sub(r'[-_=]{3,}', '', filtered_content)
-        
-        # 移除过短的行（可能是残留的广告片段）
-        lines = filtered_content.split('\n')
-        content_lines = [line for line in lines if len(line) > 5 or re.search(r'\d{4}-\d{2}-\d{2}', line)]
-        filtered_content = '\n'.join(content_lines)
-        
-        return filtered_content
+        return False
     
     def extract_keywords(self, soup, content=None):
         """
@@ -745,50 +982,54 @@ class EastMoneyCrawler(BaseCrawler):
     
     def get_category_url(self, category):
         """
-        获取分类页面URL
+        获取分类URL列表
         
         Args:
             category: 分类名称
             
         Returns:
-            str: 分类页面URL
+            list: 分类URL列表
         """
-        # 定义各个分类对应的URL
-        category_urls = {
-            'stock': 'https://finance.eastmoney.com/a/cgnjj.html',
-            'finance': 'https://finance.eastmoney.com/a/czqyw.html',
-            'global': 'https://finance.eastmoney.com/a/cgjjj.html',
-            'forex': 'https://finance.eastmoney.com/a/chgjj.html',
-            'bond': 'https://finance.eastmoney.com/a/czqzx.html'
+        # 更新后的有效分类URL映射
+        valid_category_urls = {
+            '财经': [
+                "https://finance.eastmoney.com/",
+                "https://finance.eastmoney.com/a/cjdd.html"
+            ],
+            '股票': [
+                "https://stock.eastmoney.com/",
+                "https://stock.eastmoney.com/a/cgspl.html"
+            ],
+            '基金': [
+                "https://fund.eastmoney.com/",
+                "https://fund.eastmoney.com/news/cjjj.html"
+            ],
+            '债券': [
+                "https://bond.eastmoney.com/",
+                "https://bond.eastmoney.com/news/czqzx.html"
+            ]
         }
         
-        # 如果分类不存在，使用默认分类
-        if category not in category_urls:
-            logger.warning(f"未找到分类 {category} 的URL，使用默认财经分类")
-            return category_urls['finance']
+        # 检查分类是否存在于有效URL映射中
+        if category and category in valid_category_urls:
+            return valid_category_urls[category]
         
-        return category_urls[category]
-    
-    def save_news_to_db(self, news):
-        """
-        保存新闻到数据库
+        # 如果未指定分类或找不到分类，返回所有有效分类的URL
+        if not category:
+            all_urls = []
+            for urls in valid_category_urls.values():
+                all_urls.extend(urls)
+            return all_urls
         
-        Args:
-            news: 新闻数据字典
-            
-        Returns:
-            bool: 是否保存成功
-        """
-        try:
-            # 如果有sqlite_manager属性则使用它保存
-            if hasattr(self, 'sqlite_manager') and self.sqlite_manager:
-                return self.sqlite_manager.save_news(news)
-            
-            # 否则使用父类的save_news方法保存到内存中
-            return super().save_news(news)
-        except Exception as e:
-            logger.error(f"保存新闻到数据库失败: {news.get('title', '未知标题')}, 错误: {str(e)}")
-            return False
+        # 如果指定的分类不存在于有效映射中，检查原始映射
+        if category and category in self.category_urls:
+            # 返回原始分类URL，但可能需要验证
+            logger.warning(f"分类 '{category}' 不在有效URL映射中，使用原始URL（可能需要验证）")
+            return self.category_urls[category]
+        
+        # 如果指定的分类不存在，记录警告并返回默认财经分类
+        logger.warning(f"未找到分类 '{category}'，使用默认财经分类")
+        return valid_category_urls.get('财经', [])
 
 def main():
     """测试爬虫功能"""

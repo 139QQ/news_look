@@ -9,416 +9,301 @@ import os
 import time
 import threading
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any, Union, Tuple
 from app.config import get_settings
 from app.utils.logger import get_logger
 from app.utils.database import NewsDatabase
 from app.crawlers.base import BaseCrawler
-from app.crawlers.eastmoney import EastMoneyCrawler
-from app.crawlers.eastmoney_simple import EastMoneySimpleCrawler
-from app.crawlers.sina import SinaCrawler
-from app.crawlers.netease import NeteaseCrawler
-from app.crawlers.ifeng import IfengCrawler
+from app.crawlers.factory import CrawlerFactory
 import re
 import sqlite3
 
 logger = get_logger(__name__)
 
 class CrawlerManager:
-    """爬虫管理器"""
-
-    def __init__(self, settings=None):
-        """
-        初始化爬虫管理器
-        
-        Args:
-            settings: 配置字典
-        """
-        # 首先从app.config获取设置，然后用传入的settings更新它（如果有）
-        config_settings = get_settings()
-        self.settings = {} 
-        # 确保将config_settings中的设置复制到self.settings字典中
-        for key, value in config_settings.settings.items():
-            self.settings[key] = value
-            
-        # 如果传入了settings，更新self.settings
-        if settings:
-            self.settings.update(settings)
-            
-        self.crawlers = {}
-        
-        # 获取数据库目录
-        db_dir = self.settings.get('DB_DIR')
-        if not db_dir:
-            # 如果在设置中没有找到DB_DIR，使用默认值
-            db_dir = os.path.join(os.getcwd(), 'data', 'db')
-            
-        # 确保目录存在
-        os.makedirs(db_dir, exist_ok=True)
-        logger.info(f"爬虫管理器使用数据库目录: {db_dir}")
-        
-        # 将DB_DIR保存回设置
-        self.settings['DB_DIR'] = db_dir
-        
-        # 初始化线程相关属性
-        self.crawler_threads = {}
-        self.stop_flags = {}
-        
-        # 初始化数据库连接
-        try:
-            # 尝试使用传入的db_path连接数据库
-            self.db = NewsDatabase()
-        except Exception as e:
-            logger.error(f"连接数据库失败: {str(e)}")
-            self.db = None
-            
-        # 导入所有爬虫类
-        try:
-            # 初始化所有爬虫
-            self._init_crawlers()
-            
-            # 添加到字典
-            self.crawlers["东方财富"] = self.eastmoney_crawler
-            self.crawlers["东方财富简版"] = self.eastmoney_simple_crawler
-            self.crawlers["新浪财经"] = self.sina_crawler
-            self.crawlers["网易财经"] = self.netease_crawler
-            self.crawlers["凤凰财经"] = self.ifeng_crawler
-            
-            # 初始化stop_flags
-            for name in self.crawlers.keys():
-                self.stop_flags[name] = threading.Event()
-            
-            logger.info(f"已初始化 {len(self.crawlers)} 个爬虫")
-            
-        except ImportError as e:
-            logger.error(f"导入爬虫模块失败: {str(e)}")
+    """爬虫管理器，负责管理所有爬虫"""
     
-    def _init_crawlers(self):
-        """初始化所有爬虫实例"""
-        try:
-            # 初始化各个爬虫，若指定了数据库目录则传入
-            self.eastmoney_crawler = EastMoneyCrawler(
-                use_proxy=self.settings.get('USE_PROXY', False),
-                use_source_db=True
-            )
-            self._set_db_path(self.eastmoney_crawler, "东方财富")
-            
-            self.eastmoney_simple_crawler = EastMoneySimpleCrawler(
-                use_proxy=self.settings.get('USE_PROXY', False),
-                use_source_db=True
-            )
-            # 修正东方财富简版爬虫的source属性，与主爬虫保持一致
-            if hasattr(self.eastmoney_simple_crawler, 'source') and self.eastmoney_simple_crawler.source != "东方财富":
-                self.eastmoney_simple_crawler.source = "东方财富"
-                logger.info(f"已修正东方财富简版爬虫的source属性为'东方财富'")
-            self._set_db_path(self.eastmoney_simple_crawler, "东方财富")
-            
-            self.sina_crawler = SinaCrawler(
-                use_proxy=self.settings.get('USE_PROXY', False),
-                use_source_db=True
-            )
-            self._set_db_path(self.sina_crawler, "新浪财经")
-            
-            self.netease_crawler = NeteaseCrawler(
-                use_proxy=self.settings.get('USE_PROXY', False),
-                use_source_db=True
-            )
-            self._set_db_path(self.netease_crawler, "网易财经")
-            
-            self.ifeng_crawler = IfengCrawler(
-                use_proxy=self.settings.get('USE_PROXY', False),
-                use_source_db=True
-            )
-            self._set_db_path(self.ifeng_crawler, "凤凰财经")
-            
-            # 确保每个爬虫的source属性正确设置
-            self._verify_sources()
-            
-            # 打印初始化信息
-            logger.info("爬虫管理器初始化完成，可用爬虫:")
-            logger.info(f"- 东方财富 (EastmoneyCrawler): {self.eastmoney_crawler.db_path}")
-            logger.info(f"- 东方财富简版 (EastMoneySimpleCrawler): {self.eastmoney_simple_crawler.db_path}")
-            logger.info(f"- 新浪财经 (SinaCrawler): {self.sina_crawler.db_path}")
-            logger.info(f"- 网易财经 (NeteaseCrawler): {self.netease_crawler.db_path}")
-            logger.info(f"- 凤凰财经 (IfengCrawler): {self.ifeng_crawler.db_path}")
-            
-        except Exception as e:
-            logger.error(f"初始化爬虫失败: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            raise
-
-    def _set_db_path(self, crawler, source_name):
-        """
-        设置爬虫的数据库路径
+    def __init__(self):
+        """初始化爬虫管理器"""
+        self.settings = get_settings()
+        self.factory = CrawlerFactory()
+        self.crawlers_path = os.path.join(os.path.dirname(__file__), 'sites')
+        self.crawlers_cache = {}  # 缓存已创建的爬虫实例
+        self.db = NewsDatabase()  # 主数据库连接
         
-        Args:
-            crawler: 爬虫实例
-            source_name: 来源名称
-        """
-        # 确保source属性被正确设置
-        if hasattr(crawler, 'source') and crawler.source == "未知来源":
-            crawler.source = source_name
-            logger.warning(f"爬虫 {crawler.__class__.__name__} 的source属性未设置，已设置为 {source_name}")
-        
-        # 确保数据库目录存在
-        db_dir = self.settings.get('DB_DIR')
-        if not db_dir:
-            db_dir = os.path.join(os.getcwd(), 'data', 'db')
-        os.makedirs(db_dir, exist_ok=True)
-        
-        # 设置数据库路径
-        db_path = os.path.join(db_dir, f"{source_name}.db")
-        if hasattr(crawler, 'db_path'):
-            crawler.db_path = db_path
-        
-        # 如果数据库不存在，则创建数据库结构
-        if not os.path.exists(db_path):
-            logger.info(f"数据库 {db_path} 不存在，将创建")
-            try:
-                conn = sqlite3.connect(db_path)
-                cursor = conn.cursor()
-                cursor.execute('''
-                CREATE TABLE IF NOT EXISTS news (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT,
-                    content TEXT,
-                    url TEXT UNIQUE,
-                    publish_time TEXT,
-                    crawl_time TEXT,
-                    source TEXT,
-                    category TEXT,
-                    image_url TEXT,
-                    sentiment REAL,
-                    summary TEXT
-                )
-                ''')
-                conn.commit()
-                conn.close()
-                logger.info(f"成功创建数据库 {db_path}")
-            except Exception as e:
-                logger.error(f"创建数据库 {db_path} 失败: {str(e)}")
+        # 初始化爬虫目录
+        self._init_crawlers_dir()
     
-    def _verify_sources(self):
-        """验证所有爬虫的source属性是否正确设置，并统一来源名称格式"""
-        crawlers = {
-            'eastmoney_crawler': ('东方财富', self.eastmoney_crawler),
-            'eastmoney_simple_crawler': ('东方财富', self.eastmoney_simple_crawler),
-            'sina_crawler': ('新浪财经', self.sina_crawler),
-            'netease_crawler': ('网易财经', self.netease_crawler),
-            'ifeng_crawler': ('凤凰财经', self.ifeng_crawler)
-        }
+    def _init_crawlers_dir(self):
+        """初始化爬虫目录"""
+        # 确保爬虫目录存在
+        if not os.path.exists(self.crawlers_path):
+            logger.info(f"创建爬虫目录: {self.crawlers_path}")
+            os.makedirs(self.crawlers_path, exist_ok=True)
         
-        for name, (expected_source, crawler) in crawlers.items():
-            if hasattr(crawler, 'source'):
-                current_source = crawler.source
-                # 标准化来源名称，处理常见变体
-                if current_source.endswith('网') and current_source != expected_source:
-                    # 例如："东方财富网" -> "东方财富"
-                    crawler.source = expected_source
-                    logger.info(f"已统一爬虫 {name} 的source属性从 '{current_source}' 改为 '{expected_source}'")
-                elif current_source != expected_source:
-                    logger.warning(f"爬虫 {name} 的source属性为 '{current_source}'，与预期的 '{expected_source}' 不符，已修正")
-                    crawler.source = expected_source
-            else:
-                logger.error(f"爬虫 {name} 没有source属性")
-                # 尝试设置source属性
-                try:
-                    crawler.source = expected_source
-                    logger.info(f"已为爬虫 {name} 设置source属性为 '{expected_source}'")
-                except Exception as e:
-                    logger.error(f"为爬虫 {name} 设置source属性失败: {str(e)}")
-                    
-        logger.info("已完成爬虫来源属性验证和统一格式化")
-
-    def get_crawlers(self) -> List[BaseCrawler]:
-        """获取所有爬虫"""
-        return list(self.crawlers.values())
-
+        # 确保__init__.py存在
+        init_file = os.path.join(self.crawlers_path, '__init__.py')
+        if not os.path.exists(init_file):
+            logger.info(f"创建爬虫包初始化文件: {init_file}")
+            with open(init_file, 'w', encoding='utf-8') as f:
+                f.write('# -*- coding: utf-8 -*-\n')
+                f.write('"""爬虫实现目录"""\n')
+    
     def get_available_crawlers(self) -> List[str]:
-        """获取所有可用的爬虫名称"""
-        return list(self.crawlers.keys())
-
-    def get_crawler(self, name: str) -> Optional[BaseCrawler]:
-        """获取指定爬虫"""
-        return self.crawlers.get(name)
-
-    def start_crawler(self, name: str):
-        """启动指定爬虫"""
-        if name not in self.crawlers:
-            raise ValueError(f"爬虫 {name} 不存在")
-
-        if name in self.crawler_threads and self.crawler_threads[name].is_alive():
-            raise RuntimeError(f"爬虫 {name} 已在运行")
-
-        # 创建停止标志
-        self.stop_flags[name].clear()
-
-        # 创建并启动线程
-        thread = threading.Thread(
-            target=self._crawler_worker,
-            args=(name,),
-            daemon=True
-        )
-        self.crawler_threads[name] = thread
-        thread.start()
-
-        logger.info(f"爬虫 {name} 已启动")
-
-    def stop_crawler(self, name: str):
-        """停止指定爬虫"""
-        if name not in self.crawlers:
-            raise ValueError(f"爬虫 {name} 不存在")
-
-        if name not in self.crawler_threads or not self.crawler_threads[name].is_alive():
-            raise RuntimeError(f"爬虫 {name} 未在运行")
-
-        # 设置停止标志
-        self.stop_flags[name].set()
-
-        # 等待线程结束
-        self.crawler_threads[name].join()
-
-        logger.info(f"爬虫 {name} 已停止")
-
-    def start_all(self):
-        """启动所有爬虫"""
-        for name in self.crawlers:
-            try:
-                self.start_crawler(name)
-            except Exception as e:
-                logger.error(f"启动爬虫 {name} 失败: {str(e)}")
-
-    def stop_all(self):
-        """停止所有爬虫"""
-        for name in self.crawlers:
-            try:
-                self.stop_crawler(name)
-            except Exception as e:
-                logger.error(f"停止爬虫 {name} 失败: {str(e)}")
-
-    def _crawler_worker(self, name: str):
-        """爬虫工作线程"""
-        crawler = self.crawlers[name]
-        stop_flag = self.stop_flags[name]
-
-        # 为线程创建新的数据库连接
-        thread_db = NewsDatabase(use_all_dbs=True)
-
-        while not stop_flag.is_set():
-            try:
-                # 更新爬虫状态
-                crawler.status = 'running'
-                crawler.last_run = datetime.now()
-
-                # 执行爬取
-                news_list = crawler.crawl()
-
-                # 保存数据
-                for news in news_list:
-                    try:
-                        # 确保新闻包含正确的来源
-                        if 'source' not in news or not news['source']:
-                            news['source'] = crawler.source
-                        thread_db.add_news(news)
-                    except Exception as e:
-                        logger.error(f"保存新闻失败: {str(e)}")
-
-                # 更新爬虫状态
-                crawler.status = 'idle'
-                crawler.next_run = datetime.now() + timedelta(minutes=self.settings['crawler_interval'])
-                crawler.success_count += 1
-
-                # 等待下一次运行
-                while not stop_flag.is_set():
-                    if datetime.now() >= crawler.next_run:
-                        break
-                    time.sleep(1)
-
-            except Exception as e:
-                logger.error(f"爬虫 {name} 运行出错: {str(e)}")
-                crawler.status = 'error'
-                crawler.error_count += 1
-                time.sleep(60)  # 出错后等待1分钟再重试
-
-    def get_status(self) -> Dict:
-        """获取爬虫状态"""
-        status = {}
-        for name, crawler in self.crawlers.items():
-            status[name] = {
-                'name': name,
-                'display_name': crawler.source,
-                'status': getattr(crawler, 'status', 'unknown'),
-                'last_run': getattr(crawler, 'last_run', None).strftime('%Y-%m-%d %H:%M:%S') if getattr(crawler, 'last_run', None) else None,
-                'next_run': getattr(crawler, 'next_run', None).strftime('%Y-%m-%d %H:%M:%S') if getattr(crawler, 'next_run', None) else None,
-                'error_count': getattr(crawler, 'error_count', 0),
-                'success_count': getattr(crawler, 'success_count', 0)
-            }
-        return status
-
-    def close(self):
-        """关闭爬虫管理器"""
-        self.stop_all()
-        self.db.close()
-
-    def run_crawler(self, crawler_name: str, **params) -> int:
-        """运行指定爬虫
-
+        """
+        获取所有可用的爬虫列表
+        
+        Returns:
+            List[str]: 爬虫名称列表
+        """
+        crawlers = []
+        
+        # 扫描爬虫目录
+        for filename in os.listdir(self.crawlers_path):
+            if filename.endswith('.py') and filename != '__init__.py':
+                crawler_name = filename[:-3]  # 去掉.py后缀
+                crawlers.append(crawler_name)
+        
+        return crawlers
+    
+    def get_crawler_info(self, crawler_name: str) -> Dict[str, Any]:
+        """
+        获取指定爬虫的信息
+        
         Args:
             crawler_name: 爬虫名称
-            **params: 爬虫参数
-
+            
         Returns:
-            int: 获取的新闻数量
+            Dict: 爬虫信息字典
         """
-        if crawler_name not in self.crawlers:
-            logger.error(f"未找到爬虫: {crawler_name}")
-            return 0
-
-        crawler = self.crawlers[crawler_name]
-
-        # 运行爬虫
+        # 尝试创建爬虫实例
         try:
-            logger.info(f"开始运行爬虫: {crawler_name}")
+            crawler = self.factory.create_crawler(crawler_name)
+            if not crawler:
+                return {
+                    'name': crawler_name,
+                    'status': 'error',
+                    'message': '爬虫创建失败'
+                }
             
-            # 提取days参数
-            days = params.get('days', 1)
+            # 获取爬虫信息
+            info = {
+                'name': crawler_name,
+                'source': crawler.source,
+                'class': crawler.__class__.__name__,
+                'description': crawler.__doc__ or '无描述',
+                'status': 'available',
+                'capabilities': getattr(crawler, 'capabilities', {}),
+                'config': getattr(crawler, 'config', {})
+            }
             
-            # 只传递days参数给爬虫的crawl方法
-            result = crawler.crawl(days=days)
-            logger.info(f"爬虫 {crawler_name} 运行完成，共获取 {len(result)} 条新闻")
+            # 获取爬虫统计信息
+            source_db = NewsDatabase(source=crawler_name)
+            today_count = source_db.get_news_count(days=1, source=crawler_name)
+            week_count = source_db.get_news_count(days=7, source=crawler_name)
+            month_count = source_db.get_news_count(days=30, source=crawler_name)
+            total_count = source_db.get_news_count(source=crawler_name)
+            source_db.close()
             
-            # 创建新的数据库连接保存数据
-            thread_db = NewsDatabase(use_all_dbs=True)
-            for news in result:
-                try:
-                    # 确保新闻包含正确的来源
-                    if 'source' not in news or not news['source']:
-                        news['source'] = crawler.source
-                    thread_db.add_news(news)
-                except Exception as e:
-                    logger.error(f"保存新闻失败: {str(e)}")
+            info['statistics'] = {
+                'today': today_count,
+                'week': week_count,
+                'month': month_count,
+                'total': total_count
+            }
             
-            # 更新爬虫状态
-            crawler.success_count += 1
-            return len(result)
+            return info
+            
         except Exception as e:
-            logger.error(f"运行爬虫 {crawler_name} 失败: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            crawler.error_count += 1
-            return 0
-
-    def set_proxy(self, proxy_type: str, proxy_url: str):
-        """设置所有爬虫的代理
-
-        Args:
-            proxy_type: 代理类型，如http, socks5
-            proxy_url: 代理URL
+            logger.error(f"获取爬虫信息失败 {crawler_name}: {e}")
+            return {
+                'name': crawler_name,
+                'status': 'error',
+                'message': str(e)
+            }
+    
+    def get_all_crawler_info(self) -> List[Dict[str, Any]]:
         """
-        for crawler in self.crawlers.values():
-            if hasattr(crawler, 'proxy_type'):
-                crawler.proxy_type = proxy_type
-            if hasattr(crawler, 'proxy_url'):
-                crawler.proxy_url = proxy_url
-            crawler.use_proxy = True
+        获取所有爬虫的信息
+        
+        Returns:
+            List[Dict]: 爬虫信息列表
+        """
+        crawler_list = []
+        
+        # 获取所有可用爬虫
+        available_crawlers = self.get_available_crawlers()
+        
+        # 获取每个爬虫的信息
+        for crawler_name in available_crawlers:
+            info = self.get_crawler_info(crawler_name)
+            crawler_list.append(info)
+        
+        return crawler_list
+    
+    def run_crawler(self, crawler_name: str, days: float = 7.0, 
+                   force_update: bool = False, 
+                   use_dedicated_db: bool = True,
+                   sync_to_main: bool = True) -> int:
+        """
+        运行指定的爬虫
+        
+        Args:
+            crawler_name: 爬虫名称
+            days: 爬取过去几天的新闻
+            force_update: 是否强制更新已存在的新闻
+            use_dedicated_db: 是否使用爬虫专用数据库
+            sync_to_main: 是否同步数据到主数据库
+            
+        Returns:
+            int: 成功爬取的新闻数量
+        """
+        # 获取缓存中的爬虫，如果没有则创建新的
+        if crawler_name in self.crawlers_cache:
+            crawler = self.crawlers_cache[crawler_name]
+        else:
+            # 如果使用专用数据库，则传入对应数据库路径
+            db_path = None
+            if use_dedicated_db:
+                db = NewsDatabase(source=crawler_name)
+                db_path = db.db_path
+                db.close()
+            
+            # 创建爬虫实例
+            crawler = self.factory.create_crawler(
+                crawler_name, 
+                db_path=db_path
+            )
+            
+            # 缓存爬虫实例
+            self.crawlers_cache[crawler_name] = crawler
+        
+        if not crawler:
+            logger.error(f"爬虫 {crawler_name} 创建失败")
+            return 0
+        
+        try:
+            # 运行爬虫
+            logger.info(f"开始运行爬虫: {crawler_name}, 爬取时间范围: {days}天")
+            count = crawler.crawl(days=days, force_update=force_update)
+            logger.info(f"爬虫 {crawler_name} 运行完成，获取 {count} 条新闻")
+            
+            # 如果使用专用数据库且需要同步到主数据库
+            if use_dedicated_db and sync_to_main and count > 0:
+                self._sync_to_main_db(crawler_name)
+            
+            return count
+        except Exception as e:
+            logger.error(f"爬虫 {crawler_name} 运行失败: {e}")
+            return 0
+    
+    def _sync_to_main_db(self, source: str) -> int:
+        """
+        将源数据库的数据同步到主数据库
+        
+        Args:
+            source: 数据源名称
+            
+        Returns:
+            int: 同步的记录数
+        """
+        # 创建源数据库连接
+        source_db = NewsDatabase(source=source)
+        main_db = self.db
+        sync_count = 0
+        
+        try:
+            # 获取源数据库中的数据
+            news_list = source_db.query_news(source=source, limit=1000)
+            if not news_list:
+                logger.info(f"数据源 {source} 没有需要同步的数据")
+                return 0
+            
+            logger.info(f"开始同步数据源 {source} 到主数据库，共 {len(news_list)} 条记录")
+            
+            # 添加到主数据库
+            for news in news_list:
+                try:
+                    # 检查主数据库是否已存在该新闻
+                    conn = main_db.get_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT 1 FROM news WHERE url = ?", (news['url'],))
+                    exists = cursor.fetchone() is not None
+                    conn.close()
+                    
+                    if not exists:
+                        # 使用直接的SQL语句保存新闻
+                        conn = main_db.get_connection()
+                        cursor = conn.cursor()
+                        
+                        # 获取表字段
+                        cursor.execute("PRAGMA table_info(news)")
+                        columns = [row[1] for row in cursor.fetchall()]
+                        
+                        # 过滤新闻数据，只保留表中存在的字段
+                        filtered_data = {k: v for k, v in news.items() if k in columns}
+                        
+                        # 构建SQL语句
+                        fields = ', '.join(filtered_data.keys())
+                        placeholders = ', '.join(['?' for _ in filtered_data])
+                        values = list(filtered_data.values())
+                        
+                        cursor.execute(f"INSERT INTO news ({fields}) VALUES ({placeholders})", values)
+                        conn.commit()
+                        conn.close()
+                        
+                        sync_count += 1
+                except Exception as e:
+                    logger.error(f"同步记录失败 {news.get('id', '')}: {e}")
+            
+            logger.info(f"数据源 {source} 同步完成，共同步 {sync_count} 条记录")
+            return sync_count
+            
+        except Exception as e:
+            logger.error(f"同步数据源 {source} 失败: {e}")
+            return 0
+        finally:
+            # 关闭源数据库连接
+            source_db.close()
+    
+    def sync_all_to_main(self) -> Dict[str, int]:
+        """
+        将所有数据源的数据同步到主数据库
+        
+        Returns:
+            Dict[str, int]: 每个数据源同步的记录数
+        """
+        result = {}
+        
+        # 获取所有数据源
+        sources = self.db.get_available_sources()
+        logger.info(f"开始同步所有数据源到主数据库，共 {len(sources)} 个数据源")
+        
+        # 同步每个数据源
+        for source in sources:
+            try:
+                count = self._sync_to_main_db(source)
+                result[source] = count
+            except Exception as e:
+                logger.error(f"同步数据源 {source} 失败: {e}")
+                result[source] = 0
+        
+        logger.info(f"所有数据源同步完成，结果: {result}")
+        return result
+    
+    def close(self):
+        """关闭爬虫管理器，清理资源"""
+        # 关闭所有爬虫实例
+        for crawler_name, crawler in self.crawlers_cache.items():
+            try:
+                crawler.close()
+            except Exception as e:
+                logger.error(f"关闭爬虫 {crawler_name} 失败: {e}")
+        
+        # 清空爬虫缓存
+        self.crawlers_cache.clear()
+        
+        # 关闭数据库连接
+        self.db.close()
+        
+        logger.info("爬虫管理器已关闭")
