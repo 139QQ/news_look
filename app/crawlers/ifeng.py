@@ -21,12 +21,10 @@ import json
 import logging
 import chardet
 
-# 修复导入路径
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from utils.db_manager import DatabaseManager
-from app.utils.logger import get_crawler_logger
-from app.utils.text_cleaner import clean_html_content, extract_keywords, decode_html_entities, decode_unicode_escape, decode_url_encoded
+# 使用正确的相对或绝对导入
+from app.utils.database import DatabaseManager
+from app.utils.logger import get_crawler_logger, configure_logger
+from app.utils.text_cleaner import clean_html, extract_keywords, decode_html_entities, decode_unicode_escape, decode_url_encoded
 from app.crawlers.base import BaseCrawler
 from app.utils.ad_filter import AdFilter  # 导入广告过滤器模块
 from app.utils.image_detector import ImageDetector  # 导入图像识别模块
@@ -465,7 +463,7 @@ class IfengCrawler(BaseCrawler):
             # 1. 使用统一的 _detect_encoding 方法获取最佳猜测编码
             # 注意：这个方法现在在后面定义（约 L975）
             # 它内部包含了 meta tag, apparent_encoding, 强制规则, 尝试解码列表, 默认utf-8 的逻辑
-            detected_encoding = self._detect_encoding(content_bytes)
+            detected_encoding = self.detect_encoding(content_bytes)
             final_encoding = detected_encoding # 以检测结果为准
             
             # 2. 尝试使用检测到的编码进行解码

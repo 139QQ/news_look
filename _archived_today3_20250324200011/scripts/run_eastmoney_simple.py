@@ -106,7 +106,7 @@ def main():
         db_manager = None
         try:
             # 如果有数据库管理模块，导入并初始化
-            from app.db.sqlite_manager import SQLiteManager
+            from app.db.SQLiteManager import SQLiteManager
             db_manager = SQLiteManager(args.db_path)
             logging.info(f"数据库路径: {args.db_path}")
         except ImportError:

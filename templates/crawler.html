@@ -2,151 +2,306 @@
 
 {% block title %}财经新闻爬虫系统 - 爬虫管理{% endblock %}
 
-{% block content %}
-<div class="row">
-    <div class="col-md-12 mb-4">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <i class="bi bi-gear"></i> 爬虫管理
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="card mb-3">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">总新闻数</h5>
-                                <h2 class="text-primary">{{ stats.total_news }}</h2>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card mb-3">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">今日新闻数</h5>
-                                <h2 class="text-success">{{ stats.today_news }}</h2>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card mb-3">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">来源数量</h5>
-                                <h2 class="text-info">{{ stats.sources|length }}</h2>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="row mb-4">
-                    <div class="col-md-12">
-                        <h5>各来源新闻数量</h5>
-                        <div class="progress-stacked">
-                            {% for source, count in stats.sources.items() %}
-                            {% set percent = (count / stats.total_news * 100)|round|int if stats.total_news > 0 else 0 %}
-                            <div class="progress" role="progressbar" style="width: {{ percent }}%">
-                                <div class="progress-bar 
-                                    {% if loop.index % 5 == 1 %}bg-primary
-                                    {% elif loop.index % 5 == 2 %}bg-success
-                                    {% elif loop.index % 5 == 3 %}bg-info
-                                    {% elif loop.index % 5 == 4 %}bg-warning
-                                    {% else %}bg-danger{% endif %}" 
-                                    style="width: 100%">
-                                    {{ source }} ({{ count }})
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header">
-                                <i class="bi bi-play-circle"></i> 手动触发爬虫
-                            </div>
-                            <div class="card-body">
-                                <form action="{{ url_for('trigger_crawler') }}" method="post">
-                                    <div class="mb-3">
-                                        <label for="crawler" class="form-label">选择爬虫</label>
-                                        <select class="form-select" id="crawler" name="crawler">
-                                            <option value="all">所有爬虫</option>
-                                            <option value="eastmoney">东方财富</option>
-                                            <option value="sina">新浪财经</option>
-                                            <option value="tencent">腾讯财经</option>
-                                        </select>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-play"></i> 开始爬取
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header">
-                                <i class="bi bi-clock"></i> 爬虫计划
-                            </div>
-                            <div class="card-body">
-                                <p>爬虫自动运行时间: <strong>每天凌晨2点</strong></p>
-                                <p>下次运行时间: <span id="next-run-time" class="text-primary"></span></p>
-                                <p>爬取内容: <span class="badge bg-primary">东方财富</span> <span class="badge bg-success">新浪财经</span> <span class="badge bg-info">腾讯财经</span></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-12">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <i class="bi bi-journal-text"></i> 爬虫日志
-            </div>
-            <div class="card-body">
-                <div class="log-container bg-dark text-light p-3 rounded" style="height: 400px; overflow-y: auto; font-family: monospace;">
-                    <pre>{{ log_content }}</pre>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+{% block head %}
+{{ super() }}
+<style>
+  /* 统计卡片 */
+  .stats-card {
+    border-radius: var(--bs-border-radius-lg);
+    border: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  }
+  
+  .stats-count {
+    font-size: 1.75rem;
+    font-weight: 300;
+    color: #4361ee;
+  }
+  
+  /* 卡片样式 */
+  .dashboard-card {
+    border-radius: var(--bs-border-radius-lg);
+    border: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    height: 100%;
+  }
+  
+  .card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #e9ecef;
+    font-weight: 500;
+    color: #495057;
+    display: flex;
+    align-items: center;
+  }
+  
+  .card-header i {
+    margin-right: 0.5rem;
+    color: #4361ee;
+  }
+  
+  /* 日志容器 */
+  .log-container {
+    height: 400px;
+    overflow-y: auto;
+    background-color: #212529;
+    color: #f8f9fa;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    padding: 1rem;
+    border-radius: var(--bs-border-radius);
+  }
+  
+  .log-container pre {
+    margin: 0;
+    white-space: pre-wrap;
+  }
+  
+  /* 源数据表格 */
+  .source-table {
+    margin-bottom: 0;
+  }
+  
+  .source-table th {
+    font-weight: 500;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+  }
+  
+  .crawler-button {
+    height: var(--button-height);
+    border-radius: var(--button-border-radius);
+    padding: 0 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .crawler-button.start {
+    background-color: var(--color-interactive);
+    border-color: var(--color-interactive);
+    color: white;
+  }
+  
+  .crawler-button.start:hover {
+    background-color: var(--color-interactive-hover);
+    border-color: var(--color-interactive-hover);
+  }
+  
+  .crawler-button.stop {
+    background-color: #e74c3c;
+    border-color: #e74c3c;
+    color: white;
+  }
+  
+  .crawler-button.stop:hover {
+    background-color: #c0392b;
+    border-color: #c0392b;
+  }
+  
+  .crawler-table {
+    width: 100%;
+    margin-bottom: 1rem;
+    color: var(--color-text-secondary);
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  
+  .crawler-table th,
+  .crawler-table td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--table-border-color);
+    height: var(--table-row-height);
+  }
+  
+  .crawler-table thead th {
+    background-color: var(--table-header-bg);
+    color: var(--color-text-primary);
+    font-weight: 500;
+    border-bottom: 2px solid var(--table-border-color);
+  }
+  
+  .crawler-table tbody tr:hover {
+    background-color: var(--color-bg-secondary);
+  }
+  
+  .log-container {
+    background-color: #2c3e50;
+    color: #ecf0f1;
+    padding: 1rem;
+    border-radius: 4px;
+    font-family: monospace;
+    height: 400px;
+    overflow-y: auto;
+  }
+</style>
+{% endblock %}
 
-<script>
-    // 计算下次运行时间
-    function updateNextRunTime() {
-        var now = new Date();
-        var nextRun = new Date();
-        
-        // 设置为每天凌晨2点运行
-        nextRun.setHours(2, 0, 0, 0);
-        
-        // 如果当前时间已经过了今天的运行时间，则设置为明天
-        if (now > nextRun) {
-            nextRun.setDate(nextRun.getDate() + 1);
-        }
-        
-        // 计算剩余时间
-        var diff = nextRun - now;
-        var hours = Math.floor(diff / (1000 * 60 * 60));
-        var minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        
-        document.getElementById('next-run-time').textContent = 
-            nextRun.toLocaleString() + ' (还有 ' + hours + ' 小时 ' + minutes + ' 分钟)';
-        
-        // 每分钟更新一次
-        setTimeout(updateNextRunTime, 60000);
-    }
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row mb-4">
+    <div class="col-md-12">
+      <h2 class="fw-light"><i class="bi bi-gear-fill me-2 text-primary"></i>爬虫管理</h2>
+    </div>
+  </div>
+  
+  <div class="row">
+    <div class="col-md-8">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">爬虫状态</h5>
+          <button id="start-all-btn" class="crawler-button start">
+            <i class="bi bi-play-fill me-1"></i>启动所有爬虫
+          </button>
+        </div>
+        <div class="card-body p-0">
+          <table class="crawler-table">
+            <thead>
+              <tr>
+                <th>爬虫名称</th>
+                <th>状态</th>
+                <th>最近运行</th>
+                <th>采集数量</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for crawler in crawlers %}
+              <tr>
+                <td>{{ crawler.name }}</td>
+                <td>
+                  {% if crawler.status == 'running' %}
+                  <span class="badge bg-success">运行中</span>
+                  {% else %}
+                  <span class="badge bg-secondary">已停止</span>
+                  {% endif %}
+                </td>
+                <td>{{ crawler.last_run or '从未运行' }}</td>
+                <td>{{ crawler.count }}</td>
+                <td>
+                  {% if crawler.status == 'running' %}
+                  <button class="crawler-button stop crawler-stop-btn" data-id="{{ crawler.id }}">
+                    <i class="bi bi-stop-fill me-1"></i>停止
+                  </button>
+                  {% else %}
+                  <button class="crawler-button start crawler-start-btn" data-id="{{ crawler.id }}">
+                    <i class="bi bi-play-fill me-1"></i>启动
+                  </button>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div class="card shadow-sm">
+        <div class="card-header">
+          <h5 class="mb-0">爬虫日志</h5>
+        </div>
+        <div class="card-body">
+          <div class="log-container">
+            <pre id="log-content">{{ log_content }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
     
-    // 页面加载完成后执行
-    document.addEventListener('DOMContentLoaded', function() {
-        updateNextRunTime();
-        
-        // 自动滚动到日志底部
-        var logContainer = document.querySelector('.log-container');
-        logContainer.scrollTop = logContainer.scrollHeight;
+    <div class="col-md-4">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">新闻统计</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between mb-3">
+            <div>
+              <h6 class="text-muted">今日新闻</h6>
+              <h2 class="fw-bold">{{ today_count }}</h2>
+            </div>
+            <div>
+              <h6 class="text-muted">总新闻数</h6>
+              <h2 class="fw-bold">{{ total_count }}</h2>
+            </div>
+          </div>
+          
+          <h6 class="text-muted mb-2">来源分布</h6>
+          <ul class="list-group list-group-flush">
+            {% for source in sources %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              {{ source }}
+              <span class="badge bg-primary rounded-pill">{{ source_stats[source] if source in source_stats else 0 }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 启动爬虫按钮
+    document.querySelectorAll('.crawler-start-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var crawler_id = this.getAttribute('data-id');
+        fetch('/api/crawlers/' + crawler_id + '/start_fixed', {
+          method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            location.reload();
+          } else {
+            alert('启动失败: ' + data.message);
+          }
+        });
+      });
     });
+
+    // 停止爬虫按钮
+    document.querySelectorAll('.crawler-stop-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var crawler_id = this.getAttribute('data-id');
+        fetch('/api/crawlers/' + crawler_id + '/stop_fixed', {
+          method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            location.reload();
+          } else {
+            alert('停止失败: ' + data.message);
+          }
+        });
+      });
+    });
+    
+    // 启动所有爬虫按钮
+    document.getElementById('start-all-btn').addEventListener('click', function() {
+      fetch('/api/crawlers/start_all', {
+        method: 'POST'
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        } else {
+          alert('启动所有爬虫失败: ' + data.message);
+        }
+      });
+    });
+    
+    // 自动滚动日志到底部
+    var logContent = document.getElementById('log-content');
+    logContent.scrollTop = logContent.scrollHeight;
+  });
 </script>
 {% endblock %} 

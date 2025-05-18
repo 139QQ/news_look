@@ -19,7 +19,7 @@ import json
 from app.crawlers.base import BaseCrawler
 from app.utils.logger import get_crawler_logger
 from app.utils.text_cleaner import clean_html, extract_keywords
-from app.db.sqlite_manager import SQLiteManager
+from app.db.SQLiteManager import SQLiteManager
 from app.utils.ad_filter import AdFilter  # 导入广告过滤器模块
 from app.utils.image_detector import ImageDetector  # 导入图像识别模块
 

@@ -138,7 +138,7 @@ def main():
         # 导入爬虫模块
         try:
             from app.crawlers.eastmoney import EastMoneyCrawler
-            from app.db.sqlite_manager import SQLiteManager
+            from app.db.SQLiteManager import SQLiteManager
             logging.info("成功导入爬虫模块")
         except ImportError as e:
             logging.error(f"导入爬虫模块失败: {str(e)}")

@@ -1,0 +1,338 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 数据库模块规范 (Database Module Specifications)
+
+This document outlines the standards and best practices for database interactions within the NewsLook project. Adherence to these guidelines is crucial for maintaining data consistency, system stability, and ease of maintenance.
+
+## 1. Database Architecture
+
+### 1.1. Source-Specific Databases
+- Each news source (e.g., Tencent Finance, Sina Finance) will have its own dedicated SQLite database file.
+- **Rationale:** Enhances data isolation, simplifies backup and management per source, and can improve query performance when targeting a specific source.
+
+### 1.2. Database File Naming Convention
+- Database files shall be named using a fixed convention: `[source_name].db` (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`).
+- **Deprecated:** Timestamp-based filenames (e.g., `[source_name]_YYYYMMDD_HHMMSS.db`) are no longer in use.
+- **Rationale:** Simplifies data access, management, and integration with the `NewsDatabase` class.
+
+### 1.3. Database Directory
+- All source-specific database files are primarily stored in the `data/db/` directory within the project root.
+- The `NewsDatabase` class handles intelligent path resolution for flexible deployment.
+
+### 1.4. Main Aggregated Database
+- A main database, typically `finance_news.db`, may be used for storing aggregated news data if necessary, but primary storage is per-source.
+
+## 2. Table Structure
+
+### 2.1. Unified `news` Table Schema
+- All news articles across different sources must conform to the following unified table structure:
+
+  ```sql
+  CREATE TABLE IF NOT EXISTS news (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      content TEXT,
+      content_html TEXT,
+      pub_time TEXT,
+      author TEXT,
+      source TEXT,
+      url TEXT UNIQUE,
+      keywords TEXT,          -- Stored as JSON string if multiple
+      images TEXT,            -- Stored as JSON string if multiple
+      related_stocks TEXT,    -- Stored as JSON string if multiple
+      sentiment TEXT,
+      classification TEXT,
+      category TEXT,
+      crawl_time TEXT,
+      summary TEXT,
+      status INTEGER DEFAULT 0 -- e.g., 0 for unprocessed, 1 for processed
+  );
+  ```
+- **Rationale:** Ensures consistency and simplifies data querying and aggregation.
+
+### 2.2. Automatic Table Initialization
+- The system (e.g., crawler base class or `NewsDatabase`) must automatically check for the existence of the `news` table (and other necessary tables) and create it if it's missing upon startup or first use.
+
+## 3. Data Handling and Processing
+
+### 3.1. Centralized Field Preprocessing
+- A common method, preferably in a base crawler class, should be used to preprocess news data before saving.
+- **Key Responsibilities:**
+    - Ensure `id` generation (e.g., MD5 hash of URL if not provided).
+    - Set default values for fields like `author`, `source`, `sentiment`, `category`, `crawl_time`, `keywords`, `images`, `related_stocks`, `classification`, `summary`, `status`.
+    - Convert list/dictionary type fields (e.g., `keywords`, `images`, `related_stocks`) into JSON strings for database storage.
+- **Example (`preprocess_news_data` in a base class):**
+  ```python
+  import hashlib
+  import json
+  from datetime import datetime
+
+  # (logger setup assumed)
+
+  def preprocess_news_data(self, news_data: Dict[str, Any]) -> Dict[str, Any]:
+      """统一预处理新闻数据"""
+      # 确保必要字段存在
+      if 'id' not in news_data or not news_data['id']:
+          if 'url' in news_data and news_data['url']:
+              news_data['id'] = hashlib.md5(news_data['url'].encode('utf-8')).hexdigest()
+          else:
+              # Handle cases where URL might also be missing or generate ID differently
+              # For now, let's log an error or raise an exception if URL is also missing
+              logger.error("Cannot generate ID: URL is missing.")
+              # Or assign a temporary unique ID if absolutely necessary, though URL-based is preferred
+              # news_data['id'] = str(uuid.uuid4()) # Example if using uuid
+
+      # 设置默认值
+      defaults = {
+          'author': getattr(self, 'source_name', 'Unknown Source'), # Assuming self.source_name exists
+          'source': getattr(self, 'source_name', 'Unknown Source'),
+          'sentiment': '中性',
+          'category': '财经',
+          'crawl_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+          'keywords': '',
+          'images': '',
+          'related_stocks': '',
+          'classification': '',
+          'summary': '',
+          'content': '',       # Ensure content has a default
+          'content_html': '',  # Ensure content_html has a default
+          'pub_time': '',      # Ensure pub_time has a default
+          'status': 0
+      }
+
+      for field, default in defaults.items():
+          if field not in news_data or news_data[field] is None or news_data[field] == '':
+              news_data[field] = default
+
+      # 处理特殊字段 (ensure JSON serializable fields are strings)
+      for field in ['keywords', 'images', 'related_stocks']:
+          if isinstance(news_data.get(field), (list, dict)):
+              news_data[field] = json.dumps(news_data[field], ensure_ascii=False)
+          elif news_data.get(field) is None: # Ensure it's an empty string if originally None
+              news_data[field] = ''
+
+
+      # Ensure all fields expected by the table schema are present
+      expected_fields = ['id', 'title', 'content', 'content_html', 'pub_time',
+                         'author', 'source', 'url', 'keywords', 'images',
+                         'related_stocks', 'sentiment', 'classification',
+                         'category', 'crawl_time', 'summary', 'status']
+      for f in expected_fields:
+          if f not in news_data:
+              news_data[f] = defaults.get(f, '') # Use specific default or empty string
+
+      return news_data
+  ```
+
+### 3.2. Data Validation
+- **Uniqueness:** Enforce uniqueness based on a composite key of `id` and `url`.
+  ```sql
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_news_url ON news(url);
+  -- The primary key on 'id' already ensures its uniqueness.
+  -- The 'url TEXT UNIQUE' in table creation also ensures URL uniqueness.
+  -- The suggestion for a composite unique index idx_news_id_url ON news(id, url)
+  -- might be redundant if id is PK and url is UNIQUE.
+  -- However, checking for existing ID OR URL before insert is a good practice in code.
+  ```
+- Application-level checks before insertion: Verify if a record with the same `id` OR `url` already exists to prevent constraint violations and redundant processing.
+
+### 3.3. Encoding
+- All text data stored in the database must be UTF-8 encoded.
+- Utilize encoding utility functions (as found in `app/utils/text_cleaner.py`) to handle various source encodings (UTF-8, GBK, GB18030), Unicode escapes, URL-encoded characters, and HTML entities.
+- **Example `ensure_utf8` utility (conceptual):**
+  ```python
+  def ensure_utf8(text: Any) -> str:
+      """Ensures the text is a valid UTF-8 string."""
+      if not isinstance(text, str):
+          text = str(text) # Convert non-string types to string
+
+      try:
+          # Attempt to encode and decode to validate/clean
+          return text.encode('utf-8', 'ignore').decode('utf-8')
+      except UnicodeEncodeError: # Handles cases where text might be bytes-like but not utf-8
+          try:
+              return text.decode('utf-8')
+          except UnicodeDecodeError:
+              # Fallback for other encodings if necessary, or return a placeholder/log error
+              # For simplicity, this example just tries common ones or ignores errors
+              try:
+                  return text.decode('latin1').encode('utf-8').decode('utf-8')
+              except:
+                  return text.encode('ascii', 'ignore').decode('ascii') # Last resort
+      except Exception: # Broad exception for any other encoding issues
+          # Log the error and return the text as is or a cleaned version
+          # print(f"Warning: Could not reliably convert text to UTF-8: {text[:50]}...")
+          return text # Or some form of sanitized output
+  ```
+
+## 4. Database Operations
+
+### 4.1. Direct Database Access for Crawlers
+- Crawler classes should use direct `sqlite3` connections for saving news data.
+- **Rationale:** Reduces overhead and improves reliability compared to intermediate layers for simple writes.
+
+### 4.2. Transaction Handling
+- All database write operations (INSERT, UPDATE, DELETE) must be performed within a transaction.
+- Use context managers (`with ...`) for connections and cursors to ensure transactions are properly committed or rolled back in case of errors.
+- **Example `save_news_to_db` structure:**
+  ```python
+  # (logger and preprocess_news_data assumed to be available)
+  # (self.get_db_connection() is a method returning a new sqlite3 connection)
+  # (self.db_path is the path to the specific SQLite file)
+
+  def save_news_to_db(self, news_item: Dict[str, Any]) -> bool:
+      """
+      Saves a single news item to the database with proper transaction handling.
+      """
+      processed_item = self.preprocess_news_data(news_item)
+
+      # Ensure essential fields for insertion are present after processing
+      if not processed_item.get('id') or not processed_item.get('title') or not processed_item.get('url'):
+          logger.error(f"Skipping save due to missing id, title, or url: {processed_item.get('title')}")
+          return False
+
+      conn = None
+      try:
+          conn = self.get_db_connection() # self.get_db_connection should handle opening
+          cursor = conn.cursor()
+
+          # Check for duplicates (ID or URL)
+          cursor.execute(
+              "SELECT id FROM news WHERE id = ? OR url = ?",
+              (processed_item['id'], processed_item['url'])
+          )
+          if cursor.fetchone():
+              logger.info(f"News already exists (ID or URL): '{processed_item['title']}'")
+              return True # Or False if you consider this a "failed" save of new data
+
+          fields = ['id', 'title', 'content', 'content_html', 'pub_time',
+                      'author', 'source', 'url', 'keywords', 'images',
+                      'related_stocks', 'sentiment', 'classification',
+                      'category', 'crawl_time', 'summary', 'status']
+          
+          placeholders = ','.join(['?' for _ in fields])
+          columns = ','.join(fields)
+          sql = f"INSERT INTO news ({columns}) VALUES ({placeholders})"
+          
+          values = [processed_item.get(field) for field in fields]
+          
+          cursor.execute(sql, values)
+          conn.commit()
+          logger.info(f"Successfully saved news: '{processed_item['title']}'")
+          return True
+          
+      except sqlite3.Error as e: # More specific SQLite error
+          logger.error(f"Database error while saving news '{processed_item.get('title')}': {e}")
+          if conn:
+              conn.rollback()
+          return False
+      except Exception as e:
+          logger.error(f"General error while saving news '{processed_item.get('title')}': {e}")
+          logger.debug(f"Failed news data: {processed_item}")
+          if conn:
+              conn.rollback() # Ensure rollback on general exceptions too
+          return False
+      finally:
+          if conn:
+              conn.close()
+  ```
+
+### 4.3. Error Handling and Retries
+- Implement robust error handling for all database operations.
+- Consider retry mechanisms for transient errors (e.g., database locked), with appropriate backoff strategies.
+
+## 5. Logging
+
+### 5.1. Standard Log Format
+- All log messages related to database operations should follow the project's standard logging format: `%(asctime)s [%(levelname)s] [%(name)s] %(message)s`.
+
+### 5.2. Detailed Logging
+- Log key events and data for debugging:
+    - Start and end of save operations.
+    - Database path being used.
+    - Fields being saved (on debug level or success).
+    - Detailed error messages and the problematic data upon failure.
+
+## 6. `NewsDatabase` Class (for Web App / Aggregated Access)
+
+- The `NewsDatabase` class (typically used in the web application) is responsible for:
+    - Managing and querying across multiple source-specific database files.
+    - Maintaining a `source_db_map` to map source names to their database file paths.
+    - Providing methods like `query_news`, `get_news_count`, `get_news_by_id`, etc., that can operate on specific sources or aggregate results from all available databases.
+    - Initializing with `use_all_dbs=True` for comprehensive data access in the web app.
+
+## 7. Performance Considerations
+
+### 7.1. Indexing
+- Ensure appropriate indexes are created on frequently queried columns (e.g., `pub_time`, `source`, `category`). The `id` (PK) and `url` (UNIQUE) are typically indexed by default.
+  ```sql
+  CREATE INDEX IF NOT EXISTS idx_news_pub_time ON news(pub_time);
+  CREATE INDEX IF NOT EXISTS idx_news_source ON news(source);
+  CREATE INDEX IF NOT EXISTS idx_news_category ON news(category);
+  ```
+
+### 7.2. Batch Inserts
+- For crawlers fetching multiple items, consider implementing batch insert operations to improve performance, if `sqlite3` and the chosen operational pattern allow it efficiently.
+
+### 7.3. Connection Management
+- While crawlers use direct connections, for high-concurrency scenarios (like a web application), a connection pool might be considered, though SQLite's concurrency model needs careful handling. For crawlers, independent connections are generally fine.
+
+### 7.4. Data Archival/Cleanup
+- Plan for periodic cleanup or archival of old data if the databases are expected to grow very large, to maintain performance. (This is a future consideration, not an immediate requirement unless specified).
+
+## 8. Deprecated Practices
+
+- **`today3` directory:** This directory and its mirrored structure are deprecated.
+- **Timestamp-based database filenames:** (e.g., `[source_name]_YYYYMMDD_HHMMSS.db`) are deprecated.
+
+By adhering to these specifications, the project will maintain a robust, efficient, and manageable database layer.
+
+## 3. 数据处理与编码规范 (Data Handling and Encoding Specifications)
+
+### 3.3. 编码规范 (Encoding Specifications)
+- **统一编码标准 (Unified Encoding Standard):**
+    - 项目中所有文本数据（包括存入数据库的内容、代码文件等）必须统一使用 **UTF-8** 编码。
+    - **理由:** UTF-8 提供了最佳的兼容性，能有效避免因编码不一致导致的乱码问题。
+
+- **编码处理工具集 (Encoding Utility Toolkit):**
+    - 项目应利用统一的编码处理工具函数（例如 `app/utils/text_cleaner.py` 中提供的功能）来处理来自不同数据源的各种编码。
+    - **核心功能:**
+        - 智能识别和转换常见编码，如 UTF-8, GBK, GB18030。
+        - 解码 Unicode 转义序列 (例如, `\u4e2d\u56fd` 解码为 "中国")。
+        - 解码 URL 编码字符 (例如, `%E4%B8%AD%E5%9B%BD` 解码为 "中国")。
+        - 解码 HTML 实体字符 (例如, `&amp;` 解码为 "&")。
+
+- **`ensure_utf8` 辅助函数 (Conceptual `ensure_utf8` Utility):**
+    - 建议实现或使用一个辅助函数，确保文本在处理前已转换为有效的 UTF-8 字符串。
+    - **示例 (概念性):**
+      ```python
+      def ensure_utf8(text: Any) -> str:
+          """确保文本是有效的 UTF-8 字符串。"""
+          if not isinstance(text, str):
+              text = str(text) # 将非字符串类型转换为字符串
+
+          try:
+              # 尝试编码再解码以验证/清理
+              return text.encode('utf-8', 'ignore').decode('utf-8')
+          except UnicodeEncodeError: # 处理文本可能是类字节但非 UTF-8 的情况
+              try:
+                  return text.decode('utf-8')
+              except UnicodeDecodeError:
+                  # 必要时回退到其他编码，或返回占位符/记录错误
+                  # 为简化，本示例仅尝试常见编码或忽略错误
+                  try:
+                      return text.decode('latin1').encode('utf-8').decode('utf-8')
+                  except:
+                      return text.encode('ascii', 'ignore').decode('ascii') # 最后手段
+          except Exception: # 捕获其他任何编码问题
+              # 记录错误并按原样返回文本或清理后的版本
+              # logger.warning(f"无法可靠地将文本转换为 UTF-8: {text[:50]}...")
+              return text # 或某种形式的净化输出
+      ```
+- **数据输入与输出 (Data Input and Output):**
+    - 在从外部源读取数据或向外部系统输出数据时，必须明确指定或检测编码，并进行必要的转换，以确保数据在内部处理时始终为 UTF-8。
+
+

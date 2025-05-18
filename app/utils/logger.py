@@ -161,11 +161,10 @@ def configure_logger(name, level=None, log_file=None, module=None,
         else:
             module_log_file = log_file
         
-        file_handler = logging.handlers.RotatingFileHandler(
-            module_log_file, 
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding='utf-8'
+        file_handler = logging.FileHandler(
+            log_file,
+            encoding='utf-8',
+            mode='a'  # 追加模式，确保不会覆盖现有日志
         )
         file_handler.setLevel(level)
         # 确保使用统一的日志格式
@@ -249,30 +248,23 @@ def get_crawler_logger(name):
     level = get_log_level()
     logger.setLevel(level)
     
-    # 防止日志传播导致重复
-    logger.propagate = False
+    # 允许日志传播到根日志器，这样只需要根日志器配置控制台输出
+    # 避免重复的控制台日志输出
+    logger.propagate = True
     
-    # 添加文件处理器
-    file_handler = logging.handlers.RotatingFileHandler(
+    # 添加文件处理器，仅负责写入日志文件
+    file_handler = logging.FileHandler(
         log_file,
-        maxBytes=LOG_CONFIG.get('max_size', 10 * 1024 * 1024),
-        backupCount=LOG_CONFIG.get('backup_count', 5),
-        encoding='utf-8'
+        encoding='utf-8',
+        mode='a'  # 追加模式，确保不会覆盖现有日志
     )
     file_handler.setLevel(level)
     file_formatter = logging.Formatter(DEFAULT_LOG_FORMAT)
     file_handler.setFormatter(file_formatter)
     logger.addHandler(file_handler)
     
-    # 添加控制台处理器
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    console_formatter = colorlog.ColoredFormatter(
-        COLOR_LOG_FORMAT,
-        log_colors=COLOR_DICT
-    )
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
+    # 不添加控制台处理器，依赖根日志器的控制台处理器
+    # 这样可以避免日志重复输出到控制台
     
     # 标记为已配置
     setattr(logger, '_configured', True)
@@ -280,7 +272,7 @@ def get_crawler_logger(name):
     # 缓存已配置的日志器
     _logger_cache[cache_key] = logger
     
-    # 记录初始化信息
+    # 记录初始化信息 - 这条日志会同时输出到文件和控制台(通过传播)
     logger.info(f"爬虫日志记录器 '{name}' 已初始化，日志文件: {log_file}")
     
     return logger
@@ -352,4 +344,54 @@ def log_debug(message, logger_name='finance_news'):
 
 def log_critical(message, logger_name='finance_news'):
     """记录严重错误"""
-    get_logger(logger_name).critical(message) 
+    get_logger(logger_name).critical(message)
+
+def fix_duplicate_logging():
+    """
+    修复日志重复输出问题
+    
+    这个函数会检查根日志器和所有已配置的日志器，移除重复的处理器，
+    确保日志只会输出一次。
+    """
+    # 记录处理过的日志器名称
+    fixed_loggers = set()
+    
+    # 修复根日志器
+    root_logger = logging.getLogger()
+    
+    # 检查控制台处理器数量
+    console_handlers = [h for h in root_logger.handlers
+                       if isinstance(h, logging.StreamHandler) and 
+                       hasattr(h, 'stream') and 
+                       h.stream.name in ('<stdout>', '<stderr>')]
+    
+    # 如果有多个控制台处理器，只保留一个
+    if len(console_handlers) > 1:
+        for handler in console_handlers[1:]:
+            root_logger.removeHandler(handler)
+    
+    # 遍历所有已配置的日志器
+    for name, logger in _logger_cache.items():
+        if logger in fixed_loggers:
+            continue
+            
+        # 对于非根日志器，启用日志传播，移除控制台处理器
+        if name != 'root':
+            # 检查控制台处理器
+            console_handlers = [h for h in logger.handlers
+                              if isinstance(h, logging.StreamHandler) and 
+                              hasattr(h, 'stream') and 
+                              h.stream.name in ('<stdout>', '<stderr>')]
+            
+            # 移除所有控制台处理器
+            for handler in console_handlers:
+                logger.removeHandler(handler)
+            
+            # 启用日志传播
+            logger.propagate = True
+        
+        fixed_loggers.add(logger)
+    
+    # 设置根日志器已初始化标志
+    if not hasattr(root_logger, '_initialized'):
+        root_logger._initialized = True 

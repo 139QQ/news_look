@@ -5,6 +5,6 @@
 数据库模块
 """
 
-from app.db.sqlite_manager import SQLiteManager
+from app.db.SQLiteManager import SQLiteManager
 
 __all__ = ['SQLiteManager'] 

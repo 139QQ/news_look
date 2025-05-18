@@ -61,6 +61,7 @@ class Settings:
             
             # 日志设置
             'log_level': 'INFO',  # 日志级别：DEBUG/INFO/WARNING/ERROR/CRITICAL
+            'log_file': os.path.join(self.LOG_DIR, 'app.log'),  # 日志文件路径
             'log_max_size': 10,  # 日志文件大小限制（MB）
             'log_backup_count': 5,  # 日志文件备份数
             
@@ -70,6 +71,10 @@ class Settings:
             'timezone': 'Asia/Shanghai',  # 时区
             'language': 'zh-CN',  # 语言
             'theme': 'light',  # 主题：light/dark
+            
+            # Web应用设置
+            'web_host': '127.0.0.1',  # 默认主机
+            'web_port': 5000,         # 默认端口
         }
         
         # 从环境变量更新配置
@@ -140,18 +145,21 @@ class Settings:
         self.settings[key] = value
         self.save_settings()
 
-# 创建全局配置对象
-_settings = None
+class SingletonSettings:
+    _instance = None
+    
+    @classmethod
+    def get_settings(cls):
+        if cls._instance is None:
+            cls._instance = Settings()
+            image_dir = os.path.join(cls._instance.DATA_DIR, 'images')
+            os.makedirs(image_dir, exist_ok=True)
+        return cls._instance.settings  # Return the settings dictionary instead of the instance
 
-def get_settings():
-    """获取配置对象"""
-    global _settings
-    if _settings is None:
-        _settings = Settings()
-    return _settings
+get_settings = SingletonSettings.get_settings
 
 # 获取项目根目录
-BASE_DIR = get_settings().BASE_DIR
+BASE_DIR = get_settings()['BASE_DIR']
 
 # 数据库配置
 DB_CONFIG = {
@@ -161,11 +169,11 @@ DB_CONFIG = {
 
 # 日志配置
 LOG_CONFIG = {
-    'level': get_settings().get('log_level'),
+    'level': get_settings().get('log_level', 'INFO'),  # 使用小写的 log_level，并提供默认值
     'format': '%(asctime)s - %(levelname)s - %(message)s',
-    'file': os.path.join(BASE_DIR, 'logs', 'finance_news_crawler.log'),
-    'max_size': get_settings().get('log_max_size') * 1024 * 1024,  # MB to bytes
-    'backup_count': get_settings().get('log_backup_count')
+    'file': get_settings().get('log_file', os.path.join(get_settings()['LOG_DIR'], 'app.log')),  # 添加默认值
+    'max_size': get_settings().get('log_max_size', 10),  # 添加默认值
+    'backup_count': get_settings().get('log_backup_count', 5)  # 添加默认值
 }
 
 # 爬虫配置
@@ -176,25 +184,25 @@ CRAWLER_CONFIG = {
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:90.0) Gecko/20100101 Firefox/90.0'
     ],
-    'timeout': get_settings().get('request_timeout'),
-    'retry': get_settings().get('max_retries'),
+    'timeout': get_settings().get('request_timeout', 30),  # 使用小写并添加默认值
+    'retry': get_settings().get('max_retries', 3),  # 使用小写并添加默认值
     'sleep_min': 1,
     'sleep_max': 3,
     'use_source_db': True
 }
 
 # 代理配置
+# 代理配置
 PROXY_CONFIG = {
-    'enabled': get_settings().get('proxy_mode') != 'none',
-    'api': get_settings().get('proxy_url'),
+    'enabled': get_settings().get('proxy_mode', 'none') != 'none',  # 使用小写的 proxy_mode
+    'api': get_settings().get('proxy_url', ''),  # 使用小写的 proxy_url
     'username': '',
     'password': '',
     'proxy': {
-        'http': get_settings().get('proxy_mode') == 'http' and get_settings().get('proxy_url') or None,
-        'https': get_settings().get('proxy_mode') == 'http' and get_settings().get('proxy_url') or None
+        'http': get_settings().get('proxy_mode', 'none') == 'http' and get_settings().get('proxy_url', '') or None,
+        'https': get_settings().get('proxy_mode', 'none') == 'http' and get_settings().get('proxy_url', '') or None
     }
 }
-
 # 新闻源配置
 NEWS_SOURCES = {
     'eastmoney': {
@@ -254,10 +262,10 @@ SELENIUM_CONFIG = {
 
 # Web应用配置
 WEB_CONFIG = {
-    'host': '0.0.0.0',
-    'port': 5000,
-    'debug': get_settings().get('debug'),
-    'secret_key': get_settings().get('secret_key'),
+    'host': get_settings().get('web_host', '127.0.0.1'),
+    'port': get_settings().get('web_port', 5000),
+    'debug': get_settings().get('debug', False),
+    'secret_key': get_settings().get('secret_key', os.urandom(24).hex()),
     'per_page': 10
 }
 

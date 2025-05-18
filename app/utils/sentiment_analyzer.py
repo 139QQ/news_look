@@ -152,17 +152,21 @@ class SentimentAnalyzer:
         
         return stopwords
     
-    def analyze(self, title, content):
+    def analyze(self, title=None, content=None):
         """
         分析文本情感
         
         Args:
-            title: 标题
-            content: 内容
+            title: 标题，可选参数
+            content: 内容，可选参数
         
         Returns:
             float: 情感值，0-1之间，越大越积极
         """
+        # 确保输入参数不为None
+        title = title if title else ""
+        content = content if content else ""
+        
         # 合并标题和内容，标题权重更高
         text = title * 3 + ' ' + content
         

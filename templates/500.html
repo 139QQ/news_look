@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}500 服务器错误{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="alert alert-danger">
+                <h2><i class="fas fa-exclamation-triangle me-2"></i>500 服务器错误</h2>
+                <p class="lead">抱歉，服务器在处理您的请求时遇到了问题。</p>
+                <hr>
+                <div class="mt-4">
+                    {% if error %}
+                    <div class="alert alert-secondary">
+                        <p><strong>错误信息:</strong> {{ error }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if traceback %}
+                    <div class="card mt-3">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">错误详情</h5>
+                        </div>
+                        <div class="card-body">
+                            <pre class="text-start"><code>{{ traceback }}</code></pre>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="mt-4">
+                    <a href="/" class="btn btn-primary">返回首页</a>
+                    <button onclick="history.back()" class="btn btn-outline-secondary ms-2">返回上一页</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

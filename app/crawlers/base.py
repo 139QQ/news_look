@@ -32,7 +32,7 @@ from app.utils.sentiment_analyzer import SentimentAnalyzer
 from app.utils.database import DatabaseManager
 from app.config import get_settings
 from app.utils.text_cleaner import TextCleaner, format_for_display, clean_html, extract_keywords
-from app.db.sqlite_manager import SQLiteManager
+from app.db.SQLiteManager import SQLiteManager
 
 # 使用专门的爬虫日志记录器
 logger = get_crawler_logger('base')
@@ -64,9 +64,9 @@ class BaseCrawler:
             self.logger.warning(f"{self.__class__.__name__} 未明确设置 source 属性，将使用类名作为日志source。")
         
         # 初始化基本属性
-        self.news_data = []  # 存储爬取的新闻数据
-        self.use_proxy = use_proxy
-        self.proxies = None
+        self.news_data: List[Dict[str, Any]] = []  # 存储爬取的新闻数据
+        self.use_proxy: bool = use_proxy
+        self.proxies: Optional[Dict[str, str]] = None
         
         # 设置请求头
         self.headers = {
@@ -317,7 +317,7 @@ class BaseCrawler:
         """
         # 如果启用代理，则获取代理
         if self.use_proxy and not self.proxies:
-            self.proxies = self.get_proxy()
+            self.proxies = self.get_proxy()  # 现在 get_proxy 总是返回字典，即使是空的
         
         # 尝试获取页面内容
         for i in range(retry):
@@ -347,7 +347,7 @@ class BaseCrawler:
                 
                 # 如果使用代理且失败，则更换代理
                 if self.use_proxy:
-                    self.proxies = self.get_proxy()
+                    self.proxies = self.get_proxy()  # 现在 get_proxy 总是返回字典，即使是空的
                 
                 # 随机休眠，避免被反爬
                 time.sleep(random.uniform(1, 3))
@@ -410,8 +410,12 @@ class BaseCrawler:
             
             # 如果使用代理，则设置代理
             if self.use_proxy and self.proxies:
-                proxy = list(self.proxies.values())[0]
-                chrome_options.add_argument(f'--proxy-server={proxy}')
+                # Assuming self.proxies is like {'http': 'http://proxy', 'https': 'http://proxy'}
+                # Selenium typically takes a single proxy string for all protocols or specific ones.
+                # This part might need adjustment based on actual proxy format if used.
+                http_proxy = self.proxies.get('http') or self.proxies.get('https')
+                if http_proxy:
+                    chrome_options.add_argument(f'--proxy-server={http_proxy}')
             
             # 初始化驱动
             service = Service(ChromeDriverManager().install())
@@ -424,17 +428,18 @@ class BaseCrawler:
             self.driver = None
             self.use_selenium = False # Disable selenium if it fails to init
     
-    def get_proxy(self):
+    def get_proxy(self) -> Optional[Dict[str, str]]:
         """
         获取代理
         
         Returns:
-            dict: 代理配置
+            Optional[Dict[str, str]]: 代理配置字典 (e.g., {'http': '...', 'https': '...'}), 
+                                     或 {} (如果未实现或无可用代理).
         """
         # 这里可以实现获取代理的逻辑，例如从代理池获取
-        # 简单起见，这里返回一个固定的代理
+        # 简单起见，这里返回一个空字典，子类可以重写此方法实现真正的代理逻辑
         self.logger.info("get_proxy called, but no proxy fetching logic implemented yet.")
-        return None
+        return {} # 返回空字典而不是 None
     
     def random_sleep(self, min_seconds=None, max_seconds=None):
         """

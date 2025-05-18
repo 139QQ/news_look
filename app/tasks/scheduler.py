@@ -17,7 +17,7 @@ from typing import Dict, List, Tuple, Union
 from app.utils.logger import configure_logger
 from app.crawlers import run_crawlers
 
-logger = configure_logger()
+logger = configure_logger(name='scheduler')
 
 def run_crawler_task():
     """运行爬虫任务"""
@@ -98,9 +98,9 @@ def start_scheduler(config_path=None):
                         elif task['type'] == 'interval' and 'minutes' in task:
                             schedule.every(int(task['minutes'])).minutes.do(run_crawler_task)
             
-            logger.info(f"从配置文件加载定时设置: {config_path}")
+            logger.info("从配置文件加载定时设置: %s", config_path)
         except Exception as e:
-            logger.error(f"加载配置文件失败: {str(e)}")
+            logger.error("加载配置文件失败: %s", str(e))
     
     logger.info("任务调度器已启动")
     

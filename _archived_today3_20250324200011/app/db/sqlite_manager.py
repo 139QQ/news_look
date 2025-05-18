@@ -413,9 +413,9 @@ class SQLiteManager:
         获取新闻数量
         
         Args:
-            category: 分类
-            start_date: 开始日期
-            end_date: 结束日期
+            category (str, optional): 分类
+            start_date (str, optional): 开始日期
+            end_date (str, optional): 结束日期
             
         Returns:
             int: 新闻数量

@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %}更新未知来源 - 财经新闻爬虫系统{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title">更新未知来源</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" action="{{ url_for('admin_update_sources') }}">
+            <div class="form-group mb-3">
+                <label for="source_name">来源名称</label>
+                <input type="text" class="form-control" id="source_name" name="source_name" required>
+            </div>
+            <div class="form-group mb-3">
+                <label for="source_url">来源网址</label>
+                <input type="url" class="form-control" id="source_url" name="source_url" required>
+            </div>
+            <button type="submit" class="btn btn-primary">更新来源</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -747,7 +747,7 @@ class EastMoneyCrawler(BaseCrawler):
 
 def main():
     """测试爬虫功能"""
-    from app.db.sqlite_manager import SQLiteManager
+    from app.db.SQLiteManager import SQLiteManager
     
     # 创建数据库管理器
     db_manager = SQLiteManager('./data/news.db')

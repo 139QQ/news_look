@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 from app.crawlers.base import BaseCrawler
 from app.utils.logger import get_crawler_logger
 from app.utils.text_cleaner import clean_html, extract_keywords, decode_unicode_escape, decode_html_entities, decode_url_encoded
-from app.db.sqlite_manager import SQLiteManager
+from app.db.SQLiteManager import SQLiteManager
 from app.utils.ad_filter import AdFilter
 from app.utils.image_detector import ImageDetector
 

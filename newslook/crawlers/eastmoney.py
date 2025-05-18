@@ -21,7 +21,7 @@ from bs4 import BeautifulSoup
 from app.crawlers.base import BaseCrawler
 from app.utils.logger import get_crawler_logger
 from app.utils.text_cleaner import clean_html, extract_keywords
-from app.db.sqlite_manager import SQLiteManager
+from app.db.SQLiteManager import SQLiteManager
 
 # 使用专门的爬虫日志记录器
 logger = get_crawler_logger('eastmoney')
@@ -792,7 +792,7 @@ class EastMoneyCrawler(BaseCrawler):
 
 def main():
     """测试爬虫功能"""
-    from app.db.sqlite_manager import SQLiteManager
+    from app.db.SQLiteManager import SQLiteManager
     
     # 创建数据库管理器
     db_manager = SQLiteManager('./data/news.db')

@@ -11,6 +11,7 @@ import logging
 from datetime import datetime, timedelta
 from app.config import get_settings
 from app.utils.logger import get_logger
+from app.utils.database import NewsDatabase
 
 logger = get_logger(__name__)
 
@@ -39,6 +40,18 @@ class Scheduler:
                 'interval': 60 * 60,  # 1小时
                 'last_run': None,
                 'next_run': datetime.now()
+            },
+            'daily_backup': {
+                'description': '每日备份数据库',
+                'interval': 24 * 60 * 60,  # 24小时
+                'last_run': None,
+                'next_run': datetime.now() + timedelta(hours=1)  # 启动1小时后进行第一次备份
+            },
+            'weekly_backup': {
+                'description': '每周备份数据库',
+                'interval': 7 * 24 * 60 * 60,  # 7天
+                'last_run': None,
+                'next_run': datetime.now() + timedelta(days=1)  # 启动1天后进行第一次备份
             }
         }
     
@@ -87,6 +100,10 @@ class Scheduler:
                 self._run_daily_crawl()
             elif task_name == 'hourly_crawl':
                 self._run_hourly_crawl()
+            elif task_name == 'daily_backup':
+                self._run_daily_backup()
+            elif task_name == 'weekly_backup':
+                self._run_weekly_backup()
             
             # 更新任务状态
             task['last_run'] = datetime.now()
@@ -140,6 +157,127 @@ class Scheduler:
             logger.info("每小时爬取任务完成")
         finally:
             manager.close()
+    
+    def _run_daily_backup(self):
+        """执行每日备份任务"""
+        try:
+            # 创建数据库连接
+            db = NewsDatabase()
+            
+            # 备份主数据库
+            main_backup_path = db.backup_database()
+            if main_backup_path:
+                logger.info(f"主数据库备份成功: {main_backup_path}")
+            
+            # 获取所有数据源
+            sources = db.get_available_sources()
+            logger.info(f"开始每日备份数据源，数量: {len(sources)}")
+            
+            # 备份每个数据源
+            for source in sources:
+                try:
+                    backup_path = db.backup_database(source)
+                    if backup_path:
+                        logger.info(f"数据源 {source} 备份成功: {backup_path}")
+                except Exception as e:
+                    logger.error(f"数据源 {source} 备份失败: {e}")
+            
+            # 清理过期备份（保留最近10个）
+            self._clean_old_backups(db, max_keep=10)
+            
+            # 关闭数据库连接
+            db.close()
+            
+            logger.info("每日备份任务完成")
+        except Exception as e:
+            logger.error(f"执行每日备份任务失败: {e}")
+    
+    def _run_weekly_backup(self):
+        """执行每周备份任务"""
+        try:
+            # 创建数据库连接
+            db = NewsDatabase()
+            
+            # 备份主数据库
+            main_backup_path = db.backup_database()
+            if main_backup_path:
+                logger.info(f"主数据库周备份成功: {main_backup_path}")
+                
+                # 为周备份文件添加标记，确保不会被每日备份清理策略删除
+                weekly_mark_path = main_backup_path + ".weekly"
+                with open(weekly_mark_path, 'w') as f:
+                    f.write(f"周备份时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # 获取所有数据源
+            sources = db.get_available_sources()
+            logger.info(f"开始每周备份数据源，数量: {len(sources)}")
+            
+            # 备份每个数据源
+            for source in sources:
+                try:
+                    backup_path = db.backup_database(source)
+                    if backup_path:
+                        logger.info(f"数据源 {source} 周备份成功: {backup_path}")
+                        
+                        # 为周备份文件添加标记
+                        weekly_mark_path = backup_path + ".weekly"
+                        with open(weekly_mark_path, 'w') as f:
+                            f.write(f"周备份时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                except Exception as e:
+                    logger.error(f"数据源 {source} 周备份失败: {e}")
+            
+            # 关闭数据库连接
+            db.close()
+            
+            logger.info("每周备份任务完成")
+        except Exception as e:
+            logger.error(f"执行每周备份任务失败: {e}")
+    
+    def _clean_old_backups(self, db, max_keep=10):
+        """
+        清理过期备份，每个数据源只保留最新的几个备份
+        
+        Args:
+            db: 数据库对象
+            max_keep: 每个数据源要保留的最大备份数量
+        """
+        try:
+            # 获取所有备份
+            all_backups = db.get_backups()
+            
+            # 按数据源分组
+            backups_by_source = {}
+            for backup in all_backups:
+                source = backup['source']
+                if source not in backups_by_source:
+                    backups_by_source[source] = []
+                backups_by_source[source].append(backup)
+            
+            # 对每个数据源，只保留最新的几个备份
+            for source, backups in backups_by_source.items():
+                # 按时间降序排序
+                backups.sort(key=lambda x: x['timestamp'], reverse=True)
+                
+                # 删除旧备份
+                if len(backups) > max_keep:
+                    for old_backup in backups[max_keep:]:
+                        backup_path = old_backup['path']
+                        
+                        # 检查是否是周备份（有.weekly标记）
+                        weekly_mark_path = backup_path + ".weekly"
+                        if os.path.exists(weekly_mark_path):
+                            logger.info(f"保留周备份: {backup_path}")
+                            continue
+                            
+                        try:
+                            os.remove(backup_path)
+                            logger.info(f"删除旧备份: {backup_path}")
+                        except Exception as e:
+                            logger.error(f"删除旧备份失败 {backup_path}: {e}")
+            
+            logger.info("清理旧备份完成")
+        except Exception as e:
+            logger.error(f"清理旧备份失败: {e}")
     
     def stop(self):
         """停止调度器"""

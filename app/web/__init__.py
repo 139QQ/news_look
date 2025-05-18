@@ -28,7 +28,9 @@ def create_app(config=None):
     settings = get_settings()
     
     # 创建Flask应用
-    app = Flask(__name__)
+    template_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
+    app = Flask(__name__, template_folder=template_folder)
+    print(f"使用模板目录: {template_folder}")
     
     # 加载配置
     app.secret_key = settings.get('secret_key', os.urandom(24).hex())
@@ -40,7 +42,7 @@ def create_app(config=None):
     os.makedirs(log_dir, exist_ok=True)
     
     # 确定数据库目录
-    if config and 'DB_DIR' in config:
+    if config and 'DB_DIR' in config and config['DB_DIR']:
         # 使用传入的DB_DIR配置
         db_dir = config['DB_DIR']
     else:
