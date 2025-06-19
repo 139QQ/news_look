@@ -12,8 +12,8 @@ import argparse
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from app.crawlers.factory import CrawlerFactory
-from app.utils.logger import get_logger
+from backend.app.crawlers.factory import CrawlerFactory
+from backend.app.utils.logger import get_logger
 
 # 初始化日志记录器
 logger = get_logger('batch_demo')

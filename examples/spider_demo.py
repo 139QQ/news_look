@@ -22,9 +22,9 @@ root_dir = os.path.dirname(current_dir)
 sys.path.append(root_dir)
 
 # 导入爬虫相关模块
-from app.crawlers.factory import CrawlerFactory
-from app.crawlers.strategies import STRATEGY_MAP
-from app.utils.logger import get_logger
+from backend.app.crawlers.factory import CrawlerFactory
+from backend.app.crawlers.strategies import STRATEGY_MAP
+from backend.app.utils.logger import get_logger
 
 # 设置日志
 logger = get_logger('SpiderDemo')

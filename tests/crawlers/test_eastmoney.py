@@ -16,7 +16,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # 导入爬虫
-from app.crawlers.eastmoney import EastmoneyCrawler
+from backend.app.crawlers.eastmoney import EastmoneyCrawler
 
 def main():
     # 初始化爬虫

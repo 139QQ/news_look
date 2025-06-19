@@ -15,7 +15,7 @@ from unittest.mock import patch, MagicMock
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.crawlers.eastmoney_new import EastMoneyCrawler
+from backend.app.crawlers.eastmoney_new import EastMoneyCrawler
 
 
 class TestEnhancedCrawler(unittest.TestCase):
@@ -145,7 +145,7 @@ class TestEnhancedCrawler(unittest.TestCase):
     def test_manager_integration(self, mock_load):
         """测试爬虫管理器集成"""
         # 导入管理器
-        from app.crawlers.manager_new import EnhancedCrawlerManager
+        from backend.app.crawlers.manager_new import EnhancedCrawlerManager
         
         # 模拟爬虫加载
         mock_crawler = MagicMock()

@@ -15,9 +15,9 @@ from datetime import datetime
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 # 导入相关模块
-from app.crawlers.sina import SinaCrawler
-from app.utils.database import NewsDatabase
-from app.utils.logger import configure_logger
+from backend.app.crawlers.sina import SinaCrawler
+from backend.app.utils.database import NewsDatabase
+from backend.app.utils.logger import configure_logger
 
 # 设置日志
 logger = configure_logger(name="ad_filter_test", module="ad_filter")

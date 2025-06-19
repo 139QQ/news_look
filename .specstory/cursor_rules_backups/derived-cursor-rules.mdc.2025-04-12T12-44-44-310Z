@@ -1,0 +1,659 @@
+
+---
+description: Cursor rules derived by SpecStory from the project AI interaction history
+globs: *
+alwaysApply: false
+---
+
+## PROJECT OVERVIEW
+
+This is the NewsLook project, a financial news crawler system designed to collect news from various financial websites, including Eastmoney, Sina Finance, Tencent Finance, Netease Finance, and Ifeng Finance.  The project uses a modular design with clear interfaces and functional separation for easy expansion and maintenance. It supports three main operating modes: crawler mode, scheduler mode, and web application mode, all accessible through the unified entry script `run.py`.  Recent updates include significant database optimizations and enhanced encoding handling to improve stability and performance. The system now intelligently handles multiple database files for each news source, allowing for the storage and retrieval of historical data.  The system now uses a single database file per news source, simplifying data access and management.  The system now uses a fixed filename for each news source's database (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`), instead of the previous timestamp-based naming convention (`[source_name]_YYYYMMDD_HHMMSS.db`). This simplifies data access and management.  The project includes functionality to download and save articles locally for offline reading.  This is achieved through various methods, including automated saving by crawler scripts, export functions, and API calls.  The `today3` directory, while containing a mirrored structure, is now considered deprecated in favor of the optimized structure in the root directory.
+
+
+## CODE STYLE
+
+*   Follow PEP 8 guidelines.
+*   Use type annotations for all functions.
+*   Maintain consistent coding style throughout the project.
+
+
+## FOLDER ORGANIZATION
+
+```
+NewsLook
+├── api/              # API 接口
+├── app/              # 应用逻辑
+│   ├── crawlers/     # 爬虫模块
+│   ├── tasks/        # 任务调度模块
+│   ├── utils/        # 工具函数
+│   └── web/          # Web 应用
+├── data/             # 数据存储
+│   └── db/           # 数据库文件
+├── docs/             # 文档
+├── requirements/    # 权限包
+├── scripts/          # 运行脚本
+├── tests/            # 测试
+├── static/           # 静态文件
+└── templates/        # 模板文件
+
+```
+
+## TECH STACK
+
+*   Python 3.13.0
+*   Flask
+*   SQLAlchemy (or sqlite3)
+*   Requests
+*   BeautifulSoup
+*   Selenium
+*   jieba
+*   fake-useragent
+*   webdriver-manager
+*   aiohttp
+*   aiofiles
+
+## PROJECT-SPECIFIC STANDARDS
+
+*   All news data must be stored in a consistent format.
+*   Use UTF-8 encoding for all files.
+*   All functions must have docstrings.
+*   All database interactions must be handled within try-except blocks.
+* The system now uses a single database file per news source, simplifying data access and management.
+
+
+## WORKFLOW & RELEASE RULES
+
+*   Use Git for version control.
+*   Create new branches for each feature.
+*   Write clear and concise commit messages.
+*   Conduct thorough testing before releasing new versions.
+*   Implement a robust logging system to track errors and debug issues.
+* Implement a robust error handling and retry mechanism for database operations.
+* All logging statements should use a consistent format: `%(asctime)s [%(levelname)s] [%(name)s] %(message)s`
+* Add asynchronous support to crawlers to improve efficiency.
+
+## REFERENCE EXAMPLES
+
+*   [Example of a function with type annotations](mdc:#example-a-function-with-type-annotations)
+
+
+## PROJECT DOCUMENTATION & CONTEXT SYSTEM
+
+*   All documentation should be written in Markdown format.
+*   Use consistent formatting throughout the documentation.
+*   Maintain a README.md file in the root directory.
+*   Document all functions and classes.
+*   Use diagrams to illustrate complex systems.
+*   Regularly update the project documentation to reflect changes in the codebase.
+*   [Database Connection Details](mdc:docs/数据库连接说明.md)
+* CHANGELOG.md file created to track project updates.
+
+
+## DEBUGGING
+
+*   Use a logging system to track program execution.
+*   Use a debugger to step through code.
+*   Test frequently to catch errors early.
+*   The system now uses a single database file per news source, simplifying data access and management.
+
+
+## FINAL DOs AND DON'Ts
+
+*   **Do:** Use type hints, write clear and concise code, and test thoroughly.  Use consistent logging format: `%(asctime)s [%(levelname)s] [%(name)s] %(message)s`
+*   **Don't:** Commit broken code, use hardcoded values unless necessary, or ignore warnings.
+
+
+
+# Example: A function with type annotations
+
+```python
+from typing import List, Dict
+
+def get_news(source: str, days: int) -> List[Dict]:
+    """Retrieves news articles from a specified source for the given number of days."""
+    #Implementation goes here.
+    pass
+```
+
+## Database Connection Details
+
+The system now uses a single database file per news source, simplifying data access and management. The system now uses a fixed filename for each news source's database (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`), instead of the previous timestamp-based naming convention (`[source_name]_YYYYMMDD_HHMMSS.db`). This simplifies data access and management.
+
+## PROJECT STRUCTURE
+
+This section details the project's file and folder structure.  The structure has been recently optimized for improved maintainability and modularity.  Specific changes include the consolidation of database files and a more logical grouping of crawler modules.  The `today3` directory, while containing a mirrored structure, is now considered deprecated in favor of the optimized structure in the root directory. The project now uses a single database per source.  The structure is now more streamlined, with a clear separation of concerns between the API, the application logic, the data storage, and the web interface.  The root directory now contains the following:
+
+```
+NewsLook
+├── api/              # API 接口
+├── app/              # 应用逻辑
+│   ├── crawlers/     # 爬虫模块
+│   ├── tasks/        # 任务调度模块
+│   ├── utils/        # 工具函数
+│   └── web/          # Web 应用
+├── data/             # 数据存储
+│   └── db/           # 数据库文件
+├── docs/             # 文档
+├── requirements/    # 权限包
+├── scripts/          # 运行脚本
+├── tests/            # 测试
+├── static/           # 静态文件
+└── templates/        # 模板文件
+```
+
+## README.md UPDATES
+
+The README.md file has been updated to include the following sections:
+
+### Database Optimization
+
+The system intelligently identifies and uses multiple database files, ensuring that you can view all historically crawled news data.
+
+#### Multi-Database Support Features
+
+- **Automatic Database Discovery:** The system automatically searches for possible database directories, finds, and uses all available database files.
+- **Flexible Database Locations:** Supports multiple possible database locations, searching in order of priority:
+    - `./data/db/` (the data/db directory under the project root)
+    - `./db/` (the db directory under the project root)
+    - The corresponding directories under the current working directory
+- **Command-line Arguments:** Explicitly specify the database directory using the `--db-dir` argument.
+- **Merged Query Results:** Queries and merges results from multiple database files to provide a complete data view.
+
+#### How to Use the Multi-Database Feature
+
+The system enables multi-database functionality by default. When starting the web application, it automatically searches for and uses all available database files:
+
+```bash
+# Use automatically detected database directory
+python run.py web
+
+# Specify database directory
+python run.py web --db-dir path/to/your/db
+```
+
+In the console output, you can see which database files the system found:
+
+```
+Found main database: /path/to/your/db/finance_news.db
+Found X database files
+```
+
+#### Database Search Logic
+
+1. First, check if the command-line argument `--db-dir` specifies the database directory.
+2. If not specified, check the environment variable `DB_DIR`.
+3. If the environment variable is not set, search for the first valid directory containing `.db` files in the possible directories in order of priority.
+4. If all directories do not exist or do not contain database files, create and use the default directory.
+
+### Encoding Optimization and Garbled Character Handling
+
+To address encoding and garbled character issues encountered when crawling financial websites, we have made the following key optimizations:
+
+- **Multiple Encoding Handling:** Enhanced intelligent identification and conversion capabilities for multiple encodings such as UTF-8, GBK, and GB18030.
+- **Unicode Escape Sequence Decoding:** Added the `decode_unicode_escape` function to handle Unicode escape sequences such as `\u4e2d\u56fd` -> 中国.
+- **URL-Encoded Character Decoding:** Added the `decode_url_encoded` function to handle URL-encoded characters such as `%E4%B8%AD%E5%9B%BD` -> 中国.
+- **Enhanced HTML Entity Decoding:** Expanded the capabilities of the `decode_html_entities` function, adding more common HTML entity handling.
+- **Encoding Process Optimization:** Implemented multi-stage encoding detection and conversion during the crawling, parsing, and storage processes.
+- **Automatic Garbled Character Repair:** Implemented customized garbled character repair mechanisms for specific websites (such as Sina Finance and Tencent Finance).
+
+These optimizations significantly improve the system's ability to handle Chinese content and resolve Chinese garbled character issues, especially when dealing with mixed encodings on financial websites.  Refer to `app/utils/text_cleaner.py` and `app/crawlers/sina.py` files for implementation details.
+
+### Database File Storage Optimization
+
+To optimize database storage and access, the system has been updated as follows:
+
+**Fixed Database Filenames:** The system now uses a fixed filename for each news source's database (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`), instead of the previous timestamp-based naming convention (`[source_name]_YYYYMMDD_HHMMSS.db`). This simplifies data access and management.
+
+**Direct Database Access:** Crawler classes now directly use `sqlite3` connections to save news data to the database. This reduces overhead and improves reliability.
+
+**Automatic Table Initialization:** The system automatically checks for and creates necessary database tables upon startup, ensuring data consistency.
+
+**Intelligent Path Handling:** The `NewsDatabase` class in the web application intelligently handles both relative and absolute database paths, allowing for flexible deployment.
+
+These optimizations significantly improve data storage efficiency, reduce data fragmentation, and simplify system maintenance.
+
+### Database File Storage Optimization
+
+The system has been updated to use a single database file per news source, simplifying data access and management.  The system now uses a fixed filename for each news source's database (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`), instead of the previous timestamp-based naming convention (`[source_name]_YYYYMMDD_HHMMSS.db`). This simplifies data access and management. Crawler classes directly use `sqlite3` connections, reducing overhead and improving reliability. The system automatically checks for and creates necessary database tables upon startup, ensuring data consistency. The system now uses a single database file per news source, simplifying data access and management.
+
+### Database File Storage Optimization
+
+The system now uses a single database file per news source, simplifying data access and management.  The system now uses a fixed filename for each news source's database (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`), instead of the previous timestamp-based naming convention (`[source_name]_YYYYMMDD_HHMMSS.db`). This simplifies data access and management. Crawler classes directly use `sqlite3` connections, reducing overhead and improving reliability. The system automatically checks for and creates necessary database tables upon startup, ensuring data consistency. The system now uses a single database file per news source, simplifying data access and management.
+
+### Encoding Optimization and Garbled Character Handling
+
+To address encoding and garbled character issues encountered when crawling financial websites, we have made the following key optimizations:
+
+- **Multiple Encoding Handling:** Enhanced intelligent identification and conversion capabilities for multiple encodings such as UTF-8, GBK, and GB18030.
+- **Unicode Escape Sequence Decoding:** Added the `decode_unicode_escape` function to handle Unicode escape sequences such as `\u4e2d\u56fd` -> 中国.
+- **URL-Encoded Character Decoding:** Added the `decode_url_encoded` function to handle URL-encoded characters such as `%E4%B8%AD%E5%9B%BD` -> 中国.
+- **Enhanced HTML Entity Decoding:** Expanded the capabilities of the `decode_html_entities` function, adding more common HTML entity handling.
+- **Encoding Process Optimization:** Implemented multi-stage encoding detection and conversion during the crawling, parsing, and storage processes.
+- **Automatic Garbled Character Repair:** Implemented customized garbled character repair mechanisms for specific websites (such as Sina Finance and Tencent Finance).
+
+These optimizations significantly improve the system's ability to handle Chinese content and resolve Chinese garbled character issues, especially when dealing with mixed encodings on financial websites.  Refer to `app/utils/text_cleaner.py` and `app/crawlers/sina.py` files for implementation details.
+
+### 2025年4月 - 编码优化与乱码处理
+
+为解决爬取财经网站时遇到的编码和乱码问题，我们进行了以下关键优化：
+
+- **多重编码处理**：增强了对UTF-8、GBK、GB18030等多种编码的智能识别和转换能力
+- **Unicode转义序列解码**：新增`decode_unicode_escape`函数处理类似`\u4e2d\u56fd`的Unicode转义序列
+- **URL编码字符解码**：新增`decode_url_encoded`函数处理类似`%E4%B8%AD%E5%9B%BD`的URL编码字符
+- **HTML实体解码增强**：扩展了`decode_html_entities`函数的能力，添加更多常见HTML实体的处理
+- **编码流程优化**：在爬取、解析和存储过程中实施多阶段编码检测和转换
+- **乱码自动修复**：对于特定网站（如新浪财经、腾讯财经）实现了定制化的乱码修复机制
+
+这些优化显著提高了系统处理中文内容的能力，解决了中文乱码问题，特别是在处理财经网站混合编码的情况时。具体实现可查看`app/utils/text_cleaner.py`和`app/crawlers/sina.py`等文件。
+
+### 2025年5月 - 数据库存储优化
+
+为提高数据管理效率和简化系统架构，我们对数据库存储机制进行了以下优化：
+
+- **固定数据库文件名**：改用固定命名格式`[source_name].db`（如`腾讯财经.db`），替代之前的时间戳命名方式
+- **直接数据库访问**：爬虫类实现了直接使用sqlite3连接将新闻保存到数据库，减少了中间层次
+- **自动表初始化**：系统运行时自动检查并创建所需的数据库表结构，确保数据一致性
+- **智能路径处理**：增强了数据库路径处理逻辑，支持多种可能的数据库位置
+- **出错自动重试**：优化了数据库操作的错误处理和重试机制
+
+这些优化带来了显著改进：
+1. 减少了数据库文件数量，避免了数据库文件爆炸性增长
+2. 简化了数据访问流程，网页应用始终能找到最新数据
+3. 减少了数据碎片化，提高了查询效率
+4. 降低了系统维护难度，数据备份更加便捷
+
+详细说明可参阅 `docs/数据库连接说明.md` 文件中的"数据库文件存储优化"部分.
+
+## PROJECT STRUCTURE
+
+This section details the project's file and folder structure.  The structure has been recently optimized for improved maintainability and modularity.  Specific changes include the consolidation of database files and a more logical grouping of crawler modules.  The `today3` directory, while containing a mirrored structure, is now considered deprecated in favor of the optimized structure in the root directory. The project now uses a single database per source.  The structure is now more streamlined, with a clear separation of concerns between the API, the application logic, the data storage, and the web interface.
+
+```
+NewsLook
+├── api/              # API 接口
+├── app/              # 应用逻辑
+│   ├── crawlers/     # 爬虫模块
+│   ├── tasks/        # 任务调度模块
+│   ├── utils/        # 工具函数
+│   └── web/          # Web 应用
+├── data/             # 数据存储
+│   └── db/           # 数据库文件
+├── docs/             # 文档
+├── requirements/    # 权限包
+├── scripts/          # 运行脚本
+├── tests/            # 测试
+├── static/           # 静态文件
+└── templates/        # 模板文件
+```
+
+## DEBUGGING
+
+*   Use a logging system to track program execution.
+*   Use a debugger to step through code.
+*   Test frequently to catch errors early.
+*   The system now uses a single database file per news source, simplifying data access and management.
+
+## DATABASE CONNECTION DETAILS
+
+The system now uses a single database file per news source, simplifying data access and management. The system now uses a fixed filename for each news source's database (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`), instead of the previous timestamp-based naming convention (`[source_name]_YYYYMMDD_HHMMSS.db`). This simplifies data access and management.
+
+## 来源专用数据库实现说明
+
+## 概述
+
+为了实现每个爬虫来源使用独立的数据库文件，我们对系统进行了一系列修改和优化。本文档描述了实现细节和使用方法。
+
+## 数据库架构
+
+系统现在使用以下数据库架构：
+
+1. **主数据库**: `finance_news.db` - 用于存储聚合的新闻数据
+2. **来源专用数据库**: 每个来源对应一个独立的数据库文件，如 `腾讯财经.db`、`新浪财经.db` 等
+
+## 文件命名约定
+
+来源专用数据库使用来源名称作为文件名，例如：
+- 腾讯财经 -> `腾讯财经.db`
+- 新浪财经 -> `新浪财经.db`
+- 东方财富 -> `东方财富.db`
+- 网易财经 -> `网易财经.db`
+- 凤凰财经 -> `凤凰财经.db`
+
+## 实现细节
+
+### 1. 为每个爬虫设置专用数据库路径
+
+在 `CrawlerManager` 类中，我们为每个爬虫实例设置了对应的数据库路径：
+
+```python
+# 为每个爬虫设置固定的数据库路径
+self._set_db_path(ifeng_crawler, "凤凰财经")
+self._set_db_path(sina_crawler, "新浪财经")
+self._set_db_path(tencent_crawler, "腾讯财经")
+self._set_db_path(netease_crawler, "网易财经")
+self._set_db_path(eastmoney_crawler, "东方财富")
+```
+
+### 2. 改进 NewsDatabase 类
+
+我们对 `NewsDatabase` 类进行了以下改进：
+
+- 添加 `source_db_map` 属性，建立来源名称到数据库文件的映射
+- 修改 `query_news` 方法，支持按来源名称选择对应的数据库
+- 修改 `get_news_count` 方法，支持按来源统计新闻数量
+- 修改 `get_news_by_id` 方法，支持在所有数据库中查找指定ID的新闻
+- 修改 `get_sources` 和 `get_categories` 方法，从所有数据库中收集数据
+
+### 3. 实现数据分离和查询整合
+
+- 每个爬虫将新闻存储到对应的来源专用数据库
+- 查询时，系统根据是否指定来源来决定查询哪些数据库
+- 对于来源专用查询，直接使用对应的数据库文件
+- 对于无来源查询，合并所有数据库的结果并去重
+
+## 数据库初始化流程
+
+1. 当创建 `NewsDatabase` 实例时，系统会自动扫描数据库目录
+2. 识别所有 `.db` 文件，并根据文件名建立来源映射
+3. 对于每个来源专用数据库，记录在 `source_db_map` 中
+4. 基于 `use_all_dbs` 参数决定是否使用所有数据库
+
+## Web应用中的使用
+
+在Web应用中，我们始终使用参数 `use_all_dbs=True` 初始化 `NewsDatabase`，确保能访问所有可用的数据库：
+
+```python
+# 查询数据库 - 始终使用所有可用的数据库
+db = NewsDatabase(use_all_dbs=True)
+```
+
+## 来源筛选逻辑
+
+当用户在Web界面选择特定来源筛选新闻时：
+
+1. 系统首先检查是否存在该来源的专用数据库
+2. 如果存在，则优先使用专用数据库进行查询
+3. 如果不存在，则在所有数据库中使用条件筛选
+
+## 优势
+
+1. **数据隔离**: 每个来源的数据存储在独立文件中，便于管理和备份
+2. **性能优化**: 按来源查询时直接使用专用数据库，提高查询效率
+3. **扩展性**: 易于添加新的来源，只需创建新的数据库文件
+4. **维护简便**: 可以单独备份、修复或优化某个来源的数据库
+
+## 测试
+
+我们创建了以下测试工具脚本：
+
+1. `create_test_dbs.py` - 创建测试用的来源专用数据库
+2. `test_db_access.py` - 测试来源专用数据库访问功能
+
+## 注意事项
+
+1. 所有数据库文件必须存放在配置的 `DB_DIR` 目录中
+2. 数据库文件名必须使用来源名称，以确保正确映射
+3. 当有新的爬虫添加到系统时，需要在 `CrawlerManager` 中设置其数据库路径
+4. 初始化 `CrawlerManager` 时会自动从 `app.config.get_settings()` 获取配置，包括 `DB_DIR` 设置
+5. 如果需要在初始化 `CrawlerManager` 时覆盖默认配置，可以传入自定义的 `settings` 字典
+6. 内容过滤：系统应添加过滤机制，避免广告内容进入数据库。对于新浪财经等网站，特别注意过滤App下载页面和广告内容。可通过URL特征，内容关键词等方式识别广告。考虑在爬虫层和数据库层都添加过滤机制.  Netease crawler ad filtering and image filtering have been removed as per user request on 2025-03-27 and 2025-05-15 respectively.
+
+
+## 常见问题与故障排除
+
+### 1. 类型错误: TypeError: expected str, bytes or os.PathLike object, not NoneType
+
+如果遇到此错误，可能是因为：
+- `DB_DIR` 未在配置中设置或为 None
+- `CrawlerManager` 初始化时未能正确获取配置
+
+解决方法：
+- 确保 `app.config.py` 中正确设置了 `DB_DIR`
+- 确认环境变量中 `DB_DIR` 有效（如使用环境变量）
+- 在初始化 `CrawlerManager` 前先运行 `os.makedirs('data/db', exist_ok=True)`
+
+### 2. 数据库路径问题
+
+当开发环境与生产环境路径不同时，可能导致数据库路径问题。确保：
+- 总是使用 `os.path.join()` 来构建路径，而不是直接拼接字符串
+- 检查 `DB_DIR` 是否为绝对路径，如不是则转换为绝对路径
+- 使用 `os.makedirs(db_dir, exist_ok=True)` 确保目录存在
+
+### 3. 多进程/线程访问问题
+
+当多个爬虫同时访问数据库时，可能出现锁定问题：
+- 每个爬虫应使用独立的数据库连接
+- 避免长时间的数据库事务
+- 考虑使用连接池来管理数据库连接
+
+### 4. 新浪财经广告问题
+
+在爬取新浪财经新闻时，可能会抓取到广告内容。这需要进一步优化爬虫代码，例如使用更精细的CSS选择器来过滤广告元素，或者使用更高级的网页解析技术，例如Selenium.
+
+### 5.  Web应用数据更新问题
+
+如果Web应用没有显示最新的爬取数据，请确保：
+- `NewsDatabase`类中`query_news`方法的数据库查询逻辑正确
+- Web应用启动时，`DB_DIR`环境变量指向正确的数据库目录
+- 数据库连接在爬虫和Web应用中保持一致
+
+### 6. 数据库表结构不一致
+
+如果数据库表结构与爬虫代码不匹配，会导致数据保存失败。请确保数据库表结构包含所有爬虫代码需要的字段。可以使用以下命令创建或更新表结构：
+
+```bash
+python -c "import sqlite3, os; base_path = 'data/db'; files = ['腾讯财经.db', '东方财富.db', '新浪财经.db', '网易财经.db', '凤凰财经.db']; for file in files: db_path = os.path.join(base_path, file); conn = sqlite3.connect(db_path); cur = conn.cursor(); cur.execute('CREATE TABLE IF NOT EXISTS news (id TEXT PRIMARY KEY, title TEXT NOT NULL, content TEXT, content_html TEXT, pub_time TEXT, author TEXT, source TEXT, url TEXT UNIQUE, keywords TEXT, images TEXT, related_stocks TEXT, sentiment TEXT, classification TEXT, category TEXT, crawl_time TEXT)'); cur.execute('CREATE TABLE IF NOT EXISTS keywords (id INTEGER PRIMARY KEY AUTOINCREMENT, keyword TEXT UNIQUE, count INTEGER DEFAULT 1, last_updated TEXT)'); cur.execute('CREATE TABLE IF NOT EXISTS news_keywords (news_id TEXT, keyword_id INTEGER, PRIMARY KEY (news_id, keyword_id), FOREIGN KEY (news_id) REFERENCES news(id) ON DELETE CASCADE, FOREIGN KEY (keyword_id) REFERENCES keywords(id) ON DELETE CASCADE)'); cur.execute('CREATE TABLE IF NOT EXISTS stocks (code TEXT PRIMARY KEY, name TEXT, count INTEGER DEFAULT 1, last_updated TEXT)'); cur.execute('CREATE TABLE IF NOT EXISTS news_stocks (news_id TEXT, stock_code TEXT, PRIMARY KEY (news_id, stock_code), FOREIGN KEY (news_id) REFERENCES news(id) ON DELETE CASCADE, FOREIGN KEY (stock_code) REFERENCES stocks(code) ON DELETE CASCADE)'); conn.commit(); conn.close(); print(f'已为 {file} 创建表结构')"
+```
+
+### 7.  爬虫来源标记问题
+
+如果爬取的新闻数据源显示为"未知"，请确保：
+
+1. 爬虫初始化时，`source`属性已正确设置。
+2. 数据库保存方法正确设置了`source`字段。
+3. Web应用正确获取并显示`source`字段。
+
+可以使用以下脚本修复数据库中已有的未知来源记录：
+
+```python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import os
+import sqlite3
+
+# 确保目录存在
+db_dir = 'data/db'
+os.makedirs(db_dir, exist_ok=True)
+
+# 更新未知来源
+def update_unknown_source(db_file, source_name):
+    try:
+        # 连接数据库
+        conn = sqlite3.connect(db_file)
+        cursor = conn.cursor()
+        
+        # 更新来源为空或未知的记录
+        cursor.execute("UPDATE news SET source = ? WHERE source = '未知来源' OR source IS NULL OR source = ''", (source_name,))
+        
+        # 提交更改
+        updated_rows = cursor.rowcount
+        conn.commit()
+        
+        print(f"成功更新 {updated_rows} 条记录的来源为 {source_name}")
+        
+        # 关闭连接
+        cursor.close()
+        conn.close()
+        
+        return updated_rows
+    except Exception as e:
+        print(f"更新失败: {str(e)}")
+        return 0
+
+# 更新未知来源数据库
+unknown_db = os.path.join(db_dir, '未知来源.db')
+if os.path.exists(unknown_db):
+    update_unknown_source(unknown_db, '新浪财经')
+
+# 检查并更新其他数据库中的未知来源记录
+for db_file in os.listdir(db_dir):
+    if db_file.endswith('.db') and db_file != '未知来源.db':
+        full_path = os.path.join(db_dir, db_file)
+        source_name = os.path.splitext(db_file)[0]  # 从文件名获取来源名称
+        update_unknown_source(full_path, source_name)
+```
+
+### 8. 新浪财经广告问题
+
+新浪财经网站包含大量广告内容，尤其是在APP下载页面。为避免爬取到广告内容，请在新浪财经爬虫中添加广告过滤机制：
+
+- **URL过滤**：使用正则表达式过滤包含广告关键词的URL
+- **内容过滤**：使用关键词或正则表达式过滤包含广告内容的新闻
+
+## 来源专用数据库实现说明
+
+## 概述
+
+为了实现每个爬虫来源使用独立的数据库文件，我们对系统进行了一系列修改和优化。本文档描述了实现细节和使用方法。
+
+## 数据库架构
+
+系统现在使用以下数据库架构：
+
+1. **主数据库**: `finance_news.db` - 用于存储聚合的新闻数据
+2. **来源专用数据库**: 每个来源对应一个独立的数据库文件，如 `腾讯财经.db`、`新浪财经.db` 等
+
+## 文件命名约定
+
+来源专用数据库使用来源名称作为文件名，例如：
+- 腾讯财经 -> `腾讯财经.db`
+- 新浪财经 -> `新浪财经.db`
+- 东方财富 -> `东方财富.db`
+- 网易财经 -> `网易财经.db`
+- 凤凰财经 -> `凤凰财经.db`
+
+## 实现细节
+
+### 1. 为每个爬虫设置专用数据库路径
+
+在 `CrawlerManager` 类中，我们为每个爬虫实例设置了对应的数据库路径：
+
+```python
+# 为每个爬虫设置固定的数据库路径
+self._set_db_path(ifeng_crawler, "凤凰财经")
+self._set_db_path(sina_crawler, "新浪财经")
+self._set_db_path(tencent_crawler, "腾讯财经")
+self._set_db_path(netease_crawler, "网易财经")
+self._set_db_path(eastmoney_crawler, "东方财富")
+```
+
+### 2. 改进 NewsDatabase 类
+
+我们对 `NewsDatabase` 类进行了以下改进：
+
+- 添加 `source_db_map` 属性，建立来源名称到数据库文件的映射
+- 修改 `query_news` 方法，支持按来源名称选择对应的数据库
+- 修改 `get_news_count` 方法，支持按来源统计新闻数量
+- 修改 `get_news_by_id` 方法，支持在所有数据库中查找指定ID的新闻
+- 修改 `get_sources` 和 `get_categories` 方法，从所有数据库中收集数据
+
+### 3. 实现数据分离和查询整合
+
+- 每个爬虫将新闻存储到对应的来源专用数据库
+- 查询时，系统根据是否指定来源来决定查询哪些数据库
+- 对于来源专用查询，直接使用对应的数据库文件
+- 对于无来源查询，合并所有数据库的结果并去重
+
+## 数据库初始化流程
+
+1. 当创建 `NewsDatabase` 实例时，系统会自动扫描数据库目录
+2. 识别所有 `.db` 文件，并根据文件名建立来源映射
+3. 对于每个来源专用数据库，记录在 `source_db_map` 中
+4. 基于 `use_all_dbs` 参数决定是否使用所有数据库
+
+## Web应用中的使用
+
+在Web应用中，我们始终使用参数 `use_all_dbs=True` 初始化 `NewsDatabase`，确保能访问所有可用的数据库：
+
+```python
+# 查询数据库 - 始终使用所有可用的数据库
+db = NewsDatabase(use_all_dbs=True)
+```
+
+## 来源筛选逻辑
+
+当用户在Web界面选择特定来源筛选新闻时：
+
+1. 系统首先检查是否存在该来源的专用数据库
+2. 如果存在，则优先使用专用数据库进行查询
+3. 如果不存在，则在所有数据库中使用条件筛选
+
+## 优势
+
+1. **数据隔离**: 每个来源的数据存储在独立文件中，便于管理和备份
+2. **性能优化**: 按来源查询时直接使用专用数据库，提高查询效率
+3. **扩展性**: 易于添加新的来源，只需创建新的数据库文件
+4. **维护简便**: 可以单独备份、修复或优化某个来源的数据库
+
+## 测试
+
+我们创建了以下测试工具脚本：
+
+1. `create_test_dbs.py` - 创建测试用的来源专用数据库
+2. `test_db_access.py` - 测试来源专用数据库访问功能
+
+## 注意事项
+
+1. 所有数据库文件必须存放在配置的 `DB_DIR` 目录中
+2. 数据库文件名必须使用来源名称，以确保正确映射
+3. 当有新的爬虫添加到系统时，需要在 `CrawlerManager` 中设置其数据库路径
+4. 初始化 `CrawlerManager` 时会自动从 `app.config.get_settings()` 获取配置，包括 `DB_DIR` 设置
+5. 如果需要在初始化 `CrawlerManager` 时覆盖默认配置，可以传入自定义的 `settings` 字典
+6. 内容过滤：系统应添加过滤机制，避免广告内容进入数据库。对于新浪财经等网站，特别注意过滤App下载页面和广告内容。可通过URL特征，内容关键词等方式识别广告。考虑在爬虫层和数据库层都添加过滤机制.  Netease crawler ad filtering and image filtering have been removed as per user request on 2025-03-27 and 2025-05-15 respectively.
+
+
+## 常见问题与故障排除
+
+### 1. 类型错误: TypeError: expected str, bytes or os.PathLike object, not NoneType
+
+如果遇到此错误，可能是因为：
+- `DB_DIR` 未在配置中设置或为 None
+- `CrawlerManager` 初始化时未能正确获取配置
+
+解决方法：
+- 确保 `app.config.py` 中正确设置了 `DB_DIR`
+- 确认环境变量中 `DB_DIR` 有效（如使用环境变量）
+- 在初始化 `CrawlerManager` 前先运行 `os.makedirs('data/db', exist_ok=True)`
+
+### 2. 数据库路径问题
+
+当开发环境与生产环境路径不同时，可能导致数据库路径问题。确保：
+- 总是使用 `os.path.join()` 来构建路径，而不是直接拼接字符串
+- 检查 `DB_DIR` 是否为绝对路径，如不是则转换为绝对路径
+- 使用 `os.makedirs(db_dir, exist_ok=True)` 确保目录存在
+
+### 3. 多进程/线程访问问题
+
+当多个爬虫同时访问数据库时，可能出现锁定问题：
+- 每个爬虫应使用独立的数据库连接
+- 避免长时间的数据库事务
+- 考虑使用连接池来管理数据库连接
+
+### 4. 新浪财经广告问题
+
+在爬取新浪财经新闻时，可能会抓取到广告内容。这需要进一步优化爬虫代码，例如使用更精细的CSS选择器来过滤广告元素，或者使用更高级的网页解析技术，例如Selenium.
+
+### 5.  Web应用数据更新问题
+
+如果Web应用没有显示最新的爬取数据，请确保：
+- `NewsDatabase`类中`query_news`方法的数据库查询逻辑正确
+- Web应用启动时，`DB_DIR`环境变量指向正确的数据库目录
+- 数据库连接在爬虫和Web应用中保持一致
+
+### 6. 数据库表结构不一致
+
+如果数据库表结构与爬虫代码不匹配，会导致数据保存失败。请确保数据库表结构包含所有爬虫代码需要的字段。可以使用以下命令创建或更新表结构：
+
+```bash
+python -c "import sqlite3, os; base_path = 'data/db'; files = ['腾讯财经.db', '东方财富.db', '新浪财经.db', '网易财经.db', '凤凰财经.db']; for file in files: db_path = os.path.join(base_path, file); conn = sqlite3.connect(db_path); cur = conn.cursor(); cur.execute('CREATE TABLE IF NOT EXISTS news (id TEXT PRIMARY KEY, title TEXT NOT NULL, content TEXT, content_html TEXT, pub_time TEXT, author TEXT, source TEXT, url TEXT UNIQUE, keywords TEXT, images TEXT, related_stocks TEXT, sentiment TEXT, classification TEXT, category TEXT, crawl_time TEXT)'); cur.execute('CREATE TABLE IF NOT EXISTS keywords (id INTEGER PRIMARY KEY AUTOINCREMENT, keyword TEXT UNIQUE, count INTEGER

@@ -1,0 +1,22 @@
+{
+  "name": "newslook-frontend",
+  "version": "1.0.0",
+  "description": "NewsLook财经新闻爬虫系统前端",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.3.11",
+    "naive-ui": "^2.36.0",
+    "axios": "^1.6.2",
+    "@vicons/ionicons5": "^0.12.0",
+    "echarts": "^5.4.3",
+    "vue-echarts": "^6.6.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.5.2",
+    "vite": "^5.0.8"
+  }
+} 

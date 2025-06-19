@@ -17,8 +17,8 @@ import pandas as pd
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.crawlers import get_crawler, get_crawler_sources, has_async_support
-from app.utils.logger import get_crawler_logger
+from backend.app.crawlers import get_crawler, get_crawler_sources, has_async_support
+from backend.app.utils.logger import get_crawler_logger
 
 # 设置日志
 logger = get_crawler_logger('async_demo')

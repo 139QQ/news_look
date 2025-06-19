@@ -20,8 +20,8 @@ import re
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(project_root)
 
-from app.utils.logger import configure_logger, get_logger
-from app.crawlers import get_crawler, get_all_crawlers, get_crawler_sources
+from backend.app.utils.logger import configure_logger, get_logger
+from backend.app.crawlers import get_crawler, get_all_crawlers, get_crawler_sources
 
 def setup_logging(log_level, log_dir, source=None):
     """设置日志配置"""

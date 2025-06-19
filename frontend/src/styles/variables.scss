@@ -1,0 +1,72 @@
+// 颜色变量
+$primary-color: #409eff;
+$success-color: #67c23a;
+$warning-color: #e6a23c;
+$danger-color: #f56c6c;
+$info-color: #909399;
+
+// 文本颜色
+$text-color: #303133;
+$text-color-primary: #303133;
+$text-color-regular: #606266;
+$text-color-secondary: #909399;
+$text-color-placeholder: #c0c4cc;
+
+// 背景颜色
+$bg-color: #ffffff;
+$bg-color-page: #f2f3f5;
+$bg-color-base: #f5f7fa;
+
+// 边框颜色
+$border-color: #dcdfe6;
+$border-color-light: #e4e7ed;
+$border-color-lighter: #ebeef5;
+$border-color-extra-light: #f2f6fc;
+
+// 字体
+$font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+$font-size-extra-large: 20px;
+$font-size-large: 18px;
+$font-size-medium: 16px;
+$font-size-base: 14px;
+$font-size-small: 13px;
+$font-size-extra-small: 12px;
+
+// 间距
+$padding-large: 24px;
+$padding-medium: 20px;
+$padding-base: 16px;
+$padding-small: 12px;
+$padding-extra-small: 8px;
+
+$margin-large: 24px;
+$margin-medium: 20px;
+$margin-base: 16px;
+$margin-small: 12px;
+$margin-extra-small: 8px;
+
+// 圆角
+$border-radius-large: 8px;
+$border-radius-medium: 6px;
+$border-radius-base: 4px;
+$border-radius-small: 2px;
+
+// 阴影
+$box-shadow-light: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
+$box-shadow-base: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.12);
+$box-shadow-dark: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.18);
+
+// Z-index
+$z-index-normal: 1;
+$z-index-top: 1000;
+$z-index-popper: 2000;
+
+// 过渡动画
+$transition-base: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+$transition-fade: opacity 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+$transition-md-fade: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+
+// 布局
+$header-height: 60px;
+$sidebar-width: 200px;
+$sidebar-width-collapsed: 64px; 

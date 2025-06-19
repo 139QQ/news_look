@@ -1,0 +1,199 @@
+// 全局样式
+@use './variables.scss' as *;
+@use './responsive.scss';
+@use './data-hierarchy.scss';
+@use './interaction-feedback.scss';
+
+// 重置样式
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: $font-family;
+  line-height: 1.6;
+  color: $text-color;
+  background-color: $bg-color;
+}
+
+// 滚动条样式
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+  
+  &:hover {
+    background: #a8a8a8;
+  }
+}
+
+// 暗色主题滚动条
+.dark {
+  ::-webkit-scrollbar-track {
+    background: #2a2a2a;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #555;
+    
+    &:hover {
+      background: #666;
+    }
+  }
+}
+
+// 工具类
+.flex {
+  display: flex;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.mb-20 {
+  margin-bottom: 20px;
+}
+
+.mt-20 {
+  margin-top: 20px;
+}
+
+.ml-10 {
+  margin-left: 10px;
+}
+
+.mr-10 {
+  margin-right: 10px;
+}
+
+// 卡片样式
+.card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 20px;
+  
+  .dark & {
+    background: #1a1a1a;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+  }
+}
+
+// 状态颜色
+.status-running {
+  color: #67c23a;
+}
+
+.status-stopped {
+  color: #909399;
+}
+
+.status-error {
+  color: #f56c6c;
+}
+
+// 响应式布局
+@media (max-width: 768px) {
+  .mobile-hidden {
+    display: none !important;
+  }
+}
+
+// Element Plus 自定义样式
+.el-main {
+  padding: 20px;
+}
+
+.el-aside {
+  .el-menu {
+    border-right: none;
+  }
+}
+
+// 图表容器
+.chart-container {
+  width: 100%;
+  height: 300px;
+  
+  &.small {
+    height: 200px;
+  }
+  
+  &.large {
+    height: 400px;
+  }
+}
+
+// 数据卡片
+.data-card {
+  text-align: center;
+  padding: 24px;
+  
+  .number {
+    font-size: 32px;
+    font-weight: bold;
+    color: $primary-color;
+    display: block;
+    margin-bottom: 8px;
+  }
+  
+  .label {
+    font-size: 14px;
+    color: $text-color-secondary;
+  }
+}
+
+// 加载状态
+.loading-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+// 空状态
+.empty-wrapper {
+  text-align: center;
+  padding: 40px 20px;
+  color: $text-color-secondary;
+  
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+  
+  .empty-text {
+    font-size: 14px;
+  }
+} 

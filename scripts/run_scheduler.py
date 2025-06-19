@@ -17,8 +17,8 @@ from pathlib import Path
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(project_root)
 
-from app.tasks.scheduler import start_scheduler
-from app.utils.logger import configure_logger, get_logger
+from backend.app.tasks.scheduler import start_scheduler
+from backend.app.utils.logger import configure_logger, get_logger
 
 def parse_args():
     """解析命令行参数"""
@@ -50,7 +50,7 @@ def main():
     if args.list_tasks:
         try:
             # 导入任务模块
-            from app.tasks import get_all_tasks
+            from backend.app.tasks import get_all_tasks
             tasks = get_all_tasks()
             
             logger.info("可用的调度任务:")

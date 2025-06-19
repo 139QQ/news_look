@@ -11,9 +11,9 @@ import sqlite3 # Added for direct DB check
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, PROJECT_ROOT)
 
-from app.crawlers.sina import SinaCrawler
-from app.db.SQLiteManager import SQLiteManager
-from app.config import get_settings # To potentially override settings for test
+from backend.app.crawlers.sina import SinaCrawler
+from backend.app.db.SQLiteManager import SQLiteManager
+from backend.app.config import get_settings # To potentially override settings for test
 
 # Use a module-level logger for test setup/teardown and general test info
 logger = logging.getLogger('TestSinaCrawler')

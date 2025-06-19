@@ -27,7 +27,7 @@ def main():
     
     # 导入同步工具
     try:
-        from app.utils.sync_databases import sync_all_databases
+        from backend.app.utils.sync_databases import sync_all_databases
         
         # 运行同步
         print("开始同步数据库...")

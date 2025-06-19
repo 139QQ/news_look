@@ -61,10 +61,10 @@ def fix_index_route():
         return False
     
     # 1. 添加NewsDatabase导入
-    if "from app.utils.database import NewsDatabase" not in content:
+    if "from backend.app.utils.database import NewsDatabase" not in content:
         content = content.replace(
-            "from app.db.sqlite_manager import SQLiteManager",
-            "from app.db.sqlite_manager import SQLiteManager\nfrom app.utils.database import NewsDatabase"
+            "from backend.app.db.sqlite_manager import SQLiteManager",
+            "from backend.app.db.sqlite_manager import SQLiteManager\nfrom backend.app.utils.database import NewsDatabase"
         )
         print("✅ 已添加NewsDatabase导入")
     

@@ -9,8 +9,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)  # 直接获取当前目录的父目录
 sys.path.insert(0, project_root)
 
-from app.crawlers.netease import NeteaseCrawler
-from app.db.SQLiteManager import SQLiteManager
+from backend.app.crawlers.netease import NeteaseCrawler
+from backend.app.db.SQLiteManager import SQLiteManager
 
 class TestNeteaseCrawler(unittest.TestCase):
 

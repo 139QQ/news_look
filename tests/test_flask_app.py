@@ -13,12 +13,12 @@ import traceback
 os.environ['LOG_LEVEL'] = 'DEBUG'
 
 # 导入我们的日志模块
-from newslook.utils.logger import get_logger
+from backend.newslook.utils.logger import get_logger
 logger = get_logger("test_flask")
 
 try:
     logger.info("尝试导入newslook.web模块...")
-    from newslook.web import create_app
+    from backend.newslook.web import create_app
     
     logger.info("创建应用实例...")
     app = create_app()

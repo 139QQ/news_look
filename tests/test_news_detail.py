@@ -26,7 +26,7 @@ except ImportError:
     logger.warning("无法导入自定义 Database 类")
 
 try:
-    from newslook.utils.database import NewsDatabase
+    from backend.newslook.utils.database import NewsDatabase
     logger.info("成功导入 NewsDatabase 类")
 except ImportError:
     logger.warning("无法导入 NewsDatabase 类")

@@ -1,0 +1,74 @@
+{
+  "name": "newslook-frontend",
+  "version": "3.0.0",
+  "type": "module",
+  "description": "NewsLook 财经新闻爬虫系统 - 轻量化Vue3前端界面",
+  "author": "NewsLook Team",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 3000",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.ts,.tsx --fix",
+    "format": "prettier --write src/",
+    "build:analyze": "vite build --mode analyze",
+    "start": "node scripts/start.js",
+    "build:prod": "node scripts/build.js",
+    "serve": "npm run preview -- --port 3001",
+    "clean": "rimraf dist node_modules/.vite",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "axios": "^1.6.2",
+    "dayjs": "^1.11.10",
+    "dompurify": "^3.2.6",
+    "echarts": "^5.4.3",
+    "element-plus": "^2.4.4",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.0",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.5.2",
+    "eslint": "^8.54.0",
+    "eslint-plugin-vue": "^9.18.1",
+    "prettier": "^3.1.0",
+    "rimraf": "^5.0.5",
+    "sass": "^1.69.5",
+    "terser": "^5.42.0",
+    "typescript": "^5.3.3",
+    "unplugin-auto-import": "^0.17.2",
+    "unplugin-element-plus": "^0.8.0",
+    "unplugin-vue-components": "^0.25.2",
+    "vite": "^5.0.8",
+    "vue-tsc": "^1.8.25"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ],
+  "keywords": [
+    "vue3",
+    "element-plus",
+    "vite",
+    "财经新闻",
+    "爬虫系统",
+    "数据监控",
+    "轻量化",
+    "现代化"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/newsLook/newsLook-frontend"
+  },
+  "bugs": {
+    "url": "https://github.com/newsLook/newsLook-frontend/issues"
+  },
+  "homepage": "https://github.com/newsLook/newsLook-frontend#readme"
+}

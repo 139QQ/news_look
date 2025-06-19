@@ -22,7 +22,7 @@ if project_root not in sys.path:
 def get_db_dir():
     """获取数据库目录"""
     try:
-        from app.config import get_settings
+        from backend.app.config import get_settings
         settings = get_settings()
         db_dir = settings.get('DB_DIR', os.path.join(os.getcwd(), 'data', 'db'))
     except ImportError:

@@ -15,11 +15,11 @@ import json
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from app.crawlers import get_crawler, get_all_crawlers, get_crawler_sources
-from app.utils.logger import configure_logger, get_logger
-from app.crawlers.base import BaseCrawler
-from app.utils.database import News
-from app.utils.ad_filter import AdFilter
+from backend.app.crawlers import get_crawler, get_all_crawlers, get_crawler_sources
+from backend.app.utils.logger import configure_logger, get_logger
+from backend.app.crawlers.base import BaseCrawler
+from backend.app.utils.database import News
+from backend.app.utils.ad_filter import AdFilter
 
 # 配置日志
 logger = configure_logger(name='test_crawler', module='test')

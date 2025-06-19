@@ -22,7 +22,7 @@ sys.path.append(str(project_root))
 print(f"项目根目录: {project_root}")
 
 # 导入爬虫
-from app.crawlers.eastmoney import EastMoneyCrawler
+from backend.app.crawlers.eastmoney import EastMoneyCrawler
 print("成功导入EastMoneyCrawler类")
 
 def setup_logging(log_level=logging.INFO, log_file=None):
@@ -120,7 +120,7 @@ def main():
         db_manager = None
         try:
             # 如果有数据库管理模块，导入并初始化
-            from app.db.sqlite_manager import SQLiteManager
+            from backend.app.db.sqlite_manager import SQLiteManager
             db_manager = SQLiteManager(args.db_path)
             print(f"数据库路径: {args.db_path}")
             logging.info(f"数据库路径: {args.db_path}")

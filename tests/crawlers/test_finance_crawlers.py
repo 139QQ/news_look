@@ -18,12 +18,12 @@ from unittest.mock import patch, MagicMock
 # 添加项目根目录到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from app.crawlers import get_crawler
-from app.utils.logger import configure_logger, get_logger
-from app.crawlers.netease import NeteaseCrawler
-from app.crawlers.sina import SinaCrawler
-from app.crawlers.ifeng import IfengCrawler
-from app.utils.ad_filter import AdFilter
+from backend.app.crawlers import get_crawler
+from backend.app.utils.logger import configure_logger, get_logger
+from backend.app.crawlers.netease import NeteaseCrawler
+from backend.app.crawlers.sina import SinaCrawler
+from backend.app.crawlers.ifeng import IfengCrawler
+from backend.app.utils.ad_filter import AdFilter
 
 # 配置日志
 logger = configure_logger(name='test_finance_crawlers', module='test')

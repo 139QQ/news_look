@@ -19,10 +19,10 @@ try:
     import app
     print("成功导入 app 模块")
     
-    import app.crawlers
+    import backend.app.crawlers
     print("成功导入 app.crawlers 模块")
     
-    from app.crawlers.eastmoney import EastmoneyCrawler
+    from backend.app.crawlers.eastmoney import EastmoneyCrawler
     print("成功导入 EastmoneyCrawler 类")
 except ImportError as e:
     print(f"导入失败: {e}") 

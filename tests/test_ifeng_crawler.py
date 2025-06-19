@@ -10,8 +10,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)  # tests/ 的父目录就是项目根目录
 sys.path.insert(0, project_root)
 
-from app.crawlers.ifeng import IfengCrawler
-from app.db.SQLiteManager import SQLiteManager # For type hinting and mock spec
+from backend.app.crawlers.ifeng import IfengCrawler
+from backend.app.db.SQLiteManager import SQLiteManager # For type hinting and mock spec
 
 class TestIfengCrawler(unittest.TestCase):
 

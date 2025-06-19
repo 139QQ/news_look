@@ -8,7 +8,7 @@ import sys
 # 添加项目根目录到系统路径
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from utils.logger import setup_daily_logger, log_exception
+from backend.utils.logger import setup_daily_logger, log_exception
 
 # 设置日志
 logger = setup_daily_logger(name="scheduler", module="scheduler")

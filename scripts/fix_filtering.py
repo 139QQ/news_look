@@ -17,9 +17,9 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from app.utils.logger import get_logger
-from app.db.SQLiteManager import SQLiteManager
-from app.utils.database import NewsDatabase
+from backend.app.utils.logger import get_logger
+from backend.app.db.SQLiteManager import SQLiteManager
+from backend.app.utils.database import NewsDatabase
 
 # 设置日志记录器
 logger = get_logger('fix_filtering')
@@ -46,7 +46,7 @@ def check_db_paths():
     
     # 获取web应用使用的数据库路径
     try:
-        from app.web.routes import get_db_path
+        from backend.app.web.routes import get_db_path
         main_db_path = get_db_path('finance_news.db')
         print(f"\nWeb应用使用的主数据库路径: {main_db_path}")
         
@@ -82,7 +82,7 @@ def check_web_filtering_logic():
     
     try:
         # 检查路由函数index中是否使用了NewsDatabase而不是SQLiteManager
-        from app.web.routes import index
+        from backend.app.web.routes import index
         source_code = inspect.getsource(index)
         
         if "SQLiteManager(db_path=db_path)" in source_code and "use_all_dbs" not in source_code:
@@ -112,7 +112,7 @@ def test_filtering(source_name):
     
     # 使用SQLiteManager直接查询主数据库
     try:
-        from app.web.routes import get_db_path
+        from backend.app.web.routes import get_db_path
         main_db_path = get_db_path('finance_news.db')
         
         with SQLiteManager(db_path=main_db_path) as db:
@@ -216,9 +216,9 @@ def fix_filtering_issue():
         needs_fix = True
     
     # 修改2: 确保导入了NewsDatabase
-    if "from app.utils.database import NewsDatabase" not in content:
-        import_line = "from app.db.sqlite_manager import SQLiteManager"
-        new_import = "from app.db.sqlite_manager import SQLiteManager\nfrom app.utils.database import NewsDatabase"
+    if "from backend.app.utils.database import NewsDatabase" not in content:
+        import_line = "from backend.app.db.sqlite_manager import SQLiteManager"
+        new_import = "from backend.app.db.sqlite_manager import SQLiteManager\nfrom backend.app.utils.database import NewsDatabase"
         content = content.replace(import_line, new_import)
         needs_fix = True
         print("修改点2: 添加NewsDatabase导入")

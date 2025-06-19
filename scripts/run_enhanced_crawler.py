@@ -15,8 +15,8 @@ from datetime import datetime
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.crawlers.manager_new import EnhancedCrawlerManager
-from app.utils.logger import setup_logger
+from backend.app.crawlers.manager_new import EnhancedCrawlerManager
+from backend.app.utils.logger import setup_logger
 
 # 设置日志
 log_dir = os.path.join(os.getcwd(), 'logs')

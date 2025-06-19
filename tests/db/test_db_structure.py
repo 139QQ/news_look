@@ -15,9 +15,9 @@ import json
 # 添加项目根目录到系统路径
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from utils.database import NewsDatabase
-from utils.db_manager import DatabaseManager
-from utils.logger import setup_logger
+from backend.utils.database import NewsDatabase
+from backend.utils.db_manager import DatabaseManager
+from backend.utils.logger import setup_logger
 
 logger = setup_logger()
 

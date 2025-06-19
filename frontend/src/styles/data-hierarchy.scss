@@ -1,0 +1,239 @@
+// 数据层级和视觉权重设计
+@use './variables.scss' as *;
+
+// 数据权重等级定义
+.data-hierarchy {
+  // 主要数据 (L1) - 最高权重
+  .data-primary {
+    font-size: 28px;
+    font-weight: 700;
+    color: $text-color-primary;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    
+    // 强调状态
+    &.emphasized {
+      font-size: 32px;
+      color: $primary-color;
+    }
+  }
+  
+  // 次要数据 (L2) - 中等权重  
+  .data-secondary {
+    font-size: 16px;
+    font-weight: 500;
+    color: $text-color-regular;
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }
+  
+  // 辅助数据 (L3) - 较低权重
+  .data-tertiary {
+    font-size: 13px;
+    font-weight: 400;
+    color: $text-color-secondary;
+    line-height: 1.5;
+  }
+  
+  // 元数据 (L4) - 最低权重
+  .data-meta {
+    font-size: 11px;
+    font-weight: 400;
+    color: $text-color-placeholder;
+    line-height: 1.6;
+  }
+}
+
+// 分组视觉标识
+.data-groups {
+  // 卡片分组
+  .group-card {
+    background: $bg-color;
+    border-radius: $border-radius-large;
+    padding: $padding-large;
+    margin-bottom: $margin-medium;
+    box-shadow: $box-shadow-light;
+    
+    // 分组标题
+    .group-title {
+      font-size: $font-size-large;
+      font-weight: 600;
+      color: $text-color-primary;
+      margin-bottom: $margin-base;
+      padding-bottom: 8px;
+      border-bottom: 2px solid $border-color-light;
+      
+      // 图标增强
+      .group-icon {
+        margin-right: 8px;
+        color: $primary-color;
+      }
+    }
+    
+    // 分组内容
+    .group-content {
+      display: grid;
+      gap: $margin-base;
+    }
+  }
+  
+  // 列表分组
+  .group-list {
+    .group-section {
+      & + .group-section {
+        margin-top: $margin-large;
+        padding-top: $padding-medium;
+        border-top: 1px solid $border-color-lighter;
+      }
+      
+      .section-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: $margin-small;
+        
+        .section-label {
+          font-size: $font-size-small;
+          font-weight: 600;
+          color: $text-color-secondary;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .section-divider {
+          flex: 1;
+          height: 1px;
+          background: linear-gradient(to right, $border-color-light, transparent);
+        }
+      }
+    }
+  }
+}
+
+// 关联数据间距优化
+.data-relationships {
+  // 强关联数据组 - 紧密间距
+  .related-tight {
+    .data-item + .data-item {
+      margin-top: 4px;
+    }
+  }
+  
+  // 中等关联数据组 - 标准间距
+  .related-medium {
+    .data-item + .data-item {
+      margin-top: 8px;
+    }
+  }
+  
+  // 弱关联数据组 - 松散间距
+  .related-loose {
+    .data-item + .data-item {
+      margin-top: 16px;
+    }
+  }
+  
+  // 无关联数据组 - 大间距
+  .unrelated {
+    .data-item + .data-item {
+      margin-top: 24px;
+    }
+  }
+}
+
+// 统计卡片增强
+.stat-card-enhanced {
+  position: relative;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.9) 0%, 
+    rgba(255, 255, 255, 0.7) 100%);
+  border: 1px solid $border-color-extra-light;
+  border-radius: $border-radius-large;
+  padding: $padding-large;
+  transition: $transition-base;
+  
+  // 悬停效果
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    border-color: $primary-color;
+  }
+  
+  // 状态条
+  .status-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    border-radius: $border-radius-base $border-radius-base 0 0;
+    background: linear-gradient(90deg, $primary-color, $success-color);
+  }
+  
+  // 数据内容
+  .stat-content-enhanced {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: $margin-base;
+    
+    .stat-icon-enhanced {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, $primary-color, #5ba0ff);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 20px;
+    }
+    
+    .stat-data {
+      .stat-value-enhanced {
+        font-size: 32px;
+        font-weight: 700;
+        color: $text-color-primary;
+        line-height: 1;
+        margin-bottom: 4px;
+      }
+      
+      .stat-label-enhanced {
+        font-size: 14px;
+        font-weight: 500;
+        color: $text-color-regular;
+        line-height: 1.2;
+      }
+      
+      .stat-sublabel {
+        font-size: 12px;
+        color: $text-color-secondary;
+        margin-top: 2px;
+      }
+    }
+    
+    .stat-trend-enhanced {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      
+      .trend-icon {
+        font-size: 20px;
+        
+        &.trend-up { color: $success-color; }
+        &.trend-down { color: $danger-color; }
+        &.trend-neutral { color: $info-color; }
+      }
+      
+      .trend-value {
+        font-size: 12px;
+        font-weight: 600;
+        
+        &.positive { color: $success-color; }
+        &.negative { color: $danger-color; }
+        &.neutral { color: $info-color; }
+      }
+    }
+  }
+} 

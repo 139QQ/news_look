@@ -1,0 +1,53 @@
+# 东方财富爬虫配置示例
+name: "东方财富"
+source: "东方财富"
+base_url: "https://www.eastmoney.com"
+enabled: true
+
+# 爬虫行为配置
+concurrency: 10          # 并发请求数
+rate_limit: 1.0          # 请求间隔(秒)
+categories:              # 支持的分类
+  - "财经"
+  - "股票"
+  - "基金"
+  - "债券"
+
+# HTTP客户端配置
+http:
+  timeout: 30
+  max_retries: 3
+  user_agent: "NewsLook-Crawler/1.0"
+  ssl_verify: true
+  headers:
+    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    Accept-Language: "zh-CN,zh;q=0.9,en;q=0.8"
+  proxy: null             # 代理地址，如 "http://127.0.0.1:8080"
+
+# CSS选择器配置
+selectors:
+  list_page:
+    news_links: "a.news_title, .news-list a"
+    next_page: ".pagination .next"
+    
+  detail_page:
+    title: "h1.title, h1.news_title"
+    content: "div.content, .article-content"
+    publish_time: ".time, .publish-time"
+    author: ".author, .author-name"
+    summary: ".summary, .news-summary"
+    tags: ".tags a, .tag-list a"
+
+# 数据处理配置
+data_processing:
+  remove_duplicates: true
+  min_content_length: 100
+  max_content_length: 50000
+  clean_html: true
+  extract_images: true
+  
+# 调度配置
+schedule:
+  interval: 1800          # 调度间隔(秒)
+  max_articles_per_run: 100
+  retry_failed_articles: true 

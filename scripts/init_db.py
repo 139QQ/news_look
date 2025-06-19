@@ -13,7 +13,7 @@ import logging
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
-from app.db.migration_manager import MigrationManager
+from backend.app.db.migration_manager import MigrationManager
 
 logger = logging.getLogger(__name__)
 

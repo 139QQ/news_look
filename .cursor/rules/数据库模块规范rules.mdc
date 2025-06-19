@@ -1,6 +1,6 @@
 ---
 description: 
-globs: 
+globs: 数据库规范
 alwaysApply: false
 ---
 # 数据库模块规范 (Database Module Specifications)

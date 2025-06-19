@@ -1,0 +1,406 @@
+// 交互反馈和用户体验增强
+@use './variables.scss' as *;
+
+// 表格交互增强
+.enhanced-table {
+  .el-table {
+    // 表头交互
+    .el-table__header {
+      th {
+        position: relative;
+        cursor: pointer;
+        transition: $transition-base;
+        
+        &:hover {
+          background-color: rgba(64, 158, 255, 0.05);
+        }
+        
+        // 排序指示器
+        &.is-sortable {
+          .sort-indicator {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 12px;
+            color: $text-color-placeholder;
+            transition: $transition-base;
+          }
+          
+          &.ascending .sort-indicator {
+            color: $primary-color;
+            
+            &::after {
+              content: "↑";
+            }
+          }
+          
+          &.descending .sort-indicator {
+            color: $primary-color;
+            
+            &::after {
+              content: "↓";
+            }
+          }
+          
+          &:not(.ascending):not(.descending) .sort-indicator {
+            &::after {
+              content: "↕";
+            }
+          }
+        }
+      }
+    }
+    
+    // 表格行交互
+    .el-table__body {
+      tr {
+        transition: all 0.2s ease;
+        cursor: pointer;
+        
+        // 悬停效果
+        &:hover {
+          background-color: rgba(64, 158, 255, 0.02);
+          transform: translateX(2px);
+          box-shadow: inset 3px 0 0 $primary-color;
+        }
+        
+        // 选中状态
+        &.selected {
+          background-color: rgba(64, 158, 255, 0.05);
+          border-left: 3px solid $primary-color;
+        }
+        
+        // 行内容
+        td {
+          position: relative;
+          transition: $transition-base;
+          
+          // 重要内容高亮
+          &.highlight-cell {
+            position: relative;
+            
+            &::before {
+              content: '';
+              position: absolute;
+              left: 0;
+              top: 0;
+              bottom: 0;
+              width: 2px;
+              background: $warning-color;
+              opacity: 0;
+              transition: opacity 0.2s ease;
+            }
+            
+            &:hover::before {
+              opacity: 1;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // 加载状态优化
+  .table-loading {
+    position: relative;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+  }
+}
+
+// 分页组件增强
+.enhanced-pagination {
+  .el-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 0;
+    
+    // 页码按钮
+    .btn-prev,
+    .btn-next,
+    .el-pager li {
+      min-width: 36px;
+      height: 36px;
+      border-radius: $border-radius-base;
+      transition: $transition-base;
+      
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      }
+    }
+    
+    // 当前页突出显示
+          .el-pager li.is-active {
+        background: linear-gradient(135deg, $primary-color, #4d9eff);
+        color: white;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+        transform: scale(1.05);
+      }
+    
+    // 页面跳转输入框
+    .el-pagination__jump {
+      .el-input {
+        .el-input__inner {
+          width: 60px;
+          text-align: center;
+          border-radius: $border-radius-base;
+          transition: $transition-base;
+          
+          &:focus {
+            border-color: $primary-color;
+            box-shadow: 0 0 8px rgba(64, 158, 255, 0.2);
+          }
+        }
+      }
+    }
+    
+    // 页面大小选择器
+    .el-pagination__sizes {
+      .el-select {
+        .el-select__wrapper {
+          border-radius: $border-radius-base;
+          transition: $transition-base;
+          
+          &:hover {
+            border-color: $primary-color;
+          }
+        }
+      }
+    }
+  }
+}
+
+// 搜索表单交互增强
+.enhanced-search-form {
+  .el-form {
+    // 输入框增强
+    .el-input {
+      .el-input__wrapper {
+        transition: $transition-base;
+        border-radius: $border-radius-base;
+        
+        &:hover {
+          border-color: $primary-color;
+          box-shadow: 0 0 8px rgba(64, 158, 255, 0.1);
+        }
+        
+        .el-input__inner {
+          &:focus {
+            & + .el-input__suffix {
+              .el-input__suffix-inner {
+                color: $primary-color;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // 选择器增强
+    .el-select {
+      .el-select__wrapper {
+        transition: $transition-base;
+        border-radius: $border-radius-base;
+        
+        &:hover {
+          border-color: $primary-color;
+          transform: translateY(-1px);
+        }
+        
+        &.is-focused {
+          border-color: $primary-color;
+          box-shadow: 0 0 8px rgba(64, 158, 255, 0.2);
+        }
+      }
+    }
+    
+    // 日期选择器增强
+    .el-date-editor {
+      transition: $transition-base;
+      border-radius: $border-radius-base;
+      
+      &:hover {
+        border-color: $primary-color;
+        transform: translateY(-1px);
+      }
+      
+      &.is-active {
+        border-color: $primary-color;
+        box-shadow: 0 0 8px rgba(64, 158, 255, 0.2);
+      }
+    }
+    
+    // 按钮增强
+    .el-button {
+      border-radius: $border-radius-base;
+      transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+      
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+      
+      // 主要按钮
+              &.el-button--primary {
+          background: linear-gradient(135deg, $primary-color, #4d9eff);
+          border: none;
+          
+          &:hover {
+            background: linear-gradient(135deg, #3a8dff, $primary-color);
+            box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+          }
+        }
+    }
+  }
+}
+
+// 卡片交互增强
+.enhanced-card {
+  .el-card {
+    transition: $transition-base;
+    border-radius: $border-radius-large;
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+    
+    // 卡片头部
+    .el-card__header {
+      border-bottom: 1px solid $border-color-lighter;
+      background: linear-gradient(90deg, 
+        rgba(64, 158, 255, 0.02) 0%, 
+        transparent 100%);
+      
+      .card-header-enhanced {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        
+        .header-title {
+          font-weight: 600;
+          color: $text-color-primary;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          
+          .title-icon {
+            color: $primary-color;
+          }
+        }
+        
+        .header-actions {
+          display: flex;
+          gap: 8px;
+          
+          .el-button {
+            &.el-button--text {
+              color: $text-color-secondary;
+              
+              &:hover {
+                color: $primary-color;
+                background-color: rgba(64, 158, 255, 0.1);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// 状态指示器
+.status-indicators {
+  // 连接状态
+  .connection-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: $border-radius-base;
+    font-size: 12px;
+    font-weight: 500;
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    
+    &.online {
+      background: rgba(103, 194, 58, 0.1);
+      color: $success-color;
+      
+      .status-dot {
+        background: $success-color;
+      }
+    }
+    
+    &.offline {
+      background: rgba(245, 108, 108, 0.1);
+      color: $danger-color;
+      
+      .status-dot {
+        background: $danger-color;
+      }
+    }
+    
+    &.connecting {
+      background: rgba(230, 162, 60, 0.1);
+      color: $warning-color;
+      
+      .status-dot {
+        background: $warning-color;
+      }
+    }
+  }
+}
+
+// 动画效果
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+} 

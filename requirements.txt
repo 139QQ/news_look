@@ -1,21 +1,41 @@
-# 项目依赖
--r requirements/base.txt
+# NewsLook 财经新闻爬虫系统 - 核心依赖
 
-# 注意：根据具体环境选择安装以下依赖文件之一：
-# 开发环境：pip install -r requirements/dev.txt
-# 测试环境：pip install -r requirements/test.txt
-# 生产环境：pip install -r requirements/prod.txt
+# Web框架和API
+Flask>=2.2.3
+Flask-CORS>=4.0.0
+Werkzeug>=2.2.3
+Jinja2>=3.1.2
 
-# TensorFlow是可选的依赖，根据系统环境选择安装方式:
-# 完整版: pip install tensorflow>=2.10.0
-# 仅CPU版: pip install tensorflow-cpu>=2.10.0
-# 兼容版: pip install tensorflow==2.9.0
+# 网络请求和解析
+requests>=2.28.1
+beautifulsoup4>=4.11.1
+lxml>=4.9.1
+urllib3>=1.26.12
+chardet>=5.1.0
 
-requests>=2.25.1
-beautifulsoup4>=4.9.3
-selenium>=4.0.0
-lxml>=4.6.3
+# 异步支持
+aiohttp>=3.8.3
+aiofiles>=22.1.0
+
+# 数据库
+SQLAlchemy>=1.4.41
+
+# 浏览器自动化
+selenium>=4.7.2
+webdriver-manager>=3.8.5
+fake-useragent>=1.1.1
+
+# 数据处理
 jieba>=0.42.1
-fake-useragent>=0.1.11
-webdriver-manager>=3.5.2
-chardet>=4.0.0
+pandas>=1.5.0
+python-dateutil>=2.8.2
+
+# 系统工具
+colorlog>=6.7.0
+tqdm>=4.64.1
+psutil>=5.9.0
+
+# 注意：完整依赖请安装对应环境的requirements文件
+# 开发环境：pip install -r backend/config/requirements/dev.txt
+# 生产环境：pip install -r backend/config/requirements/prod.txt
+# 测试环境：pip install -r backend/config/requirements/test.txt

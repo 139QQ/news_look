@@ -13,7 +13,7 @@ import sqlite3
 import json
 from datetime import datetime
 
-from app.utils.logger import get_logger
+from backend.app.utils.logger import get_logger
 
 # 初始化日志记录器
 logger = get_logger('export_demo')

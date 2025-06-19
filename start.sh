@@ -1,33 +1,61 @@
 #!/bin/bash
-# 财经新闻爬虫系统 - 启动脚本
-echo "启动财经新闻爬虫系统..."
 
-# 检查Python环境
+echo "========================================"
+echo "   NewsLook 财经新闻爬虫系统启动器"
+echo "========================================"
+echo
+
+cd "$(dirname "$0")"
+
+echo "检查Python环境..."
 if ! command -v python3 &> /dev/null; then
-    echo "错误：未找到Python 3。请安装Python 3。"
+    echo "❌ Python3未安装"
+    echo "请安装Python 3.9+"
     exit 1
 fi
 
-# 创建必要的目录
-mkdir -p logs data/db data/output
-
-# 设置环境变量
-export LOG_LEVEL="INFO"
-export LOG_DIR="$(pwd)/logs"
-export DB_DIR="$(pwd)/data/db"
-
-# 检查虚拟环境
-if [ -d "venv" ]; then
-    echo "激活虚拟环境..."
-    source venv/bin/activate || source venv/Scripts/activate
+echo "检查依赖..."
+if [ ! -f requirements.txt ]; then
+    echo "❌ requirements.txt文件不存在"
+    exit 1
 fi
 
-# 运行Web应用
-echo "启动Web应用..."
-python3 run.py web --debug --host=0.0.0.0 --port=5000 --with-crawler
+echo "安装/更新依赖..."
+pip3 install -r requirements.txt
 
-if [ $? -ne 0 ]; then
-    echo "启动失败，请检查logs目录下的日志文件。"
-else
-    echo "Web应用已启动，正在运行中..."
-fi 
+echo
+echo "启动后端服务..."
+echo "后端地址: http://localhost:5000"
+echo
+
+python3 main.py &
+BACKEND_PID=$!
+
+echo
+echo "检查前端环境..."
+cd frontend
+
+if [ ! -d node_modules ]; then
+    echo "安装前端依赖..."
+    npm install
+fi
+
+echo "启动前端开发服务器..."
+echo "前端地址: http://localhost:3000"
+echo
+
+npm run dev &
+FRONTEND_PID=$!
+
+cd ..
+
+echo
+echo "✅ NewsLook 启动完成!"
+echo "请在浏览器中访问: http://localhost:3000"
+echo
+echo "按Ctrl+C停止服务"
+
+# 捕获Ctrl+C信号并停止服务
+trap "echo; echo '停止服务...'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT
+
+wait

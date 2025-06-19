@@ -19,8 +19,8 @@ from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # 导入事务数据库管理器和日志工具
-from app.utils.db_transaction import TransactionalDBManager, create_db_manager, DEFAULT_TABLE_SCHEMAS
-from app.utils.logger import configure_logger
+from backend.app.utils.db_transaction import TransactionalDBManager, create_db_manager, DEFAULT_TABLE_SCHEMAS
+from backend.app.utils.logger import configure_logger
 
 # 设置日志
 logger = configure_logger('db_transaction_demo', level=logging.INFO)
