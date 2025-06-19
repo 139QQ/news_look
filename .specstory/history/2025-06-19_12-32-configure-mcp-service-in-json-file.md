@@ -318,3 +318,1423 @@ _**Assistant**_
 
 ---
 
+我来为NewsLook项目优化.gitignore文件，确保敏感文件和临时文件不被提交，同时保留必要的项目文件。
+
+---
+
+```diff
+- # Python
++ # ==========================================
++ # NewsLook 财经新闻爬虫系统 .gitignore
++ # ==========================================
++ 
++ # Python 相关
+  __pycache__/
+  *.py[cod]
+```
+
+```diff
+  .installed.cfg
+  *.egg
++ MANIFEST
+  
+- # Virtual Environment
++ # 虚拟环境
+  .venv/
+  venv/
+  ENV/
+  env/
++ .env
+  
+- # IDE
++ # IDE 和编辑器
+  .vscode/
+  .idea/
+  *.swp
+  *.swo
+  *~
++ .cursor/
+  
+- # Frontend
++ # ==========================================
++ # 数据库文件 (重要：不提交数据库文件)
++ # ==========================================
++ # SQLite 数据库文件
++ *.db
++ *.db-journal
++ *.db-wal
++ *.db-shm
++ *.sqlite
++ *.sqlite3
++ 
++ # 数据库目录
++ data/db/
++ data/databases/
++ db/
++ *.db-journal
++ temp_*.db
++ 
++ # 特定数据库文件
++ finance_news.db
++ 腾讯财经.db
++ 新浪财经.db
++ 东方财富.db
++ 网易财经.db
++ 凤凰财经.db
++ 
++ # ==========================================
++ # 日志和缓存文件
++ # ==========================================
++ # 日志文件
++ *.log
++ logs/
++ data/logs/
++ app/logs/
++ crawler.log
++ web.log
++ scheduler.log
++ 
++ # 缓存文件
++ data/cache/
++ cache/
++ *.cache
++ .cache/
++ 
++ # ==========================================
++ # 爬虫相关临时文件
++ # ==========================================
++ # 下载的图片和媒体文件
++ downloads/
++ images/
++ media/
++ temp/
++ tmp/
++ 
++ # 爬虫会话文件
++ cookies.txt
++ session.dat
++ *.session
++ 
++ # 浏览器驱动文件
++ chromedriver*
++ geckodriver*
++ webdriver/
++ 
++ # ==========================================
++ # 配置和敏感信息
++ # ==========================================
++ # 环境变量文件
++ .env
++ .env.local
++ .env.development.local
++ .env.test.local
++ .env.production.local
++ 
++ # 配置文件 (包含敏感信息的)
++ config.ini
++ settings.ini
++ secrets.json
++ credentials.json
++ 
++ # API 密钥和令牌
++ api_keys.txt
++ tokens.txt
++ *.key
++ *.pem
++ 
++ # ==========================================
++ # 前端相关
++ # ==========================================
++ # Node.js
+  frontend/node_modules/
+  frontend/dist/
++ frontend/build/
+  frontend/.DS_Store
+  frontend/.env.local
+```
+
+```diff
+  frontend/.env.production.local
+  
+- # Data & Logs
+- data/logs/*.log
+- data/databases/*.db-journal
+- data/cache/
+- *.log
+- 
+- # System
+- .DS_Store
+- Thumbs.db
+- desktop.ini
+- 
+- # Backup
+- backup/duplicate_files/
+- backup/legacy_files/
+- 
+- # Testing
++ # NPM
++ npm-debug.log*
++ yarn-debug.log*
++ yarn-error.log*
++ package-lock.json
++ yarn.lock
++ 
++ # ==========================================
++ # 测试和覆盖率
++ # ==========================================
++ # 测试覆盖率
+  .coverage
++ .coverage.*
++ htmlcov/
+  .pytest_cache/
+- .tox/
+- 
+- # Jupyter Notebook
+- .ipynb_checkpoints
+- 
+- # Distribution / packaging
+- .Python
+- build/
+- develop-eggs/
+- eggs/
+- .eggs/
+- lib/
+- lib64/
+- parts/
+- sdist/
+- var/
+- wheels/
+- share/python-wheels/
+- *.egg-info/
+- .installed.cfg
+- *.egg
+- MANIFEST
+- 
+- # PyInstaller
+- *.manifest
+- *.spec
+- 
+- # Installer logs
+- pip-log.txt
+- pip-delete-this-directory.txt
+- 
+- # Unit test / coverage reports
+- htmlcov/
+  .tox/
+  .nox/
+- .coverage
+- .coverage.*
+- .cache
+  nosetests.xml
+  coverage.xml
+```
+
+```diff
+  .hypothesis/
+  
+- # Sphinx documentation
++ # ==========================================
++ # 系统文件
++ # ==========================================
++ # macOS
++ .DS_Store
++ .AppleDouble
++ .LSOverride
++ 
++ # Windows
++ Thumbs.db
++ ehthumbs.db
++ Desktop.ini
++ 
++ # Linux
++ *~
++ 
++ # ==========================================
++ # 备份和归档
++ # ==========================================
++ # 备份文件
++ backup/
++ backups/
++ *.bak
++ *.backup
++ *.old
++ *.orig
++ 
++ # 归档文件
++ *.tar
++ *.tar.gz
++ *.zip
++ *.rar
++ 
++ # 重复文件
++ backup/duplicate_files/
++ backup/legacy_files/
++ 
++ # ==========================================
++ # 开发工具
++ # ==========================================
++ # Jupyter Notebook
++ .ipynb_checkpoints
++ 
++ # Sphinx 文档
+  docs/_build/
+  
+```
+
+```diff
+  ipython_config.py
+  
+- # Environment variables
+- .env
+- .env.local
+- .env.development.local
+- .env.test.local
+- .env.production.local
+- 
+- # Crawler specific
+- *.db-journal
+- temp_*.db
++ # ==========================================
++ # 部署相关
++ # ==========================================
++ # Docker
++ .dockerignore
++ 
++ # 生产环境特定文件
++ production.ini
++ production.json
++ 
++ # ==========================================
++ # 项目特定
++ # ==========================================
++ # 废弃目录
++ today3/
++ 
++ # 临时数据文件
++ temp_data/
++ temporary/
++ scratch/
++ 
++ # 统计文件
++ stats.json
++ analytics.json
++ 
++ # 错误报告
++ error_reports/
++ crash_dumps/
+  
+```
+
+---
+
+完美！我已经为NewsLook财经新闻爬虫项目优化了.gitignore文件。以下是主要的改进：
+
+## 🔒 **不应该提交的文件（已忽略）**：
+
+### 📊 **数据库文件**
+- 所有SQLite数据库文件（`*.db`, `*.sqlite`等）
+- 特定的数据库文件（`腾讯财经.db`, `新浪财经.db`等）
+- 数据库相关临时文件（`*.db-journal`, `*.db-wal`等）
+
+### 🔐 **敏感信息**
+- 环境变量文件（`.env*`）
+- API密钥和令牌文件
+- 配置文件中的敏感信息
+- Cursor配置目录（`.cursor/`）
+
+### 📝 **日志和缓存**
+- 所有日志文件（`*.log`）
+- 缓存目录和文件
+- 临时文件和下载文件
+
+### 🤖 **爬虫相关**
+- 浏览器驱动文件
+- 会话和Cookie文件
+- 下载的图片和媒体文件
+
+## ✅ **应该提交的文件**：
+
+### 📄 **源代码**
+- 所有Python源文件（`.py`）
+- HTML模板文件
+- CSS和JavaScript文件
+
+### 📋 **配置模板**
+- 配置文件模板（不包含敏感信息）
+- 项目配置文件（`requirements.txt`等）
+
+### 📖 **文档**
+- README.md
+- 文档文件
+- API文档
+
+### 🧪 **测试文件**
+- 测试代码
+- 测试配置
+
+## 🎯 **特别说明**：
+
+1. **数据库安全**：所有数据库文件都被忽略，避免意外提交敏感的爬取数据
+2. **配置安全**：敏感配置文件被忽略，但可以提交配置模板
+3. **项目特定**：忽略了废弃的`today3/`目录
+4. **开发工具**：忽略了IDE和编辑器配置文件
+
+现在您可以安全地提交代码到Git仓库，而不用担心泄露敏感数据或临时文件！
+
+---
+
+_**User**_
+
+提交项目，并添加提交信息
+
+---
+
+_**Assistant**_
+
+
+
+---
+
+我来帮您提交项目。首先让我检查当前的Git状态，然后添加文件并创建提交信息。
+
+---
+
+```bash
+git status
+```
+
+```
+On branch feature
+Your branch is ahead of 'origin/feature' by 25 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   .cursor/rules/数据库模块规范rules.mdc
+        modified:   .gitignore
+        deleted:    ARCHITECTURE_REFACTORING.md
+        deleted:    CHANGELOG.md
+        modified:   README.md
+        deleted:    WEB应用说明.md
+        deleted:    _archived_today3_20250324200011/.editorconfig
+        deleted:    _archived_today3_20250324200011/.gitignore
+        deleted:    _archived_today3_20250324200011/README.md
+        deleted:    _archived_today3_20250324200011/api/news_api.py
+        deleted:    _archived_today3_20250324200011/api/rss_reader.py
+        deleted:    _archived_today3_20250324200011/app/__init__.py
+        deleted:    _archived_today3_20250324200011/app/config.py
+        deleted:    _archived_today3_20250324200011/app/crawlers/__init__.py
+        deleted:    _archived_today3_20250324200011/app/crawlers/base.py
+        deleted:    _archived_today3_20250324200011/app/crawlers/eastmoney.py
+        deleted:    _archived_today3_20250324200011/app/crawlers/eastmoney_simple.py
+        deleted:    _archived_today3_20250324200011/app/crawlers/ifeng.py
+        deleted:    _archived_today3_20250324200011/app/crawlers/manager.py
+        deleted:    _archived_today3_20250324200011/app/crawlers/netease.py
+        deleted:    _archived_today3_20250324200011/app/crawlers/sina.py
+        deleted:    _archived_today3_20250324200011/app/crawlers/tencent.py
+        deleted:    _archived_today3_20250324200011/app/db/__init__.py
+        deleted:    _archived_today3_20250324200011/app/db/sqlite_manager.py
+        deleted:    _archived_today3_20250324200011/app/models/__init__.py
+        deleted:    _archived_today3_20250324200011/app/models/news.py
+        deleted:    _archived_today3_20250324200011/app/scheduler.py
+        deleted:    _archived_today3_20250324200011/app/tasks/__init__.py
+        deleted:    _archived_today3_20250324200011/app/tasks/scheduler.py
+        deleted:    _archived_today3_20250324200011/app/utils/__init__.py
+        deleted:    _archived_today3_20250324200011/app/utils/database.py
+        deleted:    _archived_today3_20250324200011/app/utils/logger.py
+        deleted:    _archived_today3_20250324200011/app/utils/sentiment_analyzer.py
+        deleted:    _archived_today3_20250324200011/app/utils/text_cleaner.py
+        deleted:    _archived_today3_20250324200011/app/web/__init__.py
+        deleted:    _archived_today3_20250324200011/app/web/routes.py
+        deleted:    _archived_today3_20250324200011/app/web/templates/404.html
+        deleted:    _archived_today3_20250324200011/app/web/templates/base.html
+        deleted:    _archived_today3_20250324200011/app/web/templates/crawler_status.html
+        deleted:    _archived_today3_20250324200011/app/web/templates/data_analysis.html
+        deleted:    _archived_today3_20250324200011/app/web/templates/index.html
+        deleted:    _archived_today3_20250324200011/app/web/templates/settings.html
+        deleted:    _archived_today3_20250324200011/check_colorlog.py
+        deleted:    _archived_today3_20250324200011/docs/README.md
+        deleted:    _archived_today3_20250324200011/docs/api/api_documentation.md
+        deleted:    _archived_today3_20250324200011/docs/api/project_documentation.md
+        deleted:    _archived_today3_20250324200011/docs/architecture/optimization_summary.md
+        deleted:    _archived_today3_20250324200011/docs/architecture/structure.md
+        deleted:    _archived_today3_20250324200011/docs/architecture/structure_cn.md
+        deleted:    _archived_today3_20250324200011/docs/development/coding_style.md
+        deleted:    _archived_today3_20250324200011/docs/development/contribution.md
+        deleted:    _archived_today3_20250324200011/docs/development/crawler/eastmoney_optimization.md 
+        deleted:    _archived_today3_20250324200011/docs/development/logging.md
+        deleted:    _archived_today3_20250324200011/docs/development/script_integration.md
+        deleted:    _archived_today3_20250324200011/docs/eastmoney爬虫优化.md
+        deleted:    _archived_today3_20250324200011/docs/user/faq.md
+        deleted:    _archived_today3_20250324200011/docs/user/installation.md
+        deleted:    _archived_today3_20250324200011/docs/user/unified_entry.md
+        deleted:    _archived_today3_20250324200011/docs/user/usage.md
+        deleted:    _archived_today3_20250324200011/docs/web应用启动说明.md
+        deleted:    _archived_today3_20250324200011/docs/优化总结.md
+        deleted:    _archived_today3_20250324200011/docs/使用统一入口.md
+        deleted:    _archived_today3_20250324200011/docs/爬虫日志管理.md
+        deleted:    _archived_today3_20250324200011/docs/脚本整合说明.md
+        deleted:    _archived_today3_20250324200011/docs/项目优化汇总.md
+        deleted:    _archived_today3_20250324200011/docs/项目文档.md
+        deleted:    _archived_today3_20250324200011/docs/项目结构.md
+        deleted:    _archived_today3_20250324200011/main.py
+        deleted:    _archived_today3_20250324200011/project_structure.md
+        deleted:    _archived_today3_20250324200011/requirements.txt
+        deleted:    _archived_today3_20250324200011/requirements/base.txt
+        deleted:    _archived_today3_20250324200011/requirements/dev.txt
+        deleted:    _archived_today3_20250324200011/requirements/prod.txt
+        deleted:    _archived_today3_20250324200011/requirements/test.txt
+        deleted:    _archived_today3_20250324200011/run.py
+        deleted:    _archived_today3_20250324200011/run_crawler.py
+        deleted:    _archived_today3_20250324200011/run_scheduler.py
+        deleted:    _archived_today3_20250324200011/schedule_crawler.py
+        deleted:    _archived_today3_20250324200011/scripts/clean_logs.ps1
+        deleted:    _archived_today3_20250324200011/scripts/reorganize_logs.ps1
+        deleted:    _archived_today3_20250324200011/scripts/run_eastmoney.py
+        deleted:    _archived_today3_20250324200011/scripts/run_eastmoney_simple.py
+        deleted:    _archived_today3_20250324200011/start.bat
+        deleted:    _archived_today3_20250324200011/start.sh
+        deleted:    _archived_today3_20250324200011/start_web.bat
+        deleted:    _archived_today3_20250324200011/start_web.sh
+        deleted:    _archived_today3_20250324200011/static/css/style.css
+        deleted:    _archived_today3_20250324200011/static/js/main.js
+        deleted:    _archived_today3_20250324200011/templates/base.html
+        deleted:    _archived_today3_20250324200011/templates/crawler.html
+        deleted:    _archived_today3_20250324200011/templates/dashboard.html
+        deleted:    _archived_today3_20250324200011/templates/index.html
+        deleted:    _archived_today3_20250324200011/templates/news_detail.html
+        deleted:    _archived_today3_20250324200011/tests/__init__.py
+        deleted:    _archived_today3_20250324200011/tests/crawlers/__init__.py
+        deleted:    _archived_today3_20250324200011/tests/crawlers/test_crawler_base.py
+        deleted:    _archived_today3_20250324200011/tests/crawlers/test_eastmoney.py
+        deleted:    _archived_today3_20250324200011/tests/db/__init__.py
+        deleted:    _archived_today3_20250324200011/tests/db/test_db_structure.py
+        deleted:    _archived_today3_20250324200011/tests/integration/__init__.py
+        deleted:    _archived_today3_20250324200011/tests/integration/test_import_simple.py
+        deleted:    _archived_today3_20250324200011/tests/models/__init__.py
+        deleted:    _archived_today3_20250324200011/tests/tasks/__init__.py
+        deleted:    _archived_today3_20250324200011/tests/utils/__init__.py
+        deleted:    _archived_today3_20250324200011/utils/article_processor.py
+        deleted:    _archived_today3_20250324200011/utils/content_filter.py
+        deleted:    _archived_today3_20250324200011/utils/database.py
+        deleted:    _archived_today3_20250324200011/utils/db_manager.py
+        deleted:    _archived_today3_20250324200011/utils/logger.py
+        deleted:    _archived_today3_20250324200011/utils/parser.py
+        deleted:    _archived_today3_20250324200011/utils/selenium_utils.py
+        deleted:    _archived_today3_20250324200011/utils/sentiment.py
+        deleted:    _archived_today3_20250324200011/utils/text_cleaner.py
+        deleted:    _archived_today3_20250324200011/web/__init__.py
+        deleted:    _archived_today3_20250324200011/web/app.py
+        deleted:    _archived_today3_20250324200011/web/routes.py
+        deleted:    _archived_today3_20250324200011/web/static/css/icons.css
+        deleted:    _archived_today3_20250324200011/web/static/css/pagination.css
+        deleted:    _archived_today3_20250324200011/web/static/css/style.css
+        deleted:    _archived_today3_20250324200011/web/static/css/variables.css
+        deleted:    _archived_today3_20250324200011/web/static/js/main.js
+        deleted:    _archived_today3_20250324200011/web/templates/base.html
+        deleted:    _archived_today3_20250324200011/web/templates/crawler.html
+        deleted:    _archived_today3_20250324200011/web/templates/dashboard.html
+        deleted:    _archived_today3_20250324200011/web/templates/feedback.html
+        deleted:    _archived_today3_20250324200011/web/templates/feedback_status.html
+        deleted:    _archived_today3_20250324200011/web/templates/index.html
+        deleted:    _archived_today3_20250324200011/web/templates/news_detail.html
+        deleted:    _archived_today3_20250324200011/爬虫迁移总结.md
+        deleted:    _archived_today3_20250324200011/项目结构优化建议.md
+        deleted:    analyze_ifeng.py
+        deleted:    api/news_api.py
+        deleted:    api/rss_reader.py
+        deleted:    api/stats_api.py
+        deleted:    api/user_api.py
+        deleted:    app/__init__.py
+        deleted:    app/api/routes.py
+        deleted:    app/app.py
+        deleted:    app/cli.py
+        deleted:    app/config.py
+        deleted:    app/config/crawlers/default.json
+        deleted:    app/config/netease.yaml
+        deleted:    app/config/sina.yaml
+        deleted:    app/crawlers/__init__.py
+        deleted:    app/crawlers/async_crawler.py
+        deleted:    app/crawlers/base.py
+        deleted:    app/crawlers/benchmark.py
+        deleted:    app/crawlers/components/__init__.py
+        deleted:    app/crawlers/components/async_interface.py
+        deleted:    app/crawlers/components/config.py
+        deleted:    app/crawlers/components/middlewares.py
+        deleted:    app/crawlers/components/monitors.py
+        deleted:    app/crawlers/components/parsers.py
+        deleted:    app/crawlers/components/parsers/__init__.py
+        deleted:    app/crawlers/components/parsers/author_parser.py
+        deleted:    app/crawlers/components/parsers/content_parser.py
+        deleted:    app/crawlers/components/parsers/date_parser.py
+        deleted:    app/crawlers/components/parsers/image_parser.py
+        deleted:    app/crawlers/components/parsers/stock_parser.py
+        deleted:    app/crawlers/components/parsers/title_parser.py
+        deleted:    app/crawlers/components/requesters.py
+        deleted:    app/crawlers/components/storers.py
+        deleted:    app/crawlers/core/__init__.py
+        deleted:    app/crawlers/core/base_crawler.py
+        deleted:    app/crawlers/core/data_processor.py
+        deleted:    app/crawlers/core/declarative_crawler.py
+        deleted:    app/crawlers/core/http_client.py
+        deleted:    app/crawlers/data/sentiment_dict/sentiment_dict.json
+        deleted:    app/crawlers/eastmoney.py
+        deleted:    app/crawlers/eastmoney_new.py
+        deleted:    app/crawlers/enhanced_crawler.py
+        deleted:    app/crawlers/factory.py
+        deleted:    app/crawlers/ifeng.py
+        deleted:    app/crawlers/manager.py
+        deleted:    app/crawlers/manager_new.py
+        deleted:    app/crawlers/netease.py
+        deleted:    app/crawlers/sina.py
+        deleted:    app/crawlers/sites/netease.py
+        deleted:    app/crawlers/strategies/__init__.py
+        deleted:    app/crawlers/strategies/base_strategy.py
+        deleted:    app/crawlers/strategies/eastmoney_strategy.py
+        deleted:    app/crawlers/strategies/ifeng_strategy.py
+        deleted:    app/crawlers/strategies/netease_strategy.py
+        deleted:    app/crawlers/strategies/sina_strategy.py
+        deleted:    app/crawlers/templates/crawler_template.py
+        deleted:    app/crawlers/unified_crawler.py
+        deleted:    app/data/performance.db
+        deleted:    app/db/__init__.py
+        deleted:    app/db/sqlite_manager.py
+        deleted:    app/models/__init__.py
+        deleted:    app/models/news.py
+        deleted:    app/models/news.py.20250324194412.bak
+        deleted:    app/models/user_preferences.py
+        deleted:    app/routes/monitor.py
+        deleted:    app/routes/user_routes.py
+        deleted:    app/scheduler.py
+        deleted:    app/tasks/__init__.py
+        deleted:    app/tasks/scheduler.py
+       deleted:    newslook/utils/fix_crawler_init.py
+        deleted:    newslook/utils/fix_crawlers.py
+        deleted:    newslook/utils/fix_tencent.py
+        deleted:    newslook/utils/fix_unknown_sources.py
+        deleted:    newslook/utils/image_detector.py
+        deleted:    newslook/utils/logger.py
+        deleted:    newslook/utils/logger.py.20250324193847.bak
+        deleted:    newslook/utils/logger.py.20250324194411
+        deleted:    newslook/utils/sentiment_analyzer.py
+        deleted:    newslook/utils/text_cleaner.py
+        deleted:    newslook/web/__init__.py
+        deleted:    newslook/web/__init__.py.bak
+        deleted:    newslook/web/fix_indentation.py
+        deleted:    newslook/web/routes.py
+        deleted:    newslook/web/templates/404.html
+        deleted:    newslook/web/templates/500.html
+        deleted:    newslook/web/templates/base.html
+        deleted:    newslook/web/templates/crawler.html
+        deleted:    newslook/web/templates/crawler_status.html
+        deleted:    newslook/web/templates/dashboard.html
+        deleted:    newslook/web/templates/index.html
+        deleted:    newslook/web/templates/news_detail.html
+        deleted:    newslook/web/templates/test.html
+        modified:   requirements.txt
+        deleted:    requirements/base.txt
+        deleted:    requirements/dev.txt
+        deleted:    requirements/prod.txt
+        deleted:    requirements/test.txt
+        modified:   run.py
+        modified:   scripts/async_crawler_demo.py
+        modified:   scripts/db_transaction_demo.py
+        modified:   scripts/fix_filtering.py
+        modified:   scripts/fix_web_filtering.py
+        modified:   scripts/init_db.py
+        modified:   scripts/run_crawler.py
+        modified:   scripts/run_eastmoney.py
+        modified:   scripts/run_enhanced_crawler.py
+        modified:   scripts/run_scheduler.py
+        modified:   scripts/schedule_crawler.py
+        modified:   scripts/show_db_stats.py
+        modified:   scripts/sync_db.py
+        deleted:    simple_ifeng_test.py
+        deleted:    simple_test.py
+        modified:   start.bat
+        modified:   start.sh
+        deleted:    start_web.bat
+        deleted:    start_web.sh
+        deleted:    static/css/article.css
+        deleted:    static/css/style.css
+        deleted:    static/img/image-error.jpg
+        deleted:    static/img/image-error.png
+        deleted:    static/js/main.js
+        deleted:    stock_page.html
+        deleted:    templates/404.html
+        deleted:    templates/500.html
+        deleted:    templates/admin/update_sources.html
+        deleted:    templates/base.html
+        deleted:    templates/crawler.html
+        deleted:    templates/css/article.css
+        deleted:    templates/css/dashboard.css
+        deleted:    templates/dashboard.html
+        deleted:    templates/error.html
+        deleted:    templates/index.html
+        deleted:    templates/news_detail.html
+        deleted:    templates/settings.html
+        deleted:    templates/stats.html
+        modified:   tests/crawlers/test_crawler_base.py
+        modified:   tests/crawlers/test_eastmoney.py
+        modified:   tests/crawlers/test_finance_crawlers.py
+        modified:   tests/db/test_db_structure.py
+        modified:   tests/integration/test_import_simple.py
+        modified:   tests/test_ad_filter.py
+        modified:   tests/test_enhanced_crawler.py
+        modified:   tests/test_flask_app.py
+        modified:   tests/test_ifeng_crawler.py
+        modified:   tests/test_netease_crawler.py
+        modified:   tests/test_news_detail.py
+        modified:   tests/test_sina_crawler.py
+        deleted:    unknown
+        deleted:    utils/article_processor.py
+        deleted:    utils/content_filter.py
+        deleted:    utils/database.py
+        deleted:    utils/db_manager.py
+        deleted:    utils/logger.py
+        deleted:    utils/parser.py
+        deleted:    utils/selenium_utils.py
+        deleted:    utils/sentiment.py
+        deleted:    utils/text_cleaner.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        .specstory/
+        DATABASE_CONSISTENCY_REPORT.md
+        DATABASE_FIX_REPORT.md
+        FINAL_CLEANUP_REPORT.md
+        PROJECT_STRUCTURE.md
+        RESTRUCTURE_PROGRESS.md
+        app.py
+        backend/
+        configs/app.yaml
+        data/
+        docs/ARCHITECTURE_REFACTORING.md
+        docs/CHANGELOG.md
+        docs/CLEANUP_REPORT.md
+        docs/DATABASE_CLEANUP_REPORT.md
+        docs/OPTIMIZATION_PLAN.md
+        docs/WEB应用说明.md
+        docs/WEB界面使用指南.md
+        examples/config_sample.yml
+        examples/optimized_crawler_design.py
+        final_review_gate.py
+        frontend/
+        node_modules/
+        package.json
+        scripts/RESTRUCTURE_REPORT_20250602_173519.md
+        scripts/check_db_data.py
+        scripts/complete_restructure.py
+        scripts/data/
+        scripts/debug_crawler.py
+        scripts/final_consistency_check.py
+        scripts/fix_database_paths.py
+        scripts/migrate_databases.py
+        scripts/organize_databases.py
+        scripts/quick_start.py
+        scripts/restructure_project.py
+        scripts/simple_path_check.py
+        scripts/start-newslook.bat
+        scripts/start-newslook.sh
+        scripts/start.bat
+        scripts/start.sh
+        scripts/start_newslook_full.py
+        scripts/start_newslook_improved.bat
+        scripts/test_comprehensive_crawler.py
+        scripts/test_web_db.py
+        scripts/validate_paths.py
+        scripts/verify_database_consistency.py
+        start_backend.py
+        start_backend_simple.py
+        start_dev.bat
+        start_dev.sh
+        start_fullstack.py
+        test_news_detail_fix.py
+        tests/backend/
+        tests/conftest.py
+        tests/data/
+        tests/frontend/
+        tests/performance/
+        tests/test_sina_crawler_complete.py
+
+no changes added to commit (use "git add" and/or "git commit -a")
+PS D:\Git\Github\NewsLook>
+```
+
+---
+
+现在我看到了当前的Git状态。有很多已删除的废弃文件和新增的文件。让我先添加所有修改和新增的文件，然后提交：
+
+---
+
+```bash
+git add .
+```
+
+```
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isMatchWithOpti
+ons/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isMonday/index.
+d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isMonday/index.
+js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isMonday/index.
+js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isMonday/packag
+e.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameDay/index
+.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameDay/index
+.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameDay/index
+.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameDay/packa
+ge.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameHour/inde
+x.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameHour/inde
+x.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameHour/inde
+x.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameHour/pack
+age.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameISOWeek/i
+ndex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameISOWeek/i
+ndex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameISOWeek/i
+ndex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameISOWeek/p
+ackage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameISOWeekYe
+ar/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameISOWeekYe
+ar/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameISOWeekYe
+ar/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameISOWeekYe
+ar/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameMinute/in
+dex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameMinute/in
+dex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameMinute/in
+dex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameMinute/pa
+ckage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameMonth/ind
+ex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameMonth/ind
+ex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameMonth/ind
+ex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameMonth/pac
+kage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameQuarter/i
+ndex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameQuarter/i
+ndex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameQuarter/i
+ndex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameQuarter/p
+ackage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameSecond/in
+dex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameSecond/in
+dex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameSecond/in
+dex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameSecond/pa
+ckage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameWeek/inde
+x.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameWeek/inde
+x.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameWeek/inde
+x.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameWeek/pack
+age.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameWeekWithO
+ptions/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameWeekWithO
+ptions/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameWeekWithO
+ptions/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameWeekWithO
+ptions/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameYear/inde
+x.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameYear/inde
+x.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameYear/inde
+x.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSameYear/pack
+age.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSaturday/inde
+x.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSaturday/inde
+x.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSaturday/inde
+x.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSaturday/pack
+age.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSunday/index.
+d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSunday/index.
+js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSunday/index.
+js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isSunday/packag
+e.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isThursday/inde
+x.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isThursday/inde
+x.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isThursday/inde
+x.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isThursday/pack
+age.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isTuesday/index
+.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isTuesday/index
+.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isTuesday/index
+.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isTuesday/packa
+ge.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isValid/index.d
+.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isValid/index.j
+s', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isValid/index.j
+s.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isValid/package
+.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isWednesday/ind
+ex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isWednesday/ind
+ex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isWednesday/ind
+ex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isWednesday/pac
+kage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isWeekend/index
+.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isWeekend/index
+.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isWeekend/index
+.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isWeekend/packa
+ge.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isWithinInterva
+l/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isWithinInterva
+l/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isWithinInterva
+l/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/isWithinInterva
+l/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfDecade
+/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfDecade
+/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfDecade
+/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfDecade
+/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfISOWee
+k/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfISOWee
+k/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfISOWee
+k/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfISOWee
+k/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfISOWee
+kYear/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfISOWee
+kYear/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfISOWee
+kYear/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfISOWee
+kYear/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfMonth/
+index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfMonth/
+index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfMonth/
+index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfMonth/
+package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfQuarte
+r/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfQuarte
+r/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfQuarte
+r/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfQuarte
+r/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfQuarte
+rWithOptions/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfQuarte
+rWithOptions/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfQuarte
+rWithOptions/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfQuarte
+rWithOptions/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfWeek/i
+ndex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfWeek/i
+ndex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfWeek/i
+ndex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfWeek/p
+ackage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfWeekWi
+thOptions/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfWeekWi
+thOptions/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfWeekWi
+thOptions/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfWeekWi
+thOptions/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfYear/i
+ndex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfYear/i
+ndex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfYear/i
+ndex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lastDayOfYear/p
+ackage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lightFormat/ind
+ex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lightFormat/ind
+ex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lightFormat/ind
+ex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/lightFormat/pac
+kage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/max/index.d.ts'
+, LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/max/index.js', 
+LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/max/index.js.fl
+ow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/max/package.jso
+n', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/milliseconds/in
+dex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/milliseconds/in
+dex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/milliseconds/in
+dex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/milliseconds/pa
+ckage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/millisecondsToH
+ours/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/millisecondsToH
+ours/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/millisecondsToH
+ours/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/millisecondsToH
+ours/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/millisecondsToM
+inutes/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/millisecondsToM
+inutes/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/millisecondsToM
+inutes/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/millisecondsToM
+inutes/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/millisecondsToS
+econds/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/millisecondsToS
+econds/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/millisecondsToS
+econds/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/millisecondsToS
+econds/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/min/index.d.ts'
+, LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/min/index.js', 
+LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/min/index.js.fl
+ow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/min/package.jso
+n', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/minutesToHours/
+index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/minutesToHours/
+index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/minutesToHours/
+index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/minutesToHours/
+package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/minutesToMillis
+econds/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/minutesToMillis
+econds/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/minutesToMillis
+econds/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/minutesToMillis
+econds/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/minutesToSecond
+s/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/minutesToSecond
+s/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/minutesToSecond
+s/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/minutesToSecond
+s/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/monthsToQuarter
+s/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/monthsToQuarter
+s/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/monthsToQuarter
+s/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/monthsToQuarter
+s/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/monthsToYears/i
+ndex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/monthsToYears/i
+ndex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/monthsToYears/i
+ndex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/monthsToYears/p
+ackage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextDay/index.d
+.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextDay/index.j
+s', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextDay/index.j
+s.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextDay/package
+.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextFriday/inde
+x.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextFriday/inde
+x.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextFriday/inde
+x.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextFriday/pack
+age.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextMonday/inde
+x.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextMonday/inde
+x.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextMonday/inde
+x.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextMonday/pack
+age.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextSaturday/in
+dex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextSaturday/in
+dex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextSaturday/in
+dex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextSaturday/pa
+ckage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextSunday/inde
+x.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextSunday/inde
+x.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextSunday/inde
+x.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextSunday/pack
+age.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextThursday/in
+dex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextThursday/in
+dex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextThursday/in
+dex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextThursday/pa
+ckage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextTuesday/ind
+ex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextTuesday/ind
+ex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextTuesday/ind
+ex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextTuesday/pac
+kage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextWednesday/i
+ndex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextWednesday/i
+ndex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextWednesday/i
+ndex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/nextWednesday/p
+ackage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/package.json', 
+LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parse/index.d.t
+s', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parse/index.js'
+, LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parse/index.js.
+flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parse/package.j
+son', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseISO/index.
+d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseISO/index.
+js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseISO/index.
+js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseISO/packag
+e.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseISOWithOpt
+ions/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseISOWithOpt
+ions/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseISOWithOpt
+ions/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseISOWithOpt
+ions/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseJSON/index
+.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseJSON/index
+.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseJSON/index
+.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseJSON/packa
+ge.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseWithOption
+s/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseWithOption
+s/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseWithOption
+s/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/parseWithOption
+s/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousDay/ind
+ex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousDay/ind
+ex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousDay/ind
+ex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousDay/pac
+kage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousFriday/
+index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousFriday/
+index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousFriday/
+index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousFriday/
+package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousMonday/
+index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousMonday/
+index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousMonday/
+index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousMonday/
+package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousSaturda
+y/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousSaturda
+y/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousSaturda
+y/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousSaturda
+y/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousSunday/
+index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousSunday/
+index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousSunday/
+index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousSunday/
+package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousThursda
+y/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousThursda
+y/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousThursda
+y/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousThursda
+y/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousTuesday
+/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousTuesday
+/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousTuesday
+/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousTuesday
+/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousWednesd
+ay/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousWednesd
+ay/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousWednesd
+ay/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/previousWednesd
+ay/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/quartersToMonth
+s/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/quartersToMonth
+s/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/quartersToMonth
+s/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/quartersToMonth
+s/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/quartersToYears
+/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/quartersToYears
+/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/quartersToYears
+/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/quartersToYears
+/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/roundToNearestM
+inutes/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/roundToNearestM
+inutes/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/roundToNearestM
+inutes/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/roundToNearestM
+inutes/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/roundToNearestM
+inutesWithOptions/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/roundToNearestM
+inutesWithOptions/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/roundToNearestM
+inutesWithOptions/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/roundToNearestM
+inutesWithOptions/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/secondsToHours/
+index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/secondsToHours/
+index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/secondsToHours/
+index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/secondsToHours/
+package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/secondsToMillis
+econds/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/secondsToMillis
+econds/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/secondsToMillis
+econds/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/secondsToMillis
+econds/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/secondsToMinute
+s/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/secondsToMinute
+s/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/secondsToMinute
+s/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/secondsToMinute
+s/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/set/index.d.ts'
+, LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/set/index.js', 
+LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/set/index.js.fl
+ow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/set/package.jso
+n', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDate/index.d
+.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDate/index.j
+s', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDate/index.j
+s.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDate/package
+.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDay/index.d.
+ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDay/index.js
+', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDay/index.js
+.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDay/package.
+json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDayOfYear/in
+dex.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDayOfYear/in
+dex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDayOfYear/in
+dex.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDayOfYear/pa
+ckage.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDayWithOptio
+ns/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDayWithOptio
+ns/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDayWithOptio
+ns/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setDayWithOptio
+ns/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setHours/index.
+d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setHours/index.
+js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setHours/index.
+js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setHours/packag
+e.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setISODay/index
+.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setISODay/index
+.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setISODay/index
+.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setISODay/packa
+ge.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setISOWeek/inde
+x.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setISOWeek/inde
+x.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setISOWeek/inde
+x.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setISOWeek/pack
+age.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setISOWeekYear/
+index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setISOWeekYear/
+index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setISOWeekYear/
+index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setISOWeekYear/
+package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setMilliseconds
+/index.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setMilliseconds
+/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setMilliseconds
+/index.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setMilliseconds
+/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setMinutes/inde
+x.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setMinutes/inde
+x.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setMinutes/inde
+x.js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setMinutes/pack
+age.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setMonth/index.
+d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setMonth/index.
+js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setMonth/index.
+js.flow', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setMonth/packag
+e.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setQuarter/inde
+x.d.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setQuarter/inde
+x.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'node_modules/concurrently/node_modules/date-fns/esm/fp/setQuarter/inde
+```
+
+---
+
+
+
+---
+
