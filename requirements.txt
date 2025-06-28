@@ -19,6 +19,11 @@ aiofiles>=22.1.0
 
 # 数据库
 SQLAlchemy>=1.4.41
+# PostgreSQL支持
+asyncpg>=0.28.0
+psycopg2-binary>=2.9.7
+# ClickHouse支持
+clickhouse-connect>=0.6.0
 
 # 浏览器自动化
 selenium>=4.7.2
