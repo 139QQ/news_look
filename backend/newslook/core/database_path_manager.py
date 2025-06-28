@@ -24,41 +24,42 @@ class DatabasePathManager:
         self._setup_standard_paths()
     
     def _setup_standard_paths(self):
-        """设置标准数据库路径"""
+        """设置标准数据库路径 - 强制路径统一化"""
         # 获取项目根目录
         self.project_root = Path(__file__).parent.parent.parent.parent
         
-        # 标准数据库目录
+        # 🔧 修复：强制统一路径，移除sources分离
         self.db_dir = self.project_root / 'data' / 'db'
-        self.backup_dir = self.db_dir / 'backups'
-        self.sources_dir = self.db_dir / 'sources'
+        self.backup_dir = self.db_dir / 'backups' 
+        # 注意：不再创建独立的sources目录，统一存储
         
         # 确保目录存在
         self.db_dir.mkdir(parents=True, exist_ok=True)
         self.backup_dir.mkdir(exist_ok=True)
-        self.sources_dir.mkdir(exist_ok=True)
         
-        # 主数据库路径
+        # 主数据库路径 - 强制使用此路径
         self.main_db_path = self.db_dir / 'finance_news.db'
         
-        logger.info(f"数据库目录设置: {self.db_dir}")
+        logger.info(f"🔧 数据库路径统一化完成: {self.db_dir}")
+        logger.info(f"🔧 主数据库强制路径: {self.main_db_path}")
     
     def get_main_db_path(self) -> str:
-        """获取主数据库路径"""
+        """获取主数据库路径 - 统一入口"""
         return str(self.main_db_path)
     
     def get_source_db_path(self, source_name: str) -> str:
         """
-        获取特定数据源的数据库路径
+        获取特定数据源的数据库路径 - 修复：统一存储在db目录
         
         Args:
             source_name: 数据源名称
             
         Returns:
-            str: 数据库文件路径
+            str: 数据库文件路径（统一在data/db目录下）
         """
         # 标准化数据源名称
         normalized_name = self._normalize_source_name(source_name)
+        # 🔧 修复：不再使用sources子目录，统一存储
         return str(self.db_dir / f"{normalized_name}.db")
     
     def _normalize_source_name(self, source_name: str) -> str:
@@ -76,16 +77,17 @@ class DatabasePathManager:
         return name_map.get(source_name, source_name.lower())
     
     def discover_all_db_files(self) -> List[str]:
-        """发现所有数据库文件"""
+        """发现所有数据库文件 - 修复：只在统一目录中查找"""
         db_files = []
         
-        # 在标准数据库目录中查找
+        # 🔧 修复：只在统一数据库目录中查找
         for db_file in self.db_dir.glob('*.db'):
             db_files.append(str(db_file))
         
-        # 检查旧位置的数据库文件
+        # 检查旧位置的数据库文件并迁移
         old_locations = [
             self.project_root / 'data',
+            self.project_root / 'data' / 'sources',  # 旧的sources目录
             self.project_root / 'data' / 'databases'
         ]
         
@@ -95,34 +97,42 @@ class DatabasePathManager:
                     abs_path = str(db_file)
                     if abs_path not in db_files:
                         db_files.append(abs_path)
-                        logger.warning(f"发现旧位置的数据库文件: {abs_path}")
+                        logger.warning(f"🔧 发现旧位置数据库文件: {abs_path}")
         
         return db_files
     
     def migrate_old_databases(self):
-        """迁移旧位置的数据库文件到标准位置"""
+        """迁移旧位置的数据库文件到统一位置"""
         migrated_files = []
         
-        # 检查data根目录下的数据库文件
-        data_root = self.project_root / 'data'
-        if data_root.exists():
-            for db_file in data_root.glob('*.db'):
-                if db_file.parent == data_root:  # 只处理直接在data目录下的文件
-                    target_path = self.db_dir / db_file.name
-                    
-                    try:
-                        # 如果目标文件不存在或者源文件更新，则复制
-                        if not target_path.exists() or db_file.stat().st_mtime > target_path.stat().st_mtime:
-                            import shutil
-                            shutil.copy2(str(db_file), str(target_path))
-                            migrated_files.append(f"{db_file} -> {target_path}")
-                            logger.info(f"迁移数据库文件: {db_file.name}")
+        # 🔧 修复：迁移data根目录和sources目录下的数据库文件
+        migration_sources = [
+            self.project_root / 'data',
+            self.project_root / 'data' / 'sources'  # 旧的分离目录
+        ]
+        
+        for source_dir in migration_sources:
+            if source_dir.exists():
+                for db_file in source_dir.glob('*.db'):
+                    # 只处理直接在目录下的文件或sources目录下的文件
+                    if (db_file.parent == source_dir and 
+                        db_file.parent != self.db_dir):  # 避免重复迁移
                         
-                    except Exception as e:
-                        logger.error(f"迁移数据库文件失败 {db_file}: {e}")
+                        target_path = self.db_dir / db_file.name
+                        
+                        try:
+                            # 如果目标文件不存在或者源文件更新，则复制
+                            if not target_path.exists() or db_file.stat().st_mtime > target_path.stat().st_mtime:
+                                import shutil
+                                shutil.copy2(str(db_file), str(target_path))
+                                migrated_files.append(f"{db_file} -> {target_path}")
+                                logger.info(f"🔧 迁移数据库文件: {db_file.name}")
+                            
+                        except Exception as e:
+                            logger.error(f"迁移数据库文件失败 {db_file}: {e}")
         
         if migrated_files:
-            logger.info(f"成功迁移 {len(migrated_files)} 个数据库文件到标准位置")
+            logger.info(f"🔧 成功迁移 {len(migrated_files)} 个数据库文件到统一位置")
         
         return migrated_files
     

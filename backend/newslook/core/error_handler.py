@@ -12,8 +12,22 @@ from datetime import datetime
 from flask import Flask, request, jsonify, g
 import logging
 
-from .exceptions import NewsLookException, create_exception
-from .logger_manager import get_logger
+try:
+    from .exceptions import NewsLookException, create_exception
+except ImportError:
+    # 如果exceptions模块不存在，创建简单的异常类
+    class NewsLookException(Exception):
+        def __init__(self, message="", error_code="UNKNOWN", context=None):
+            super().__init__(message)
+            self.message = message
+            self.error_code = error_code
+            self.context = context or {}
+            self.timestamp = datetime.now()
+
+try:
+    from .logger_manager import get_logger
+except ImportError:
+    from ..utils.logger import get_logger
 
 
 class ErrorHandler:
@@ -187,7 +201,7 @@ class ErrorHandler:
             'request_id': request_id,
             'error_type': error_type,
             'exception_class': error.__class__.__name__,
-            'message': str(error),
+            'error_message': str(error),  # 避免与日志系统的'message'字段冲突
             'endpoint': request.endpoint if request else None,
             'method': request.method if request else None,
             'url': request.url if request else None,
@@ -203,7 +217,7 @@ class ErrorHandler:
         
         # 记录异常日志
         self.logger.error(
-            f"Exception occurred: {error.__class__.__name__}",
+            f"Exception occurred: {error.__class__.__name__} - {str(error)}",
             extra=log_data,
             exc_info=True
         )

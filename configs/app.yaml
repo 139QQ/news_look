@@ -17,6 +17,7 @@ database:
     enabled: true
     interval_hours: 24
     retention_days: 30
+    auto_cleanup: true  # 自动清理旧备份
   # 各数据源的数据库文件配置
   sources:
     eastmoney: "eastmoney.db"
@@ -29,7 +30,24 @@ database:
     use_unified_path: true  # 使用统一路径管理器
     auto_discover: true     # 自动发现数据库文件
     migrate_old_files: true # 自动迁移旧文件
-   
+    cleanup_strategy:
+      remove_test_databases: true
+      remove_empty_databases: true
+      merge_duplicate_sources: true
+  # 数据库优化配置
+  optimization:
+    enable_wal_mode: true
+    enable_foreign_keys: true
+    cache_size: 10000
+    synchronous: "NORMAL"
+    journal_mode: "WAL"
+    auto_vacuum: "INCREMENTAL"
+  # 统计和监控
+  monitoring:
+    track_query_performance: true
+    log_slow_queries: true
+    slow_query_threshold_ms: 1000
+    generate_usage_statistics: true
 
 # 爬虫配置
 crawler:
@@ -56,7 +74,11 @@ web:
   secret_key: "newslook-dev-secret-key-change-in-production"
   cors:
     enabled: true
-    origins: ["http://localhost:3000", "http://127.0.0.1:3000"]
+    origins: 
+      - "http://localhost:3000"
+      - "http://127.0.0.1:3000"
+      - "http://localhost:3001"
+      - "http://127.0.0.1:3001"
   rate_limiting:
     enabled: true
     requests_per_minute: 60

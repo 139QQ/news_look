@@ -30,6 +30,13 @@ import glob
 from flask import Flask
 from datetime import datetime
 from backend.newslook.config import get_settings
+
+# 尝试导入CORS支持
+try:
+    from flask_cors import CORS
+    cors_available = True
+except ImportError:
+    cors_available = False
 try:
     from backend.newslook.crawlers.manager import CrawlerManager
 except ImportError:
@@ -55,6 +62,17 @@ def create_app(config=None):
     
     # 创建Flask应用
     app = Flask(__name__)
+    
+    # 启用CORS（如果可用）
+    if cors_available:
+        CORS(app, resources={
+            r"/api/*": {
+                "origins": ["http://localhost:3000", "http://127.0.0.1:3000"],
+                "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+                "allow_headers": ["Content-Type", "Authorization"]
+            }
+        })
+        logger.info("CORS支持已启用")
     
     # 配置Jinja2模板引擎
     app.jinja_options = {
@@ -180,20 +198,43 @@ def register_routes(app):
     """注册路由"""
     from backend.newslook.web.routes import register_routes as _register_routes
     _register_routes(app)
+    
+    # 注册增强路由（新的API）
+    try:
+        from backend.newslook.web.enhanced_routes import register_enhanced_routes
+        register_enhanced_routes(app)
+        logger.info("增强路由注册完成")
+    except ImportError as e:
+        logger.warning(f"增强路由模块导入失败: {e}")
+    except Exception as e:
+        logger.error(f"增强路由注册失败: {e}")
+    
     logger.info(f"Web路由注册完成")
 
 def register_error_handlers(app):
     """注册错误处理"""
-    from flask import render_template
-    
-    @app.errorhandler(404)
-    def page_not_found(e):
-        return render_template('404.html'), 404
-    
-    @app.errorhandler(500)
-    def server_error(e):
-        logger.error(f"服务器错误: {str(e)}")
-        return render_template('500.html'), 500
+    # 使用统一的错误处理器而不是重复定义
+    try:
+        from backend.newslook.core.error_handler import init_error_handler
+        error_handler = init_error_handler(app)
+        logger.info("统一错误处理器已注册")
+        return error_handler
+    except ImportError as e:
+        logger.warning(f"统一错误处理器初始化失败，使用简单错误处理: {e}")
+        # 降级为简单错误处理
+        from flask import render_template
+        
+        @app.errorhandler(404)
+        def page_not_found(e):
+            logger.warning(f"404错误: {str(e)}")
+            return render_template('404.html'), 404
+        
+        @app.errorhandler(500)
+        def server_error(e):
+            logger.error(f"服务器错误: {str(e)}")
+            return render_template('500.html'), 500
+        
+        return None
 
 def register_context_processors(app):
     """注册上下文处理器"""
