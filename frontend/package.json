@@ -16,7 +16,11 @@
     "build:prod": "node scripts/build.js",
     "serve": "npm run preview -- --port 3001",
     "clean": "rimraf dist node_modules/.vite",
-    "type-check": "vue-tsc --noEmit"
+    "type-check": "vue-tsc --noEmit",
+    "update-sass": "node scripts/update-sass.js",
+    "cors-check": "node scripts/cors-diagnostic.cjs",
+    "cors-fix": "node scripts/cors-fix.js",
+    "test-system-metrics": "node scripts/test-system-metrics.js"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
@@ -35,7 +39,8 @@
     "eslint-plugin-vue": "^9.18.1",
     "prettier": "^3.1.0",
     "rimraf": "^5.0.5",
-    "sass": "^1.69.5",
+    "sass": "^1.77.0",
+    "sass-embedded": "^1.77.0",
     "terser": "^5.42.0",
     "typescript": "^5.3.3",
     "unplugin-auto-import": "^0.17.2",
