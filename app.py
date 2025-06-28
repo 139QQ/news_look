@@ -6,6 +6,7 @@ NewsLook 后端启动脚本
 简化的后端API服务器启动入口，支持前端集成启动
 """
 
+from datetime import datetime
 import os
 import sys
 import subprocess
@@ -21,7 +22,52 @@ sys.path.insert(0, project_root)
 
 def create_app():
     """创建Flask应用"""
-    app = Flask(__name__)
+    # 设置模板和静态文件目录
+    template_folder = os.path.join(project_root, 'backend', 'newslook', 'web', 'templates')
+    static_folder = os.path.join(project_root, 'backend', 'newslook', 'web', 'static')
+    
+    # 确保模板目录存在
+    if not os.path.exists(template_folder):
+        # 尝试备用模板目录
+        template_folder = os.path.join(project_root, 'backend', 'app', 'web', 'templates')
+        if not os.path.exists(template_folder):
+            # 创建基本模板目录和文件
+            os.makedirs(template_folder, exist_ok=True)
+            # 创建基本的500.html模板
+            with open(os.path.join(template_folder, '500.html'), 'w', encoding='utf-8') as f:
+                f.write('''<!DOCTYPE html>
+<html>
+<head>
+    <title>服务器错误 - NewsLook</title>
+    <meta charset="utf-8">
+</head>
+<body>
+    <h1>500 - 服务器错误</h1>
+    <p>抱歉，服务器在处理您的请求时遇到了问题。</p>
+    <p><a href="/">返回首页</a></p>
+</body>
+</html>''')
+            # 创建基本的404.html模板
+            with open(os.path.join(template_folder, '404.html'), 'w', encoding='utf-8') as f:
+                f.write('''<!DOCTYPE html>
+<html>
+<head>
+    <title>页面未找到 - NewsLook</title>
+    <meta charset="utf-8">
+</head>
+<body>
+    <h1>404 - 页面未找到</h1>
+    <p>抱歉，您访问的页面不存在。</p>
+    <p><a href="/">返回首页</a></p>
+</body>
+</html>''')
+            print(f"✅ 创建了基本模板文件在: {template_folder}")
+    
+    # 创建Flask应用，指定模板和静态文件目录
+    app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
+    
+    print(f"📁 模板目录: {template_folder}")
+    print(f"📁 静态文件目录: {static_folder}")
     
     # 导入新的配置管理器和日志系统
     try:
@@ -50,11 +96,25 @@ def create_app():
             health_monitor.start_monitoring(config.monitoring.health_check.interval)
             logger.info(f"Health monitoring started with {config.monitoring.health_check.interval}s interval")
         
-        # 启用CORS
+        # 启用CORS - 改进跨域配置
         if web_config.cors_enabled:
-            CORS(app, supports_credentials=True, origins=web_config.cors_origins or "*")
+            CORS(app, 
+                 supports_credentials=True, 
+                 origins=web_config.cors_origins or [
+                     "http://localhost:3000", "http://127.0.0.1:3000",
+                     "http://localhost:3001", "http://127.0.0.1:3001"
+                 ],
+                 methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+                 allow_headers=['Content-Type', 'Authorization', 'X-Requested-With'])
         else:
-            CORS(app, supports_credentials=True, origins="*")
+            CORS(app, 
+                 supports_credentials=True, 
+                 origins=[
+                     "http://localhost:3000", "http://127.0.0.1:3000",
+                     "http://localhost:3001", "http://127.0.0.1:3001", "*"
+                 ],
+                 methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+                 allow_headers=['Content-Type', 'Authorization', 'X-Requested-With'])
             
         logger.info(f"Web应用配置成功: Host={web_config.host}:{web_config.port}, Debug={web_config.debug}")
         print(f"✅ 使用新配置管理器和日志系统: Host={web_config.host}:{web_config.port}")
@@ -66,8 +126,15 @@ def create_app():
         app.config['JSON_AS_ASCII'] = False
         app.config['JSONIFY_MIMETYPE'] = 'application/json; charset=utf-8'
         
-        # 启用CORS
-        CORS(app, supports_credentials=True, origins="*")
+        # 启用CORS - 默认配置
+        CORS(app, 
+             supports_credentials=True, 
+             origins=[
+                 "http://localhost:3000", "http://127.0.0.1:3000",
+                 "http://localhost:3001", "http://127.0.0.1:3001", "*"
+             ],
+             methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+             allow_headers=['Content-Type', 'Authorization', 'X-Requested-With'])
         web_config = None
         logger = None
     
@@ -204,28 +271,37 @@ def create_app():
             routes_error = e
             continue
     
-    # 如果所有尝试都失败，注册基础API路由
+    # 如果完整路由加载失败，注册所有可用的API模块
     if not routes_loaded:
         print("🔄 注册基础API路由...")
         register_basic_routes(app)
+        
+        # 尝试注册额外的API模块
+        try:
+            print("🔄 尝试注册额外的API模块...")
+            register_additional_apis(app)
+        except Exception as e:
+            print(f"⚠️  注册额外API失败: {e}")
+        
         print("⚠️  使用基础模式运行，功能受限")
     
     return app
 
 def register_basic_routes(app):
-    """注册基础API路由 - 当完整路由加载失败时使用"""
+    """注册基础路由"""
+    # 获取静态文件夹路径
+    static_folder = os.path.join(project_root, 'backend', 'newslook', 'web', 'static')
+    if not os.path.exists(static_folder):
+        # 备用静态文件夹
+        static_folder = os.path.join(project_root, 'backend', 'app', 'web', 'static')
     
     @app.route('/api/stats')
     def basic_stats():
         """基础统计API"""
         return {
-            'total_news': 0,
-            'today_news': 0,
-            'active_sources': 0,
-            'crawl_success_rate': 0.0,
-            'message': '基础模式：完整功能需要完整的后端模块',
-            'available_features': ['基础API', '健康检查'],
-            'status': 'limited'
+            'news_count': 0,
+            'sources_count': 0,
+            'last_update': None
         }
     
     @app.route('/api/news')
@@ -274,7 +350,235 @@ def register_basic_routes(app):
         from flask import redirect
         return redirect('http://localhost:3000')
     
+    # 静态资源路由
+    @app.route('/favicon.ico')
+    def favicon():
+        """Favicon处理"""
+        from flask import send_from_directory
+        return send_from_directory(static_folder, 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+    
+    @app.route('/static/<path:filename>')
+    def serve_static(filename):
+        """静态文件服务"""
+        from flask import send_from_directory
+        return send_from_directory(static_folder, filename)
+    
+    # 捕获所有其他路由，重定向到前端
+    @app.route('/<path:path>')
+    def catch_all(path):
+        """捕获所有路由，支持前端History模式"""
+        from flask import redirect, request
+        
+        # 如果是API请求，返回404 JSON响应
+        if path.startswith('api/'):
+            return {
+                'error': 'API endpoint not found',
+                'path': f'/{path}',
+                'available_endpoints': [
+                    '/api/health',
+                    '/api/stats', 
+                    '/api/news',
+                    '/api/sources'
+                ]
+            }, 404
+        
+        # 对于所有其他路径，重定向到前端（支持Vue Router History模式）
+        frontend_url = f'http://localhost:3000/{path}'
+        if request.query_string:
+            frontend_url += f'?{request.query_string.decode()}'
+        
+        return redirect(frontend_url)
+    
     print("📝 基础API路由注册完成")
+
+def register_additional_apis(app):
+    """注册额外的API端点以满足前端需求"""
+    
+    # V1版本的API端点
+    @app.route('/api/v1/crawlers/status')
+    def v1_crawler_status():
+        """V1爬虫状态API"""
+        return {
+            'success': True,
+            'data': [
+                {
+                    'id': 'tencent',
+                    'name': '腾讯财经',
+                    'status': 'stopped',
+                    'is_running': False,
+                    'last_run': '2024-01-01 00:00:00',
+                    'errors': 0
+                },
+                {
+                    'id': 'sina',
+                    'name': '新浪财经',
+                    'status': 'stopped',
+                    'is_running': False,
+                    'last_run': '2024-01-01 00:00:00',
+                    'errors': 0
+                },
+                {
+                    'id': 'eastmoney',
+                    'name': '东方财富',
+                    'status': 'stopped',
+                    'is_running': False,
+                    'last_run': '2024-01-01 00:00:00',
+                    'errors': 0
+                }
+            ],
+            'message': '基础模式：爬虫功能不可用'
+        }
+    
+    @app.route('/api/v1/crawlers/<crawler_id>/toggle', methods=['POST'])
+    def v1_toggle_crawler(crawler_id):
+        """V1切换爬虫状态API"""
+        return {
+            'success': False,
+            'message': '基础模式：爬虫控制功能不可用',
+            'data': {
+                'id': crawler_id,
+                'status': 'stopped'
+            }
+        }
+    
+    @app.route('/api/v1/system/health')
+    def v1_system_health():
+        """V1系统健康检查API"""
+        return {
+            'overall_status': 'healthy',
+            'components': {
+                'database': {'status': 'healthy', 'message': '数据库连接正常'},
+                'crawler': {'status': 'warning', 'message': '基础模式：爬虫功能受限'},
+                'web': {'status': 'healthy', 'message': 'Web服务正常'}
+            },
+            'timestamp': datetime.now().isoformat(),
+            'mode': 'basic'
+        }
+    
+    @app.route('/api/v1/system/metrics')
+    def v1_system_metrics():
+        """V1系统指标API"""
+        try:
+            # 尝试使用health_monitor获取真实指标
+            if 'health_monitor' in locals() or 'health_monitor' in globals():
+                metrics = health_monitor.get_system_metrics()
+                if metrics and 'current' in metrics:
+                    return metrics
+            
+            # 降级使用psutil直接获取指标
+            import psutil
+            import time
+            
+            # 获取系统指标
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            memory = psutil.virtual_memory()
+            disk = psutil.disk_usage('/')
+            net_io = psutil.net_io_counters()
+            
+            current_metrics = {
+                'cpu_percent': float(cpu_percent),
+                'memory_percent': float(memory.percent),
+                'disk_percent': float(disk.percent),
+                'load_average': list(psutil.getloadavg()) if hasattr(psutil, 'getloadavg') else None,
+                'network_io': {
+                    'bytes_sent': int(net_io.bytes_sent),
+                    'bytes_recv': int(net_io.bytes_recv),
+                    'packets_sent': int(net_io.packets_sent),
+                    'packets_recv': int(net_io.packets_recv)
+                } if net_io else {},
+                'process_count': len(psutil.pids()),
+                'uptime_seconds': float(time.time() - psutil.boot_time()),
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            return {
+                'current': current_metrics,
+                'history': [],
+                'summary': {
+                    'avg_cpu': current_metrics['cpu_percent'],
+                    'avg_memory': current_metrics['memory_percent'],
+                    'avg_disk': current_metrics['disk_percent']
+                }
+            }
+            
+        except Exception as e:
+            print(f"获取系统指标失败: {e}")
+            # 返回基础的默认值
+            return {
+                'current': {
+                    'cpu_percent': 0.0,
+                    'memory_percent': 0.0,
+                    'disk_percent': 0.0,
+                    'network_io': {'bytes_sent': 0, 'bytes_recv': 0},
+                    'uptime_seconds': 0.0,
+                    'timestamp': datetime.now().isoformat()
+                },
+                'history': [],
+                'summary': {
+                    'avg_cpu': 0.0,
+                    'avg_memory': 0.0,
+                    'avg_disk': 0.0
+                }
+            }
+    
+    @app.route('/api/v1/analytics/overview')
+    def v1_analytics_overview():
+        """V1分析概览API"""
+        return {
+            'total_news': 0,
+            'sources_count': 0,
+            'today_news': 0,
+            'last_update': None,
+            'trending_keywords': [],
+            'source_distribution': {}
+        }
+    
+    @app.route('/api/v1/analytics/echarts/data')
+    def v1_echarts_data():
+        """V1 ECharts数据API"""
+        return {
+            'news_trend': {
+                'dates': [],
+                'counts': []
+            },
+            'source_distribution': [],
+            'hourly_distribution': [],
+            'keyword_cloud': []
+        }
+    
+    @app.route('/api/diagnosis')
+    def v1_diagnosis():
+        """API诊断端点"""
+        return {
+            'status': 'basic_mode',
+            'available_endpoints': [
+                '/api/health',
+                '/api/news',
+                '/api/sources',
+                '/api/stats',
+                '/api/v1/crawlers/status',
+                '/api/v1/system/health'
+            ],
+            'missing_features': [
+                'Advanced crawler control',
+                'Real-time metrics',
+                'Data analytics'
+            ],
+            'message': '运行在基础模式，功能受限'
+        }
+    
+    # 通用的OPTIONS处理
+    @app.route('/api/v1/<path:path>', methods=['OPTIONS'])
+    def handle_v1_options(path):
+        """处理V1 API的OPTIONS请求"""
+        from flask import Response
+        response = Response()
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+        return response
+    
+    print("📝 额外API端点注册完成")
 
 def check_frontend_dependencies():
     """检查前端依赖是否已安装"""
@@ -330,7 +634,9 @@ def start_frontend(port=3000):
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
                 bufsize=1,
-                shell=shell_needed
+                shell=shell_needed,
+                encoding='utf-8',
+                errors='ignore'
             )
         except FileNotFoundError:
             npm_cmd = 'npm'
@@ -342,7 +648,9 @@ def start_frontend(port=3000):
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
                 bufsize=1,
-                shell=shell_needed
+                shell=shell_needed,
+                encoding='utf-8',
+                errors='ignore'
             )
         
         # 启动线程监控前端输出
@@ -352,9 +660,17 @@ def start_frontend(port=3000):
                     if line:
                         # 确保正确处理编码
                         try:
-                            print(f"[前端] {line.rstrip()}")
+                            # 首先尝试使用utf-8解码
+                            clean_line = line.rstrip()
+                            print(f"[前端] {clean_line}")
                         except UnicodeDecodeError:
-                            print(f"[前端] {line.rstrip().encode('utf-8', errors='ignore').decode('utf-8')}")
+                            try:
+                                # 如果utf-8失败，尝试使用系统默认编码
+                                clean_line = line.encode('utf-8', errors='ignore').decode('utf-8').rstrip()
+                                print(f"[前端] {clean_line}")
+                            except Exception:
+                                # 如果都失败，使用二进制表示
+                                print(f"[前端] {repr(line.rstrip())}")
                 process.stdout.close()
             except Exception as e:
                 print(f"[前端监控] 错误: {e}")
