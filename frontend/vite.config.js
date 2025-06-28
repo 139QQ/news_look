@@ -42,9 +42,8 @@ export default defineConfig({
     cors: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:5000',
-        changeOrigin: true,
-        secure: false
+        target: 'http://localhost:5000',
+        changeOrigin: true
       }
     }
   },
@@ -54,7 +53,8 @@ export default defineConfig({
   },
   build: {
     target: 'es2015',
-    outDir: 'dist',
+    outDir: '../backend/static',
+    emptyOutDir: true,
     assetsDir: 'assets',
     minify: 'terser',
     sourcemap: false,
@@ -138,8 +138,10 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        api: 'modern-compiler',
-        additionalData: `@use "@/styles/variables.scss" as *;`
+        // 静默弃用警告
+        silenceDeprecations: ['legacy-js-api'],
+        // 移除全局导入，避免与@use规则冲突
+        additionalData: ''
       }
     }
   },

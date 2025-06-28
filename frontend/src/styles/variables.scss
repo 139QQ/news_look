@@ -1,30 +1,51 @@
-// 颜色变量
-$primary-color: #409eff;
-$success-color: #67c23a;
-$warning-color: #e6a23c;
-$danger-color: #f56c6c;
+// 🎨 UI/UX 设计规范 - 全局样式变量
+// ===================================
+
+// 🌈 主题色系 - 符合设计规范
+$primary-color: #409EFF;
+$success-color: #67C23A;
+$warning-color: #E6A23C;
+$danger-color: #F56C6C;
 $info-color: #909399;
 
-// 文本颜色
+// 🎯 扩展色彩体系 - 手动计算避免Sass兼容性问题
+$primary-light: #66b3ff;
+$primary-dark: #337ecc;
+$success-light: #85ce61;
+$warning-light: #ebb563;
+$danger-light: #f78989;
+$info-light: #a6a9ad;
+
+// 📝 文本颜色层级
 $text-color: #303133;
 $text-color-primary: #303133;
 $text-color-regular: #606266;
 $text-color-secondary: #909399;
 $text-color-placeholder: #c0c4cc;
 
-// 背景颜色
+// 🎨 背景颜色系统
 $bg-color: #ffffff;
 $bg-color-page: #f2f3f5;
 $bg-color-base: #f5f7fa;
+$bg-color-card: #ffffff;
+$bg-color-hover: #F2F2F2;
+$bg-color-sidebar: #001529;
+$bg-color-empty: #FAFAFA;
 
-// 边框颜色
+// 🔲 边框颜色
 $border-color: #dcdfe6;
 $border-color-light: #e4e7ed;
 $border-color-lighter: #ebeef5;
 $border-color-extra-light: #f2f6fc;
+$border-color-dashed: #d9d9d9;
 
-// 字体
+// 📖 字体系统 - 符合设计规范
 $font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+
+// 字体大小层级
+$font-size-title: 16px;        // 标题
+$font-size-content: 14px;      // 内容
+$font-size-auxiliary: 12px;    // 辅助文本
 $font-size-extra-large: 20px;
 $font-size-large: 18px;
 $font-size-medium: 16px;
@@ -32,41 +53,85 @@ $font-size-base: 14px;
 $font-size-small: 13px;
 $font-size-extra-small: 12px;
 
-// 间距
-$padding-large: 24px;
-$padding-medium: 20px;
-$padding-base: 16px;
-$padding-small: 12px;
-$padding-extra-small: 8px;
+// 字体权重
+$font-weight-title: bold;
+$font-weight-normal: normal;
+$font-weight-light: 300;
 
-$margin-large: 24px;
-$margin-medium: 20px;
-$margin-base: 16px;
-$margin-small: 12px;
-$margin-extra-small: 8px;
+// 📏 间距系统 - 8px基准倍数
+$spacing-xs: 4px;    // 0.5倍
+$spacing-sm: 8px;    // 1倍 - 基准
+$spacing-md: 16px;   // 2倍
+$spacing-lg: 24px;   // 3倍
+$spacing-xl: 32px;   // 4倍
+$spacing-xxl: 40px;  // 5倍
 
-// 圆角
+// 兼容性padding/margin
+$padding-large: $spacing-lg;
+$padding-medium: $spacing-md;
+$padding-base: $spacing-md;
+$padding-small: $spacing-sm;
+$padding-extra-small: $spacing-xs;
+
+$margin-large: $spacing-lg;
+$margin-medium: $spacing-md;
+$margin-base: $spacing-md;
+$margin-small: $spacing-sm;
+$margin-extra-small: $spacing-xs;
+
+// 🔘 圆角系统
 $border-radius-large: 8px;
 $border-radius-medium: 6px;
 $border-radius-base: 4px;
 $border-radius-small: 2px;
+$border-radius-card: 6px;
 
-// 阴影
+// 🌟 阴影系统 - 符合设计规范
 $box-shadow-light: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
-$box-shadow-base: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.12);
+$box-shadow-base: 0 2px 8px rgba(0, 0, 0, 0.05);
 $box-shadow-dark: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.18);
+$box-shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.08);
+$box-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.05);
 
-// Z-index
+// 🎭 Z-index层级
 $z-index-normal: 1;
+$z-index-dropdown: 10;
+$z-index-sticky: 100;
+$z-index-fixed: 1000;
+$z-index-modal-backdrop: 1040;
+$z-index-modal: 1050;
+$z-index-popover: 1060;
+$z-index-tooltip: 1070;
 $z-index-top: 1000;
 $z-index-popper: 2000;
 
-// 过渡动画
-$transition-base: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+// ⚡ 动画过渡 - 符合设计规范
+$transition-base: all 0.3s ease;
 $transition-fade: opacity 0.3s cubic-bezier(0.23, 1, 0.32, 1);
 $transition-md-fade: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+$transition-hover: transform 0.3s, box-shadow 0.3s;
+$transition-button: all 0.3s ease;
 
-// 布局
+// 🏗️ 布局系统
 $header-height: 60px;
-$sidebar-width: 200px;
-$sidebar-width-collapsed: 64px; 
+$sidebar-width: 240px;           // 符合设计规范
+$sidebar-width-collapsed: 64px;
+$container-max-width: 1200px;
+
+// 📱 响应式断点
+$breakpoint-xs: 480px;
+$breakpoint-sm: 768px;
+$breakpoint-md: 992px;
+$breakpoint-lg: 1200px;
+$breakpoint-xl: 1920px;
+
+// 🎪 状态颜色
+$status-running: $success-color;
+$status-stopped: $info-color;
+$status-error: $danger-color;
+$status-warning: $warning-color;
+
+// 🎨 特殊效果颜色
+$scrollbar-track: #F5F5F5;
+$scrollbar-thumb: #D9D9D9;
+$scrollbar-thumb-hover: #C0C0C0; 
