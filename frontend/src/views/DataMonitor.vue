@@ -128,6 +128,7 @@
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import dayjs from 'dayjs'
+import { statsApi, crawlerApi } from '@/api'
 
 // 响应式数据
 const autoRefresh = ref(true)
@@ -218,18 +219,19 @@ const initSpeedChart = () => {
   
   speedChart = echarts.init(speedChartRef.value)
   
-  // 生成最近30分钟的数据
+  // 生成最近30分钟的时间轴，初始速度为0，等待真实数据
   const times = []
   const speeds = []
   
   for (let i = 29; i >= 0; i--) {
     times.push(dayjs().subtract(i, 'minute').format('HH:mm'))
-    speeds.push(Math.floor(Math.random() * 30) + 20)
+    speeds.push(0) // 初始为0，等待真实数据更新
   }
   
   const option = {
     tooltip: {
-      trigger: 'axis'
+      trigger: 'axis',
+      formatter: '{b}: {c} 条/分钟'
     },
     xAxis: {
       type: 'category',
@@ -237,7 +239,8 @@ const initSpeedChart = () => {
     },
     yAxis: {
       type: 'value',
-      name: '条/分钟'
+      name: '条/分钟',
+      min: 0
     },
     series: [
       {
@@ -247,6 +250,23 @@ const initSpeedChart = () => {
         smooth: true,
         areaStyle: {
           opacity: 0.3
+        },
+        lineStyle: {
+          color: '#409EFF'
+        },
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [{
+              offset: 0, color: 'rgba(64, 158, 255, 0.3)'
+            }, {
+              offset: 1, color: 'rgba(64, 158, 255, 0.1)'
+            }]
+          }
         }
       }
     ]
@@ -290,24 +310,46 @@ const initStatusChart = () => {
 }
 
 // 刷新数据
-const refreshData = () => {
-  // 模拟数据更新
-  realtimeStats.newsCount += Math.floor(Math.random() * 10)
-  realtimeStats.successRate = Math.floor(Math.random() * 20) + 80
-  
-  // 更新图表数据
-  if (speedChart) {
-    const option = speedChart.getOption()
-    const newTime = dayjs().format('HH:mm')
-    const newSpeed = Math.floor(Math.random() * 30) + 20
+const refreshData = async () => {
+  try {
+    // 获取真实的统计数据
+    const statsResponse = await statsApi.getStats()
+    if (statsResponse) {
+      realtimeStats.newsCount = statsResponse.total_news || 0
+      realtimeStats.successRate = Math.round((statsResponse.crawl_success_rate || 0) * 100)
+    }
     
-    option.xAxis[0].data.push(newTime)
-    option.xAxis[0].data.shift()
+    // 获取爬虫状态数据
+    const crawlerResponse = await crawlerApi.getCrawlerStatus()
+    if (crawlerResponse && crawlerResponse.data) {
+      const runningCrawlers = crawlerResponse.data.filter(c => c.status === 'running')
+      realtimeStats.activeCrawlers = runningCrawlers.length
+      
+      // 计算平均抓取速度（基于运行中的爬虫）
+      const totalSpeed = runningCrawlers.reduce((sum, crawler) => {
+        return sum + (crawler.current_params?.speed || 20)
+      }, 0)
+      const avgSpeed = runningCrawlers.length > 0 ? Math.round(totalSpeed / runningCrawlers.length) : 0
+      
+      // 更新图表数据
+      if (speedChart) {
+        const option = speedChart.getOption()
+        const newTime = dayjs().format('HH:mm')
+        
+        option.xAxis[0].data.push(newTime)
+        option.xAxis[0].data.shift()
+        
+        option.series[0].data.push(avgSpeed)
+        option.series[0].data.shift()
+        
+        speedChart.setOption(option)
+      }
+    }
     
-    option.series[0].data.push(newSpeed)
-    option.series[0].data.shift()
-    
-    speedChart.setOption(option)
+    console.log('✅ 实时数据已更新:', realtimeStats)
+  } catch (error) {
+    console.error('❌ 刷新实时数据失败:', error)
+    // 静默失败，不影响用户体验
   }
 }
 
