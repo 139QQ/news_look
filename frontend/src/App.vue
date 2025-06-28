@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <ErrorBoundary>
-      <router-view />
+      <Layout />
       <NetworkStatus />
     </ErrorBoundary>
   </div>
@@ -10,6 +10,7 @@
 <script setup>
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
 import NetworkStatus from '@/components/NetworkStatus.vue'
+import Layout from '@/components/Layout.vue'
 
 // 应用根组件
 </script>

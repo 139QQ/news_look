@@ -1,6 +1,7 @@
 <template>
   <el-dialog
-    v-model="visible"
+    :model-value="visible"
+    @update:model-value="handleVisibilityChange"
     :title="newsTitle"
     width="80%"
     top="5vh"
@@ -479,6 +480,13 @@ const handleClose = () => {
   emit('close')
 }
 
+const handleVisibilityChange = (value) => {
+  emit('update:visible', value)
+  if (!value) {
+    emit('close')
+  }
+}
+
 const toggleContent = () => {
   contentExpanded.value = !contentExpanded.value
 }
@@ -812,23 +820,24 @@ const getSourceTagType = (source) => {
 
 // 数据层级增强样式
 .news-title-display {
-  @extend .data-primary;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
 }
 
 .news-source-display {
-  @extend .data-secondary;
+  color: var(--el-text-color-regular);
 }
 
 .news-category-display {
-  @extend .data-tertiary;
+  color: var(--el-text-color-secondary);
 }
 
 // 交互反馈增强
 .news-metadata {
-  @extend .enhanced-table;
+  transition: all 0.2s ease;
 }
 
 .content-text {
-  @extend .enhanced-table;
+  transition: all 0.2s ease;
 }
 </style> 

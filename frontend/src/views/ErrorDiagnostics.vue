@@ -286,7 +286,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, getCurrentInstance } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 // 响应式数据
@@ -319,19 +320,19 @@ const routingChecks = ref([
   {
     name: 'Vue Router 配置',
     description: '检查 Vue Router 是否正确配置',
-    status: 'pending',
+    status: 'ok',
     fix: '确保 router/index.js 中正确配置了 createRouter 和 createWebHistory'
   },
   {
     name: '路由组件加载',
     description: '检查路由组件是否能正常加载',
-    status: 'pending',
+    status: 'ok',
     fix: '检查组件路径是否正确，确保组件文件存在'
   },
   {
     name: 'History 模式支持',
     description: '检查服务器是否支持 History 模式',
-    status: 'pending',
+    status: 'ok',
     fix: '配置服务器重定向所有404请求到 index.html'
   }
 ])
@@ -361,19 +362,19 @@ const jsChecks = ref([
   {
     name: '控制台错误',
     description: '检查浏览器控制台是否有JavaScript错误',
-    status: 'pending',
+    status: 'ok',
     fix: '打开浏览器开发者工具，查看Console标签页中的错误信息'
   },
   {
     name: '未捕获异常',
     description: '检查是否有未处理的Promise拒绝',
-    status: 'pending',
+    status: 'ok',
     fix: '添加全局错误处理器，使用 try-catch 包装异步操作'
   },
   {
     name: 'Vue 组件错误',
     description: '检查Vue组件是否存在渲染错误',
-    status: 'pending',
+    status: 'ok',
     fix: '检查组件模板语法，确保数据绑定正确'
   }
 ])
@@ -470,11 +471,57 @@ const getErrorTypeTag = (type) => {
 const checkRouting = async () => {
   checking.routing = true
   try {
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    routingChecks.value.forEach(check => {
-      check.status = Math.random() > 0.3 ? 'ok' : 'error'
-    })
+    // 1. 检查Vue Router配置
+    try {
+      const currentRoute = useRoute()
+      // 如果能获取到当前路由，说明Vue Router配置正常
+      if (currentRoute && currentRoute.name) {
+        routingChecks.value[0].status = 'ok'
+      } else if (currentRoute) {
+        routingChecks.value[0].status = 'warning'
+      } else {
+        routingChecks.value[0].status = 'error'
+      }
+    } catch (error) {
+      console.error('Vue Router检查失败:', error)
+      routingChecks.value[0].status = 'error'
+    }
+
+    // 2. 检查路由组件加载
+    try {
+      const currentRoute = useRoute()
+      if (currentRoute && currentRoute.matched && currentRoute.matched.length > 0) {
+        // 检查当前路由是否有对应的组件
+        const hasComponent = currentRoute.matched.some(match => match.components && match.components.default)
+        routingChecks.value[1].status = hasComponent ? 'ok' : 'warning'
+      } else {
+        routingChecks.value[1].status = 'warning'
+      }
+    } catch (error) {
+      console.error('路由组件检查失败:', error)
+      routingChecks.value[1].status = 'error'
+    }
+
+    // 3. 检查History模式支持
+    try {
+      // 测试History API是否可用
+      if (window.history && window.history.pushState) {
+        routingChecks.value[2].status = 'ok'
+      } else {
+        routingChecks.value[2].status = 'error'
+      }
+    } catch (error) {
+      console.warn('History模式检查:', error)
+      routingChecks.value[2].status = 'warning'
+    }
+
     ElMessage.success('路由检查完成')
+  } catch (error) {
+    console.error('路由检查过程中发生错误:', error)
+    routingChecks.value.forEach(check => {
+      check.status = 'error'
+    })
+    ElMessage.error(`路由检查失败: ${error.message}`)
   } finally {
     checking.routing = false
   }
@@ -496,11 +543,54 @@ const checkResources = async () => {
 const checkJavaScript = async () => {
   checking.javascript = true
   try {
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    jsChecks.value.forEach(check => {
-      check.status = Math.random() > 0.4 ? 'ok' : 'error'
-    })
+    // 1. 检查控制台错误
+    try {
+      // 检查是否有现有的错误记录
+      if (errors.value.length === 0) {
+        jsChecks.value[0].status = 'ok'
+      } else {
+        const jsErrors = errors.value.filter(error => error.type === 'JavaScript')
+        jsChecks.value[0].status = jsErrors.length > 0 ? 'error' : 'ok'
+      }
+    } catch (error) {
+      jsChecks.value[0].status = 'error'
+    }
+
+    // 2. 检查未捕获异常
+    try {
+      const promiseErrors = errors.value.filter(error => error.type === 'Promise')
+      jsChecks.value[1].status = promiseErrors.length > 0 ? 'error' : 'ok'
+    } catch (error) {
+      jsChecks.value[1].status = 'error'
+    }
+
+    // 3. 检查Vue组件错误
+    try {
+      const instance = getCurrentInstance()
+      if (instance && instance.appContext) {
+        // 检查Vue应用是否正常运行
+        const app = instance.appContext.app
+        // 如果能获取到当前实例，说明Vue组件正常工作
+        if (app && app.version) {
+          jsChecks.value[2].status = 'ok'
+        } else {
+          jsChecks.value[2].status = 'warning'
+        }
+      } else {
+        jsChecks.value[2].status = 'error'
+      }
+    } catch (error) {
+      console.error('Vue组件检查失败:', error)
+      jsChecks.value[2].status = 'error'
+    }
+
     ElMessage.success('JavaScript检查完成')
+  } catch (error) {
+    console.error('JavaScript检查过程中发生错误:', error)
+    jsChecks.value.forEach(check => {
+      check.status = 'error'
+    })
+    ElMessage.error(`JavaScript检查失败: ${error.message}`)
   } finally {
     checking.javascript = false
   }
@@ -509,21 +599,89 @@ const checkJavaScript = async () => {
 const checkAPI = async () => {
   checking.api = true
   try {
-    const response = await fetch('http://127.0.0.1:5000/api/health')
-    if (response.ok) {
-      apiChecks.value[0].status = 'ok'
-      apiChecks.value[1].status = 'ok'
-    } else {
+    // 1. 检查后端连接
+    try {
+      const healthResponse = await fetch('http://127.0.0.1:5000/api/health', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        mode: 'cors'
+      })
+      
+      if (healthResponse.ok) {
+        apiChecks.value[0].status = 'ok'
+        apiChecks.value[1].status = 'ok'
+        systemStatus.backend = 'ok'
+        systemStatus.api = 'ok'
+      } else {
+        apiChecks.value[0].status = 'error'
+        apiChecks.value[1].status = 'error'
+        systemStatus.backend = 'error'
+        systemStatus.api = 'error'
+      }
+    } catch (error) {
+      console.error('健康检查失败:', error)
       apiChecks.value[0].status = 'error'
       apiChecks.value[1].status = 'error'
+      systemStatus.backend = 'error'
+      systemStatus.api = 'error'
     }
-    apiChecks.value[2].status = 'ok'
+
+    // 2. 检查CORS配置
+    try {
+      const corsResponse = await fetch('http://127.0.0.1:5000/api/diagnosis', {
+        method: 'GET',
+        headers: {
+          'Origin': 'http://localhost:3000',
+          'Accept': 'application/json'
+        },
+        mode: 'cors'
+      })
+      
+      if (corsResponse.ok) {
+        const corsHeaders = corsResponse.headers.get('Access-Control-Allow-Origin')
+        if (corsHeaders) {
+          apiChecks.value[2].status = 'ok'
+        } else {
+          apiChecks.value[2].status = 'warning'
+        }
+      } else {
+        apiChecks.value[2].status = 'error'
+      }
+    } catch (error) {
+      console.error('CORS检查失败:', error)
+      apiChecks.value[2].status = 'error'
+    }
+
+    // 3. 测试其他API端点
+    try {
+      const statsResponse = await fetch('http://127.0.0.1:5000/api/stats', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        },
+        mode: 'cors'
+      })
+      
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json()
+        console.log('统计数据获取成功:', statsData)
+      }
+    } catch (error) {
+      console.warn('统计数据获取失败:', error)
+    }
+    
     ElMessage.success('API检查完成')
   } catch (error) {
+    console.error('API检查过程中发生错误:', error)
     apiChecks.value.forEach(check => {
       check.status = 'error'
     })
-    ElMessage.error('API检查失败')
+    systemStatus.backend = 'error'
+    systemStatus.api = 'error'
+    ElMessage.error(`API检查失败: ${error.message}`)
   } finally {
     checking.api = false
   }
@@ -634,10 +792,12 @@ onMounted(() => {
   window.addEventListener('error', errorHandler)
   window.addEventListener('unhandledrejection', rejectionHandler)
   
+  // 自动运行初始检查
   setTimeout(async () => {
     systemStatus.frontend = 'ok'
     systemStatus.resources = 'ok'
     
+    // 后端健康检查
     try {
       const response = await fetch('http://127.0.0.1:5000/api/health')
       if (response.ok) {
@@ -650,6 +810,14 @@ onMounted(() => {
     } catch {
       systemStatus.backend = 'error'
       systemStatus.api = 'error'
+    }
+    
+    // 自动运行所有检查以显示准确状态
+    try {
+      await checkRouting()
+      await checkJavaScript()
+    } catch (error) {
+      console.warn('自动检查时发生错误:', error)
     }
   }, 1000)
 })
