@@ -10,41 +10,41 @@ CRAWLER_CLASSES = {}
 
 # 尝试导入各个爬虫类，如果失败则跳过
 try:
-    from backend.app.crawlers.base import BaseCrawler
+    from backend.newslook.crawlers.base import BaseCrawler
     print("✅ 成功导入 BaseCrawler")
 except ImportError as e:
     print(f"⚠️  导入 BaseCrawler 失败: {str(e)}")
 
 try:
-    from backend.app.crawlers.eastmoney import EastMoneyCrawler
+    from backend.newslook.crawlers.eastmoney import EastMoneyCrawler
     CRAWLER_CLASSES["东方财富"] = EastMoneyCrawler
     print("✅ 成功导入 EastMoneyCrawler")
 except ImportError as e:
     print(f"⚠️  导入 EastMoneyCrawler 失败: {str(e)}")
 
 try:
-    from backend.app.crawlers.sina import SinaCrawler
+    from backend.newslook.crawlers.sina import SinaCrawler
     CRAWLER_CLASSES["新浪财经"] = SinaCrawler
     print("✅ 成功导入 SinaCrawler")
 except ImportError as e:
     print(f"⚠️  导入 SinaCrawler 失败: {str(e)}")
 
 try:
-    from backend.app.crawlers.tencent import TencentCrawler
+    from backend.newslook.crawlers.tencent import TencentCrawler
     CRAWLER_CLASSES["腾讯财经"] = TencentCrawler
     print("✅ 成功导入 TencentCrawler")
 except ImportError as e:
     print(f"⚠️  导入 TencentCrawler 失败: {str(e)}")
 
 try:
-    from backend.app.crawlers.netease import NeteaseCrawler
+    from backend.newslook.crawlers.netease import NeteaseCrawler
     CRAWLER_CLASSES["网易财经"] = NeteaseCrawler
     print("✅ 成功导入 NeteaseCrawler")
 except ImportError as e:
     print(f"⚠️  导入 NeteaseCrawler 失败: {str(e)}")
 
 try:
-    from backend.app.crawlers.ifeng import IfengCrawler
+    from backend.newslook.crawlers.ifeng import IfengCrawler
     CRAWLER_CLASSES["凤凰财经"] = IfengCrawler
     print("✅ 成功导入 IfengCrawler")
 except ImportError as e:
