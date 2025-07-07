@@ -240,3 +240,4 @@ analytics.json
 # 错误报告
 error_reports/
 crash_dumps/
+node_modules/

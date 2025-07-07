@@ -1,0 +1,186 @@
+{
+  "timestamp": "2025-07-06T20:00:17.328658",
+  "main_db_stats": {},
+  "source_db_stats": {},
+  "duplicate_analysis": {
+    "total_urls": 82,
+    "unique_urls": 82,
+    "duplicate_urls": 0,
+    "duplicate_details": {},
+    "db_stats": {
+      "main": {
+        "total_count": 76,
+        "unique_url_count": 76,
+        "urls": [
+          "https://finance.eastmoney.com/a/202504173380084254.html",
+          "https://finance.ifeng.com/c/8eYGOiALsrj",
+          "https://finance.ifeng.com/c/8jnNc5ekyYm",
+          "https://example.com/网易财经/1.html",
+          "https://example.com/网易财经/2.html",
+          "https://example.com/网易财经/3.html",
+          "https://example.com/网易财经/4.html",
+          "https://example.com/网易财经/5.html",
+          "http://finance.eastmoney.com/a/ccjdd.html",
+          "http://finance.eastmoney.com/news/cjjsp.html",
+          "http://finance.eastmoney.com/news/cgspl.html",
+          "http://video.eastmoney.com/a/cjcsj.html",
+          "http://finance.eastmoney.com/news/cgnjj.html",
+          "https://finance.ifeng.com/c/8jnF0hbUyEK",
+          "https://finance.ifeng.com/c/8jmSkHENDGG",
+          "https://finance.sina.com.cn/roll/2025-06-21/doc-infavpze5134148.shtml",
+          "http://finance.sina.com.cn/money/forex/hq/DINIW.shtml",
+          "https://finance.sina.com.cn/wm/2025-06-21/doc-infavyqy4904590.shtml",
+          "https://finance.sina.com.cn/china/2025-06-21/doc-infavuif9515488.shtml",
+          "https://finance.sina.com.cn/jjxw/2025-06-21/doc-infausvv2096424.shtml",
+          "https://finance.sina.com.cn/jjxw/2025-06-21/doc-infauxct1989052.shtml",
+          "http://finance.sina.com.cn/money/future/hf.html",
+          "http://finance.sina.com.cn/realstock/company/sh000001/nc.shtml",
+          "http://finance.sina.com.cn/futures/quotes/XAG.shtml",
+          "https://finance.sina.com.cn/wm/2025-06-21/doc-infavith5225904.shtml",
+          "https://finance.eastmoney.com/a/202506213436883093.html",
+          "https://finance.eastmoney.com/a/202506213436881039.html",
+          "https://finance.eastmoney.com/a/202506213436881667.html",
+          "https://finance.eastmoney.com/a/202506213436879022.html",
+          "https://finance.eastmoney.com/a/202506213436871687.html",
+          "https://finance.eastmoney.com/a/202506213436871795.html",
+          "https://finance.eastmoney.com/a/202506213436869174.html",
+          "https://finance.eastmoney.com/a/202506213436868582.html",
+          "https://finance.eastmoney.com/a/202506213436868327.html",
+          "https://finance.eastmoney.com/a/202506213436867481.html",
+          "http://finance.ifeng.com/c/8kIEv33WcPI",
+          "https://finance.ifeng.com/c/8jq7H6FAJuT",
+          "https://finance.ifeng.com/c/8kMed1Z1OaF",
+          "https://finance.ifeng.com/c/8kMEXbYWzFn",
+          "https://finance.ifeng.com/c/8kMwSxn81cU",
+          "https://finance.ifeng.com/c/8fXnplKbPAB",
+          "https://finance.ifeng.com/c/8jXaWjDPT3l",
+          "https://finance.ifeng.com/c/8kLWEmsAHj7",
+          "https://finance.ifeng.com/c/8kN0hnYTA63",
+          "https://finance.sina.com.cn/tech/shenji/2025-07-06/doc-infephkr7413363.shtml",
+          "https://finance.sina.com.cn/stock/companyt/2025-07-06/doc-infenvuv7639188.shtml",
+          "https://finance.sina.com.cn/stock/s/2025-07-06/doc-infepnsp7313229.shtml",
+          "https://finance.sina.com.cn/roll/2025-07-06/doc-infepnsp7319749.shtml",
+          "https://finance.sina.com.cn/jjxw/2025-07-06/doc-infepsyf0632384.shtml",
+          "https://finance.sina.com.cn/jjxw/2025-07-06/doc-infenvuv7634369.shtml",
+          "http://finance.sina.com.cn/futures/quotes/CL.shtml",
+          "https://finance.sina.com.cn/headline/2025-07-06/doc-infepsyh8537050.shtml?froms=pccs",
+          "https://finance.sina.com.cn/stock/companyt/2025-07-06/doc-infephkm0848603.shtml",
+          "https://finance.sina.com.cn/roll/2025-07-06/doc-infephkq5531676.shtml",
+          "https://finance.eastmoney.com/a/202507063449292431.html",
+          "https://finance.eastmoney.com/a/202507063449288739.html",
+          "https://finance.eastmoney.com/a/202507063449284961.html",
+          "https://finance.eastmoney.com/a/202507063449275063.html",
+          "https://finance.eastmoney.com/a/202507063449274471.html",
+          "https://finance.eastmoney.com/a/202507063449257559.html",
+          "https://finance.eastmoney.com/a/202507063449257026.html",
+          "https://finance.eastmoney.com/a/202507063449255431.html",
+          "https://finance.eastmoney.com/a/202507063449253977.html",
+          "https://finance.eastmoney.com/a/202507063449254636.html",
+          "https://money.163.com/stock/",
+          "https://money.163.com/special/00253368/institutions.html",
+          "https://finance.ifeng.com/c/8klGO2pnVjB",
+          "https://finance.ifeng.com/c/8kloO12YCGr",
+          "https://finance.ifeng.com/c/8eTSYHPH77i",
+          "https://finance.ifeng.com/c/8kkgHpFtQgU",
+          "https://finance.ifeng.com/c/8RIv6ftQ1jI ",
+          "https://finance.ifeng.com/c/8klxpj2GE4z",
+          "https://finance.ifeng.com/c/8klvFnQCXSU",
+          "https://finance.ifeng.com/c/8eVLsxs6vyb",
+          "https://finance.ifeng.com/c/8kFt0Btw3j9",
+          "https://finance.ifeng.com/c/8klWWUoI87k"
+        ],
+        "sources": "{'东方财富', '网易财经', '新浪财经', '凤凰财经'}",
+        "has_table": true
+      },
+      "eastmoney_finance": {
+        "total_count": 6,
+        "unique_url_count": 6,
+        "urls": [
+          "https://finance.eastmoney.com/a/202506023419907159.html",
+          "https://finance.eastmoney.com/a/202506023419899058.html",
+          "https://finance.eastmoney.com/a/202506023419902978.html",
+          "https://finance.eastmoney.com/a/202506023419896459.html",
+          "https://finance.eastmoney.com/a/202506023419894365.html",
+          "https://finance.eastmoney.com/a/202506023419892961.html"
+        ],
+        "sources": "{'东方财富'}",
+        "has_table": true
+      }
+    }
+  },
+  "recommendations": [
+    "发现 6 个旧数据库文件，建议迁移到统一位置"
+  ],
+  "file_status": {
+    "main_db_exists": true,
+    "main_db_size": 1413120,
+    "source_dbs": [
+      {
+        "name": "eastmoney_finance",
+        "path": "D:\\Git\\Github\\NewsLook\\data\\db\\sources\\eastmoney_finance.db",
+        "size": 167936
+      }
+    ],
+    "old_dbs": [
+      {
+        "name": "eastmoney",
+        "path": "D:\\Git\\Github\\NewsLook\\data\\eastmoney.db",
+        "size": 32768
+      },
+      {
+        "name": "heartbeat",
+        "path": "D:\\Git\\Github\\NewsLook\\data\\heartbeat.db",
+        "size": 20480
+      },
+      {
+        "name": "ifeng",
+        "path": "D:\\Git\\Github\\NewsLook\\data\\ifeng.db",
+        "size": 32768
+      },
+      {
+        "name": "netease",
+        "path": "D:\\Git\\Github\\NewsLook\\data\\netease.db",
+        "size": 32768
+      },
+      {
+        "name": "sina",
+        "path": "D:\\Git\\Github\\NewsLook\\data\\sina.db",
+        "size": 32768
+      },
+      {
+        "name": "state",
+        "path": "D:\\Git\\Github\\NewsLook\\data\\state.db",
+        "size": 24576
+      }
+    ]
+  },
+  "api_consistency": {
+    "database_stats": {
+      "main_db": {
+        "path": "D:\\Git\\Github\\NewsLook\\data\\db\\finance_news.db",
+        "count": 76,
+        "sources": 4
+      },
+      "source_dbs": {
+        "eastmoney_finance": {
+          "path": "D:\\Git\\Github\\NewsLook\\data\\db\\sources\\eastmoney_finance.db",
+          "count": 6
+        }
+      },
+      "total_news": 82,
+      "sources": [
+        "东方财富",
+        "网易财经",
+        "新浪财经",
+        "凤凰财经"
+      ]
+    },
+    "news_count_method": 82,
+    "news_list_count": 82,
+    "consistency_check": {
+      "stats_vs_count": true,
+      "stats_vs_list": true,
+      "count_vs_list": true
+    }
+  }
+}
