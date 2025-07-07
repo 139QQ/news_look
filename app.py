@@ -13,12 +13,51 @@ import subprocess
 import threading
 import time
 import platform
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
+import json
 
 # 添加项目路径到Python路径
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
+
+def decode_unicode_content(text):
+    """解码Unicode转义序列"""
+    if not text or not isinstance(text, str):
+        return text
+    
+    try:
+        # 处理 JSON Unicode 转义序列 (\u4e2d\u56fd -> 中国)
+        if '\\u' in text:
+            # 使用 codecs.decode 来处理 unicode_escape
+            import codecs
+            text = codecs.decode(text, 'unicode_escape')
+        
+        # 确保返回 UTF-8 编码的字符串
+        if isinstance(text, bytes):
+            text = text.decode('utf-8', errors='ignore')
+        
+        return text
+    except Exception as e:
+        print(f"Unicode解码失败: {e}, 原文本: {text[:100] if len(text) > 100 else text}")
+        return text
+
+def format_news_data(news_list):
+    """格式化新闻数据并处理编码问题"""
+    formatted_news = []
+    for news in news_list:
+        # 处理所有文本字段的编码
+        formatted_item = {}
+        for key, value in news.items():
+            if isinstance(value, str):
+                # 对所有字符串字段进行Unicode解码
+                formatted_item[key] = decode_unicode_content(value)
+            else:
+                formatted_item[key] = value
+        
+        formatted_news.append(formatted_item)
+    
+    return formatted_news
 
 def create_app():
     """创建Flask应用"""
@@ -306,14 +345,53 @@ def register_basic_routes(app):
     
     @app.route('/api/news')
     def basic_news_list():
-        """基础新闻列表API"""
-        return {
-            'data': [],
-            'total': 0,
-            'page': 1,
-            'pages': 0,
-            'message': '基础模式：无新闻数据'
-        }
+        """基础新闻列表API - 改造为真实数据"""
+        try:
+            # 导入统一数据库管理器
+            from backend.newslook.core.unified_database_manager import get_unified_database_manager
+            
+            # 获取分页参数
+            from flask import request
+            page = int(request.args.get('page', 1))
+            limit = int(request.args.get('limit', 20))
+            source = request.args.get('source', None)
+            days = int(request.args.get('days', 30)) if request.args.get('days') else None
+            
+            # 获取数据库管理器实例
+            db_manager = get_unified_database_manager()
+            
+            # 查询真实新闻数据
+            news_list = db_manager.query_news(
+                source=source, 
+                limit=limit, 
+                days=days,
+                use_all_sources=True
+            )
+            
+            # 格式化数据并处理编码问题
+            formatted_news = format_news_data(news_list)
+            
+            # 计算总数
+            total_count = len(formatted_news)
+            
+            # 分页处理
+            start_idx = (page - 1) * limit
+            end_idx = start_idx + limit
+            paginated_news = formatted_news[start_idx:end_idx]
+            
+            return jsonify({
+                'data': paginated_news,
+                'total': total_count,
+                'page': page,
+                'page_size': limit,
+                'pages': (total_count + limit - 1) // limit
+            })
+            
+        except Exception as e:
+            # 🔧 使用标准化错误处理
+            from backend.newslook.core.error_handler import create_api_error_response
+            print(f"新闻API错误: {e}")
+            return create_api_error_response(e, "NEWS_API_ERROR")
     
     @app.route('/api/crawler/status')
     def basic_crawler_status():
@@ -397,37 +475,106 @@ def register_additional_apis(app):
     # V1版本的API端点
     @app.route('/api/v1/crawlers/status')
     def v1_crawler_status():
-        """V1爬虫状态API"""
-        return {
-            'success': True,
-            'data': [
-                {
-                    'id': 'tencent',
-                    'name': '腾讯财经',
-                    'status': 'stopped',
-                    'is_running': False,
-                    'last_run': '2024-01-01 00:00:00',
-                    'errors': 0
-                },
-                {
-                    'id': 'sina',
-                    'name': '新浪财经',
-                    'status': 'stopped',
-                    'is_running': False,
-                    'last_run': '2024-01-01 00:00:00',
-                    'errors': 0
-                },
-                {
-                    'id': 'eastmoney',
-                    'name': '东方财富',
-                    'status': 'stopped',
-                    'is_running': False,
-                    'last_run': '2024-01-01 00:00:00',
-                    'errors': 0
+        """V1爬虫状态API - 改造为真实数据"""
+        try:
+            # 导入爬虫管理器
+            from backend.newslook.crawlers.manager import CrawlerManager
+            
+            # 获取爬虫管理器实例
+            crawler_manager = CrawlerManager()
+            
+            # 获取真实爬虫状态
+            status_data = crawler_manager.get_status()
+            
+            # 转换为API格式
+            crawlers_list = []
+            for name, crawler in crawler_manager.crawlers.items():
+                # 获取爬虫线程状态
+                is_running = (name in crawler_manager.crawler_threads and 
+                             crawler_manager.crawler_threads[name].is_alive())
+                
+                # 确定状态
+                if is_running:
+                    status = 'running'
+                elif crawler_manager.stop_flags.get(name, threading.Event()).is_set():
+                    status = 'stopping'
+                else:
+                    status = 'stopped'
+                
+                # 获取ID映射（中文名到英文ID）
+                name_map = {
+                    '东方财富': 'eastmoney',
+                    '东方财富简版': 'eastmoney_simple',
+                    '新浪财经': 'sina',
+                    '腾讯财经': 'tencent',
+                    '网易财经': 'netease',
+                    '凤凰财经': 'ifeng'
                 }
-            ],
-            'message': '基础模式：爬虫功能不可用'
-        }
+                
+                crawler_id = name_map.get(name, name.lower().replace(' ', '_'))
+                
+                crawler_info = {
+                    'id': crawler_id,
+                    'name': name,
+                    'status': status,
+                    'is_running': is_running,
+                    'last_run': datetime.now().strftime('%Y-%m-%d %H:%M:%S') if is_running else '从未运行',
+                    'errors': 0,  # TODO: 实现错误计数
+                    'success_count': 0,  # TODO: 实现成功计数
+                    'error_count': 0,   # TODO: 实现错误计数
+                    'thread_alive': name in crawler_manager.crawler_threads and crawler_manager.crawler_threads[name].is_alive()
+                }
+                
+                crawlers_list.append(crawler_info)
+            
+            return {
+                'success': True,
+                'data': crawlers_list,
+                'total': len(crawlers_list),
+                'message': f'成功获取 {len(crawlers_list)} 个爬虫状态',
+                'timestamp': datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            # 记录错误并返回错误信息
+            print(f"获取爬虫状态失败: {str(e)}")
+            # 导入threading以防出错
+            import threading
+            
+            # 返回错误响应，但保持格式一致
+            return {
+                'success': False,
+                'data': [
+                    {
+                        'id': 'tencent',
+                        'name': '腾讯财经',
+                        'status': 'error',
+                        'is_running': False,
+                        'last_run': '获取失败',
+                        'errors': 1,
+                        'error_message': str(e)
+                    },
+                    {
+                        'id': 'sina',
+                        'name': '新浪财经',
+                        'status': 'error',
+                        'is_running': False,
+                        'last_run': '获取失败',
+                        'errors': 1,
+                        'error_message': str(e)
+                    },
+                    {
+                        'id': 'eastmoney',
+                        'name': '东方财富',
+                        'status': 'error',
+                        'is_running': False,
+                        'last_run': '获取失败',
+                        'errors': 1,
+                        'error_message': str(e)
+                    }
+                ],
+                'message': f'获取爬虫状态失败: {str(e)}'
+            }
     
     @app.route('/api/v1/crawlers/<crawler_id>/toggle', methods=['POST'])
     def v1_toggle_crawler(crawler_id):
@@ -523,28 +670,215 @@ def register_additional_apis(app):
     
     @app.route('/api/v1/analytics/overview')
     def v1_analytics_overview():
-        """V1分析概览API"""
-        return {
-            'total_news': 0,
-            'sources_count': 0,
-            'today_news': 0,
-            'last_update': None,
-            'trending_keywords': [],
-            'source_distribution': {}
-        }
+        """V1分析概览API - 改造为真实数据"""
+        try:
+            # 导入统一数据库管理器
+            from backend.newslook.core.unified_database_manager import get_unified_database_manager
+            
+            # 获取数据库管理器实例
+            db_manager = get_unified_database_manager()
+            
+            # 获取数据库统计信息
+            db_stats = db_manager.get_database_stats()
+            
+            # 计算今日新闻数量
+            from datetime import datetime, date
+            today = date.today().strftime('%Y-%m-%d')
+            today_news = db_manager.query_news(days=1, use_all_sources=True)
+            today_count = len(today_news)
+            
+            # 获取最近新闻的更新时间
+            recent_news = db_manager.query_news(limit=1, use_all_sources=True)
+            last_update = None
+            if recent_news:
+                last_update = recent_news[0].get('crawl_time') or recent_news[0].get('pub_time')
+            
+            # 基础关键词提取 (简化版本)
+            trending_keywords = []
+            recent_news_sample = db_manager.query_news(limit=50, days=7, use_all_sources=True)
+            if recent_news_sample:
+                # 简单的关键词统计
+                keyword_count = {}
+                for news in recent_news_sample:
+                    keywords = news.get('keywords', []) if isinstance(news.get('keywords'), list) else []
+                    for keyword in keywords:
+                        if keyword and len(keyword.strip()) > 1:
+                            keyword_count[keyword] = keyword_count.get(keyword, 0) + 1
+                
+                # 获取最热门的关键词
+                trending_keywords = sorted(keyword_count.items(), key=lambda x: x[1], reverse=True)[:10]
+                trending_keywords = [{'name': k, 'count': v} for k, v in trending_keywords]
+            
+            # 来源分布统计
+            source_distribution = {}
+            if 'sources' in db_stats:
+                for source, count in db_stats['sources'].items():
+                    source_distribution[source] = count
+            
+            return {
+                'total_news': db_stats.get('total_news', 0),
+                'sources_count': len(db_stats.get('sources', {})),
+                'today_news': today_count,
+                'last_update': last_update,
+                'trending_keywords': trending_keywords,
+                'source_distribution': source_distribution,
+                'database_info': {
+                    'main_db_size': db_stats.get('main_db_size', 0),
+                    'total_size': db_stats.get('total_size', 0)
+                },
+                'timestamp': datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            # 记录错误日志
+            print(f"获取分析概览失败: {str(e)}")
+            # 返回错误信息，但保持API格式一致
+            return {
+                'total_news': 0,
+                'sources_count': 0,
+                'today_news': 0,
+                'last_update': None,
+                'trending_keywords': [],
+                'source_distribution': {},
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
     
     @app.route('/api/v1/analytics/echarts/data')
     def v1_echarts_data():
-        """V1 ECharts数据API"""
-        return {
-            'news_trend': {
-                'dates': [],
-                'counts': []
-            },
-            'source_distribution': [],
-            'hourly_distribution': [],
-            'keyword_cloud': []
-        }
+        """V1 ECharts数据API - 改造为真实数据"""
+        try:
+            # 导入统一数据库管理器
+            from backend.newslook.core.unified_database_manager import get_unified_database_manager
+            from datetime import datetime, timedelta
+            from collections import defaultdict
+            
+            # 获取数据库管理器实例
+            db_manager = get_unified_database_manager()
+            
+            # 获取最近30天的新闻数据
+            news_data = db_manager.query_news(days=30, limit=10000, use_all_sources=True)
+            
+            # 新闻趋势分析 (按日期分组)
+            daily_counts = defaultdict(int)
+            source_counts = defaultdict(int)
+            hourly_counts = defaultdict(int)
+            
+            for news in news_data:
+                # 处理发布时间
+                pub_time = news.get('pub_time', news.get('crawl_time', ''))
+                if pub_time:
+                    try:
+                        # 尝试解析时间
+                        if isinstance(pub_time, str):
+                            # 尝试不同的时间格式
+                            try:
+                                dt = datetime.strptime(pub_time, '%Y-%m-%d %H:%M:%S')
+                            except ValueError:
+                                try:
+                                    dt = datetime.strptime(pub_time[:19], '%Y-%m-%d %H:%M:%S')
+                                except ValueError:
+                                    try:
+                                        dt = datetime.strptime(pub_time[:10], '%Y-%m-%d')
+                                    except ValueError:
+                                        continue
+                        else:
+                            dt = pub_time
+                        
+                        # 按日期统计
+                        date_str = dt.strftime('%Y-%m-%d')
+                        daily_counts[date_str] += 1
+                        
+                        # 按小时统计
+                        hour = dt.hour
+                        hourly_counts[hour] += 1
+                        
+                    except Exception:
+                        continue
+                
+                # 按来源统计
+                source = news.get('source', '未知来源')
+                source_counts[source] += 1
+            
+            # 格式化新闻趋势数据
+            news_trend_dates = []
+            news_trend_counts = []
+            
+            # 生成近30天的日期序列
+            today = datetime.now().date()
+            for i in range(29, -1, -1):  # 倒序30天
+                date = today - timedelta(days=i)
+                date_str = date.strftime('%Y-%m-%d')
+                news_trend_dates.append(date_str)
+                news_trend_counts.append(daily_counts.get(date_str, 0))
+            
+            # 格式化来源分布数据
+            source_distribution = []
+            for source, count in sorted(source_counts.items(), key=lambda x: x[1], reverse=True):
+                source_distribution.append({
+                    'name': source,
+                    'value': count
+                })
+            
+            # 格式化小时分布数据
+            hourly_distribution = []
+            for hour in range(24):
+                hourly_distribution.append({
+                    'hour': f'{hour:02d}:00',
+                    'count': hourly_counts.get(hour, 0)
+                })
+            
+            # 关键词云数据 (简化版本)
+            keyword_cloud = []
+            recent_sample = news_data[:100]  # 取前100条作为样本
+            keyword_freq = defaultdict(int)
+            
+            for news in recent_sample:
+                keywords = news.get('keywords', [])
+                if isinstance(keywords, list):
+                    for keyword in keywords:
+                        if keyword and len(keyword.strip()) > 1:
+                            keyword_freq[keyword] += 1
+            
+            # 生成关键词云数据
+            for keyword, freq in sorted(keyword_freq.items(), key=lambda x: x[1], reverse=True)[:50]:
+                keyword_cloud.append({
+                    'name': keyword,
+                    'value': freq
+                })
+            
+            return {
+                'news_trend': {
+                    'dates': news_trend_dates,
+                    'counts': news_trend_counts
+                },
+                'source_distribution': source_distribution,
+                'hourly_distribution': hourly_distribution,
+                'keyword_cloud': keyword_cloud,
+                'summary': {
+                    'total_days': len(news_trend_dates),
+                    'max_daily_count': max(news_trend_counts) if news_trend_counts else 0,
+                    'avg_daily_count': sum(news_trend_counts) / len(news_trend_counts) if news_trend_counts else 0,
+                    'total_sources': len(source_distribution)
+                },
+                'timestamp': datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            # 记录错误日志
+            print(f"获取ECharts数据失败: {str(e)}")
+            # 返回错误信息，但保持API格式一致
+            return {
+                'news_trend': {
+                    'dates': [],
+                    'counts': []
+                },
+                'source_distribution': [],
+                'hourly_distribution': [],
+                'keyword_cloud': [],
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
     
     @app.route('/api/diagnosis')
     def v1_diagnosis():
@@ -578,6 +912,33 @@ def register_additional_apis(app):
         response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
         return response
     
+    # 注册增强爬虫控制API（第二优先级指令）
+    print("🔄 开始注册第二优先级增强爬虫控制API...")
+    try:
+        print("🔄 导入增强爬虫控制模块...")
+        from backend.newslook.api.enhanced_crawler_control import register_enhanced_crawler_routes
+        print("✅ 增强爬虫控制模块导入成功")
+        
+        print("🔄 调用路由注册函数...")
+        result = register_enhanced_crawler_routes(app)
+        print(f"📊 路由注册结果: {result}")
+        
+        # 显示注册的v2路由
+        v2_routes = [rule.rule for rule in app.url_map.iter_rules() if 'v2' in rule.rule]
+        print(f"📋 已注册的v2路由数量: {len(v2_routes)}")
+        for route in v2_routes:
+            print(f"  - {route}")
+        
+        print("✅ 增强爬虫控制API已注册 - 第二优先级指令功能已激活")
+    except ImportError as e:
+        print(f"⚠️  增强爬虫控制API模块未找到: {e}")
+        import traceback
+        print(traceback.format_exc())
+    except Exception as e:
+        print(f"❌ 增强爬虫控制API注册失败: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+
     print("📝 额外API端点注册完成")
 
 def check_frontend_dependencies():
