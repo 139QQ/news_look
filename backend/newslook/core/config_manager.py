@@ -11,6 +11,8 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
 from dataclasses import dataclass
+import sys
+import threading
 
 @dataclass
 class DatabaseConfig:
@@ -339,5 +341,106 @@ def get_config_manager() -> ConfigManager:
     return _config_manager
 
 def get_config() -> ConfigManager:
-    """获取配置管理器的简化别名"""
-    return get_config_manager() 
+    """获取配置实例 - 统一入口函数"""
+    return get_config_manager()
+
+# 🔧 导入治理：确保后端路径可访问
+def setup_import_paths():
+    """设置导入路径治理"""
+    project_root = Path(__file__).parent.parent.parent.parent
+    backend_path = str(project_root / 'backend')
+    
+    if backend_path not in sys.path:
+        sys.path.insert(0, backend_path)
+        print(f"🔧 导入治理: 添加后端路径 {backend_path}")
+
+# 🔧 资源管理：数据库连接池
+class DatabaseConnectionPool:
+    """数据库连接池管理器"""
+    
+    def __init__(self, max_conn: int = 10):
+        self.max_conn = max_conn
+        self.active_connections = {}
+        self.lock = threading.Lock()
+        
+    def get_connection(self, db_path: str):
+        """获取数据库连接"""
+        with self.lock:
+            if db_path not in self.active_connections:
+                import sqlite3
+                conn = sqlite3.connect(
+                    db_path,
+                    timeout=30,
+                    check_same_thread=False
+                )
+                conn.row_factory = sqlite3.Row
+                self.active_connections[db_path] = conn
+                print(f"🔧 连接池: 新建连接 {db_path}")
+            return self.active_connections[db_path]
+    
+    def close_all(self):
+        """关闭所有连接"""
+        with self.lock:
+            for db_path, conn in self.active_connections.items():
+                try:
+                    conn.close()
+                    print(f"🔧 连接池: 关闭连接 {db_path}")
+                except:
+                    pass
+            self.active_connections.clear()
+
+# 全局连接池实例
+_connection_pool = None
+
+def get_connection_pool() -> DatabaseConnectionPool:
+    """获取全局连接池实例"""
+    global _connection_pool
+    if _connection_pool is None:
+        _connection_pool = DatabaseConnectionPool(max_conn=10)
+    return _connection_pool
+
+def initialize_system_config():
+    """初始化系统配置 - 强制接入配置中心"""
+    # 🔧 导入治理
+    setup_import_paths()
+    
+    config = get_config()
+    
+    # 强制验证核心配置
+    assert config.database.db_dir, "🚨 DB路径未配置"
+    
+    # 创建数据库目录
+    import os
+    from pathlib import Path
+    
+    # 获取项目根目录
+    project_root = Path(__file__).parent.parent.parent.parent
+    db_dir = project_root / config.database.db_dir
+    
+    # 确保目录存在
+    os.makedirs(db_dir, exist_ok=True)
+    
+    # 🔧 环境变量兜底机制
+    os.environ.setdefault('DB_DIR', str(db_dir))
+    
+    # 强制设置环境变量
+    if not os.environ.get('DB_DIR'):
+        os.environ['DB_DIR'] = str(db_dir)
+    
+    # 🔧 初始化连接池
+    get_connection_pool()
+    
+    print(f"🔧 配置中心强制接入完成: {db_dir}")
+    print(f"🔧 环境变量兜底: DB_DIR={os.environ['DB_DIR']}")
+    print(f"🔧 连接池初始化完成")
+    
+    return config
+
+# 系统启动时自动初始化
+try:
+    initialize_system_config()
+except Exception as e:
+    print(f"🚨 配置中心初始化失败: {e}")
+    # 兜底配置
+    import os
+    os.environ.setdefault('DB_DIR', 'data/db') 

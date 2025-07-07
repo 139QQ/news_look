@@ -1,402 +1,138 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-全局异常处理器
-提供统一的异常处理机制和错误响应格式化
+标准化错误处理系统
+实现结构化错误响应和全面日志记录
 """
 
-import traceback
-import functools
-from typing import Dict, Any, Optional, Callable, Union
-from datetime import datetime
-from flask import Flask, request, jsonify, g
 import logging
+import traceback
+import uuid
+from datetime import datetime
+from typing import Dict, Any, Optional, List
+from dataclasses import dataclass, asdict
+from functools import wraps
+import json
 
-try:
-    from .exceptions import NewsLookException, create_exception
-except ImportError:
-    # 如果exceptions模块不存在，创建简单的异常类
-    class NewsLookException(Exception):
-        def __init__(self, message="", error_code="UNKNOWN", context=None):
-            super().__init__(message)
-            self.message = message
-            self.error_code = error_code
-            self.context = context or {}
-            self.timestamp = datetime.now()
+logger = logging.getLogger(__name__)
 
-try:
-    from .logger_manager import get_logger
-except ImportError:
-    from ..utils.logger import get_logger
-
+@dataclass
+class ErrorResponse:
+    """标准化错误响应结构"""
+    error_id: str
+    error_type: str
+    message: str
+    details: Optional[Dict[str, Any]] = None
+    timestamp: str = None
+    request_id: Optional[str] = None
+    
+    def __post_init__(self):
+        if self.timestamp is None:
+            self.timestamp = datetime.now().isoformat()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式"""
+        return asdict(self)
+    
+    def to_json(self) -> str:
+        """转换为JSON格式"""
+        return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
 
 class ErrorHandler:
-    """全局异常处理器"""
+    """标准化错误处理器"""
     
-    def __init__(self, app: Flask = None):
-        """初始化异常处理器"""
-        self.app = app
-        self.logger = get_logger('newslook', 'error_handler')
+    def __init__(self):
+        self.error_history: List[ErrorResponse] = []
+        self.max_history = 100
         
-        # 错误统计
-        self.error_stats = {
-            'total_errors': 0,
-            'errors_by_type': {},
-            'errors_by_endpoint': {},
-            'last_error_time': None
-        }
+    def create_error_response(self, 
+                            error_type: str, 
+                            message: str, 
+                            details: Optional[Dict[str, Any]] = None,
+                            request_id: Optional[str] = None) -> ErrorResponse:
+        """创建标准化错误响应"""
+        error_id = str(uuid.uuid4())
         
-        if app is not None:
-            self.init_app(app)
-    
-    def init_app(self, app: Flask):
-        """初始化Flask应用的异常处理"""
-        self.app = app
-        
-        # 注册异常处理器
-        app.register_error_handler(NewsLookException, self.handle_newslook_exception)
-        app.register_error_handler(Exception, self.handle_generic_exception)
-        app.register_error_handler(404, self.handle_not_found)
-        app.register_error_handler(500, self.handle_internal_server_error)
-        
-        # 注册请求前后处理
-        app.before_request(self.before_request)
-        app.after_request(self.after_request)
-        app.teardown_appcontext(self.teardown_request)
-    
-    def before_request(self):
-        """请求前处理"""
-        g.request_start_time = datetime.now()
-        g.request_id = self._generate_request_id()
-        
-        # 记录请求开始
-        self.logger.info(
-            "Request started",
-            extra={
-                'request_id': g.request_id,
-                'method': request.method,
-                'url': request.url,
-                'remote_addr': request.remote_addr,
-                'user_agent': request.headers.get('User-Agent', 'Unknown')
-            }
-        )
-    
-    def after_request(self, response):
-        """请求后处理"""
-        if hasattr(g, 'request_start_time'):
-            duration = (datetime.now() - g.request_start_time).total_seconds()
-            
-            # 记录请求完成
-            self.logger.info(
-                "Request completed",
-                extra={
-                    'request_id': getattr(g, 'request_id', 'unknown'),
-                    'method': request.method,
-                    'url': request.url,
-                    'status_code': response.status_code,
-                    'duration_ms': round(duration * 1000, 2)
-                }
-            )
-        
-        return response
-    
-    def teardown_request(self, exception=None):
-        """请求清理"""
-        if exception:
-            self._update_error_stats(exception)
-    
-    def handle_newslook_exception(self, error: NewsLookException):
-        """处理NewsLook自定义异常"""
-        self._log_exception(error, 'newslook_exception')
-        self._update_error_stats(error)
-        
-        response_data = {
-            'success': False,
-            'error': {
-                'type': error.__class__.__name__,
-                'code': error.error_code,
-                'message': error.message,
-                'context': error.context,
-                'timestamp': error.timestamp.isoformat(),
-                'request_id': getattr(g, 'request_id', None)
-            }
-        }
-        
-        # 根据异常类型设置HTTP状态码
-        status_code = self._get_http_status_for_exception(error)
-        
-        return jsonify(response_data), status_code
-    
-    def handle_generic_exception(self, error: Exception):
-        """处理通用异常"""
-        self._log_exception(error, 'generic_exception')
-        self._update_error_stats(error)
-        
-        # 转换为NewsLookException
-        newslook_error = NewsLookException(
-            message=str(error),
-            error_code="INTERNAL_ERROR",
-            context={'original_type': error.__class__.__name__}
+        error_response = ErrorResponse(
+            error_id=error_id,
+            error_type=error_type,
+            message=message,
+            details=details,
+            request_id=request_id
         )
         
-        response_data = {
-            'success': False,
-            'error': {
-                'type': 'InternalError',
-                'code': 'INTERNAL_ERROR',
-                'message': 'An internal error occurred',
-                'request_id': getattr(g, 'request_id', None),
-                'timestamp': datetime.now().isoformat()
-            }
-        }
+        # 记录错误到历史
+        self.error_history.append(error_response)
+        if len(self.error_history) > self.max_history:
+            self.error_history.pop(0)
         
-        # 在调试模式下提供更多信息
-        if self.app and self.app.debug:
-            response_data['error']['debug'] = {
-                'original_message': str(error),
-                'traceback': traceback.format_exc()
-            }
-        
-        return jsonify(response_data), 500
-    
-    def handle_not_found(self, error):
-        """处理404错误"""
-        self._log_exception(error, 'not_found')
-        
-        response_data = {
-            'success': False,
-            'error': {
-                'type': 'NotFound',
-                'code': 'RESOURCE_NOT_FOUND',
-                'message': 'The requested resource was not found',
-                'request_id': getattr(g, 'request_id', None),
-                'timestamp': datetime.now().isoformat()
-            }
-        }
-        
-        return jsonify(response_data), 404
-    
-    def handle_internal_server_error(self, error):
-        """处理500错误"""
-        self._log_exception(error, 'internal_server_error')
-        
-        response_data = {
-            'success': False,
-            'error': {
-                'type': 'InternalServerError',
-                'code': 'INTERNAL_SERVER_ERROR',
-                'message': 'Internal server error occurred',
-                'request_id': getattr(g, 'request_id', None),
-                'timestamp': datetime.now().isoformat()
-            }
-        }
-        
-        return jsonify(response_data), 500
-    
-    def _log_exception(self, error: Exception, error_type: str):
-        """记录异常日志"""
-        request_id = getattr(g, 'request_id', 'unknown')
-        
-        log_data = {
-            'request_id': request_id,
+        # 记录日志
+        logger.error(f"[{error_id}] {error_type}: {message}", extra={
+            'error_id': error_id,
             'error_type': error_type,
-            'exception_class': error.__class__.__name__,
-            'error_message': str(error),  # 避免与日志系统的'message'字段冲突
-            'endpoint': request.endpoint if request else None,
-            'method': request.method if request else None,
-            'url': request.url if request else None,
-            'remote_addr': request.remote_addr if request else None
+            'details': details,
+            'request_id': request_id
+        })
+        
+        return error_response
+    
+    def handle_database_error(self, error: Exception, context: str = "") -> ErrorResponse:
+        """处理数据库错误"""
+        details = {
+            'context': context,
+            'error_class': error.__class__.__name__,
+            'traceback': traceback.format_exc()
         }
         
-        # 添加NewsLook异常的特定信息
-        if isinstance(error, NewsLookException):
-            log_data.update({
-                'error_code': error.error_code,
-                'context': error.context
-            })
-        
-        # 记录异常日志
-        self.logger.error(
-            f"Exception occurred: {error.__class__.__name__} - {str(error)}",
-            extra=log_data,
-            exc_info=True
+        return self.create_error_response(
+            error_type="DATABASE_ERROR",
+            message=f"数据库操作失败: {str(error)}",
+            details=details
         )
     
-    def _update_error_stats(self, error: Exception):
-        """更新错误统计"""
-        self.error_stats['total_errors'] += 1
-        self.error_stats['last_error_time'] = datetime.now()
-        
-        # 按异常类型统计
-        error_type = error.__class__.__name__
-        self.error_stats['errors_by_type'][error_type] = \
-            self.error_stats['errors_by_type'].get(error_type, 0) + 1
-        
-        # 按端点统计
-        if request and request.endpoint:
-            endpoint = request.endpoint
-            self.error_stats['errors_by_endpoint'][endpoint] = \
-                self.error_stats['errors_by_endpoint'].get(endpoint, 0) + 1
-    
-    def _get_http_status_for_exception(self, error: NewsLookException) -> int:
-        """根据异常类型获取HTTP状态码"""
-        status_mapping = {
-            'VALIDATION_ERROR': 400,
-            'AUTH_ERROR': 401,
-            'AUTHZ_ERROR': 403,
-            'RESOURCE_NOT_FOUND': 404,
-            'RATE_LIMIT_ERROR': 429,
-            'SERVICE_UNAVAILABLE': 503,
-            'EXTERNAL_SERVICE_ERROR': 502,
-            'CONFIG_ERROR': 500,
-            'DATABASE_ERROR': 500,
-            'DB_CONNECTION_ERROR': 503,
-            'DB_QUERY_ERROR': 500,
-            'CRAWLER_ERROR': 500,
-            'NETWORK_ERROR': 502,
-            'PARSING_ERROR': 500,
-            'API_ERROR': 500,
-            'BUSINESS_LOGIC_ERROR': 400
+    def handle_crawler_error(self, error: Exception, source: str = "") -> ErrorResponse:
+        """处理爬虫错误"""
+        details = {
+            'source': source,
+            'error_class': error.__class__.__name__,
+            'traceback': traceback.format_exc()
         }
         
-        return status_mapping.get(error.error_code, 500)
+        return self.create_error_response(
+            error_type="CRAWLER_ERROR",
+            message=f"爬虫操作失败: {str(error)}",
+            details=details
+        )
     
-    def _generate_request_id(self) -> str:
-        """生成请求ID"""
-        import uuid
-        return str(uuid.uuid4())[:8]
-    
-    def get_error_stats(self) -> Dict[str, Any]:
-        """获取错误统计信息"""
-        stats = self.error_stats.copy()
-        if stats['last_error_time']:
-            stats['last_error_time'] = stats['last_error_time'].isoformat()
-        return stats
-    
-    def reset_error_stats(self):
-        """重置错误统计"""
-        self.error_stats = {
-            'total_errors': 0,
-            'errors_by_type': {},
-            'errors_by_endpoint': {},
-            'last_error_time': None
+    def handle_config_error(self, error: Exception, config_key: str = "") -> ErrorResponse:
+        """处理配置错误"""
+        details = {
+            'config_key': config_key,
+            'error_class': error.__class__.__name__,
+            'traceback': traceback.format_exc()
         }
-
-
-def handle_exceptions(func: Callable) -> Callable:
-    """
-    异常处理装饰器
-    用于装饰函数，自动处理异常并转换为NewsLook异常
-    """
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except NewsLookException:
-            # NewsLook异常直接抛出
-            raise
-        except Exception as e:
-            # 转换为NewsLook异常
-            logger = get_logger('newslook', 'decorator')
-            logger.error(f"Exception in {func.__name__}: {str(e)}", exc_info=True)
-            
-            # 创建NewsLook异常
-            newslook_error = NewsLookException(
-                message=f"Error in {func.__name__}: {str(e)}",
-                error_code="FUNCTION_ERROR",
-                context={
-                    'function': func.__name__,
-                    'original_type': e.__class__.__name__,
-                    'args': str(args) if args else None,
-                    'kwargs': str(kwargs) if kwargs else None
-                }
-            )
-            raise newslook_error
-    
-    return wrapper
-
-
-def handle_database_exceptions(func: Callable) -> Callable:
-    """
-    数据库异常处理装饰器
-    专门处理数据库相关异常
-    """
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            logger = get_logger('newslook', 'database')
-            logger.error(f"Database error in {func.__name__}: {str(e)}", exc_info=True)
-            
-            # 根据异常类型创建相应的数据库异常
-            if 'connection' in str(e).lower():
-                from .exceptions import DatabaseConnectionError
-                raise DatabaseConnectionError(
-                    message=f"Database connection error in {func.__name__}: {str(e)}",
-                    context={'function': func.__name__}
-                )
-            else:
-                from .exceptions import DatabaseError
-                raise DatabaseError(
-                    message=f"Database error in {func.__name__}: {str(e)}",
-                    operation=func.__name__,
-                    context={'original_error': str(e)}
-                )
-    
-    return wrapper
-
-
-def handle_crawler_exceptions(source: str = None):
-    """
-    爬虫异常处理装饰器
-    专门处理爬虫相关异常
-    """
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                logger = get_logger('newslook', f'crawler.{source}' if source else 'crawler')
-                logger.error(f"Crawler error in {func.__name__}: {str(e)}", exc_info=True)
-                
-                # 根据异常类型创建相应的爬虫异常
-                error_message = str(e).lower()
-                
-                if 'network' in error_message or 'connection' in error_message:
-                    from .exceptions import NetworkError
-                    raise NetworkError(
-                        message=f"Network error in {func.__name__}: {str(e)}",
-                        source=source,
-                        context={'function': func.__name__}
-                    )
-                elif 'parse' in error_message or 'selector' in error_message:
-                    from .exceptions import ParsingError
-                    raise ParsingError(
-                        message=f"Parsing error in {func.__name__}: {str(e)}",
-                        source=source,
-                        context={'function': func.__name__}
-                    )
-                elif 'rate limit' in error_message or '429' in error_message:
-                    from .exceptions import RateLimitError
-                    raise RateLimitError(
-                        message=f"Rate limit error in {func.__name__}: {str(e)}",
-                        source=source,
-                        context={'function': func.__name__}
-                    )
-                else:
-                    from .exceptions import CrawlerError
-                    raise CrawlerError(
-                        message=f"Crawler error in {func.__name__}: {str(e)}",
-                        source=source,
-                        context={'function': func.__name__, 'original_error': str(e)}
-                    )
         
-        return wrapper
+        return self.create_error_response(
+            error_type="CONFIG_ERROR",
+            message=f"配置错误: {str(error)}",
+            details=details
+        )
     
-    return decorator
-
+    def handle_validation_error(self, message: str, validation_errors: List[str]) -> ErrorResponse:
+        """处理验证错误"""
+        details = {
+            'validation_errors': validation_errors
+        }
+        
+        return self.create_error_response(
+            error_type="VALIDATION_ERROR",
+            message=message,
+            details=details
+        )
+    
+    def get_error_history(self) -> List[Dict[str, Any]]:
+        """获取错误历史"""
+        return [error.to_dict() for error in self.error_history]
 
 # 全局错误处理器实例
 _error_handler = None
@@ -408,9 +144,108 @@ def get_error_handler() -> ErrorHandler:
         _error_handler = ErrorHandler()
     return _error_handler
 
+def handle_errors(error_type: str = "GENERAL_ERROR"):
+    """错误处理装饰器"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                error_handler = get_error_handler()
+                error_response = error_handler.create_error_response(
+                    error_type=error_type,
+                    message=f"函数 {func.__name__} 执行失败: {str(e)}",
+                    details={
+                        'function': func.__name__,
+                        'args': str(args),
+                        'kwargs': str(kwargs),
+                        'traceback': traceback.format_exc()
+                    }
+                )
+                return {"error": error_response.to_dict()}, 500
+        return wrapper
+    return decorator
 
-def init_error_handler(app: Flask) -> ErrorHandler:
-    """初始化应用的错误处理器"""
+def create_api_error_response(error: Exception, 
+                            error_type: str = "API_ERROR",
+                            request_id: Optional[str] = None) -> tuple:
+    """创建API错误响应"""
     error_handler = get_error_handler()
-    error_handler.init_app(app)
+    error_response = error_handler.create_error_response(
+        error_type=error_type,
+        message=str(error),
+        details={
+            'error_class': error.__class__.__name__,
+            'traceback': traceback.format_exc()
+        },
+        request_id=request_id
+    )
+    
+    return {"error": error_response.to_dict()}, 500
+
+# 自动重试装饰器
+def auto_retry(max_attempts: int = 3, backoff_factor: float = 2.0):
+    """自动重试装饰器"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_error = None
+            
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_error = e
+                    if attempt < max_attempts - 1:
+                        import time
+                        wait_time = backoff_factor ** attempt
+                        logger.warning(f"重试 {func.__name__} (尝试 {attempt + 1}/{max_attempts}), 等待 {wait_time}s")
+                        time.sleep(wait_time)
+                    else:
+                        logger.error(f"重试失败 {func.__name__} 在 {max_attempts} 次尝试后")
+            
+            # 如果所有重试都失败，抛出最后一个异常
+            raise last_error
+        return wrapper
+    return decorator
+
+def init_error_handler(app=None):
+    """初始化错误处理器"""
+    error_handler = get_error_handler()
+    
+    if app is not None:
+        # Flask应用错误处理
+        @app.errorhandler(404)
+        def handle_404(error):
+            error_response = error_handler.create_error_response(
+                error_type="NOT_FOUND",
+                message="请求的资源不存在",
+                details={"path": str(error), "method": "GET"}
+            )
+            return {"error": error_response.to_dict()}, 404
+        
+        @app.errorhandler(500)
+        def handle_500(error):
+            error_response = error_handler.create_error_response(
+                error_type="INTERNAL_SERVER_ERROR",
+                message="服务器内部错误",
+                details={"error": str(error)}
+            )
+            return {"error": error_response.to_dict()}, 500
+        
+        @app.errorhandler(Exception)
+        def handle_general_exception(error):
+            error_response = error_handler.create_error_response(
+                error_type="GENERAL_ERROR",
+                message="未捕获的异常",
+                details={
+                    "error_class": error.__class__.__name__,
+                    "error_message": str(error),
+                    "traceback": traceback.format_exc()
+                }
+            )
+            return {"error": error_response.to_dict()}, 500
+    
+    logger.info("错误处理器初始化完成")
     return error_handler 
