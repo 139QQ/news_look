@@ -660,8 +660,8 @@ const getStatusBadgeType = (status) => {
 const loadStats = async () => {
   try {
     console.log('📊 正在加载统计数据...')
-    const data = await statsApi.getStats()
-    console.log('📊 统计数据响应:', data)
+    const response = await statsApi.getStats()
+    console.log('📊 统计数据响应:', response)
     
     // 更新连接状态
     connectionStatus.value = {
@@ -673,7 +673,10 @@ const loadStats = async () => {
     }
     console.log('✅ 后端连接成功')
     
-    if (data) {
+    // 修复：正确解析API响应数据
+    if (response && response.data) {
+      const data = response.data
+      
       statsCards.value[0].value = data.total_news?.toLocaleString() || '0'
       statsCards.value[1].value = data.today_news?.toLocaleString() || '0'
       statsCards.value[2].value = data.active_sources?.toString() || '0'
@@ -685,8 +688,24 @@ const loadStats = async () => {
       })
       
       console.log('📊 统计卡片数据已更新:', statsCards.value)
+    } else if (response && typeof response === 'object' && response.total_news !== undefined) {
+      // 处理直接返回数据的情况（无data包装）
+      const data = response
+      
+      statsCards.value[0].value = data.total_news?.toLocaleString() || '0'
+      statsCards.value[1].value = data.today_news?.toLocaleString() || '0'
+      statsCards.value[2].value = data.active_sources?.toString() || '0'
+      statsCards.value[3].value = `${((data.crawl_success_rate || 0) * 100).toFixed(1)}%`
+      
+      // 模拟趋势数据
+      statsCards.value.forEach(card => {
+        card.trend = Math.random() * 20 - 10
+      })
+      
+      console.log('📊 统计卡片数据已更新（直接格式）:', statsCards.value)
     } else {
-      console.warn('⚠️ 统计数据为空')
+      console.warn('⚠️ 统计数据格式异常:', response)
+      ElMessage.warning('数据格式异常，请检查API接口')
     }
   } catch (error) {
     console.error('❌ 加载统计数据失败:', error)
@@ -710,7 +729,8 @@ const loadStats = async () => {
     statsCards.value[2].value = '暂无数据'
     statsCards.value[3].value = '暂无数据'
     
-    console.log('📊 已设置默认统计数据')
+    ElMessage.error('加载数据概览失败，请检查网络连接')
+    console.log('�� 已设置默认统计数据')
   }
 }
 

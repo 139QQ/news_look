@@ -720,15 +720,26 @@ const loadKeyMetrics = async () => {
       end_date: dateRange.value[1]
     })
     
-    if (response.data && response.data.summary) {
-      const { summary } = response.data
-      keyMetrics.value[0].value = summary.total_news
-      keyMetrics.value[1].value = summary.today_news
-      keyMetrics.value[2].value = summary.sources_count
-      keyMetrics.value[3].value = Math.round(summary.avg_daily_news * 10) / 10
+    // 修复：调整数据格式映射以匹配实际API返回格式
+    if (response.data && response.success !== false) {
+      const data = response.data
+      // API返回格式：{ total_news, today_news, sources_count, last_update }
+      keyMetrics.value[0].value = data.total_news || 0
+      keyMetrics.value[1].value = data.today_news || 0
+      keyMetrics.value[2].value = data.sources_count || 0
+      keyMetrics.value[3].value = Math.round((data.avg_daily_news || 0) * 10) / 10
+      
+      // 更新最后更新时间
+      if (data.last_update) {
+        lastUpdate.value = new Date(data.last_update)
+      }
+    } else {
+      console.error('API返回异常数据:', response)
+      ElMessage.warning('数据格式异常，请检查API接口')
     }
   } catch (error) {
     console.error('加载关键指标失败:', error)
+    ElMessage.error('加载数据概览失败，请检查网络连接')
   }
 }
 

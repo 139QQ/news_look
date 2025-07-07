@@ -21,6 +21,41 @@ import sqlite3
 
 logger = get_logger(__name__)
 
+def decode_unicode_content(text):
+    """解码Unicode转义序列"""
+    if not text or not isinstance(text, str):
+        return text
+    
+    try:
+        # 处理Unicode转义序列 (\u4e2d\u56fd -> 中国)
+        if '\\u' in text:
+            text = text.encode('utf-8').decode('unicode_escape')
+        
+        # 处理其他可能的编码问题
+        return text
+    except Exception as e:
+        logger.warning(f"Unicode解码失败: {e}, 原文本: {text[:100]}...")
+        return text
+
+def format_news_data(news_list):
+    """格式化新闻数据并处理编码问题"""
+    formatted_news = []
+    for news in news_list:
+        # 处理所有文本字段的编码
+        formatted_item = {}
+        for key, value in news.items():
+            if isinstance(value, str):
+                formatted_item[key] = decode_unicode_content(value)
+            elif isinstance(value, list):
+                # 处理列表中的字符串
+                formatted_item[key] = [decode_unicode_content(item) if isinstance(item, str) else item for item in value]
+            else:
+                formatted_item[key] = value
+        
+        formatted_news.append(formatted_item)
+    
+    return formatted_news
+
 def register_routes(app):
     """注册路由"""
     
@@ -124,8 +159,10 @@ def register_routes(app):
             # 计算分页信息
             total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
             
+            formatted_news = format_news_data(news_list)
+            
             return jsonify({
-                'data': news_list,
+                'data': formatted_news,
                 'total': total_count,
                 'page': page,
                 'pages': total_pages,
@@ -1398,3 +1435,283 @@ def register_routes(app):
             })
             error_response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
             return error_response, 500 
+
+    # V1 API 端点 - 第一优先级指令改造
+    @app.route('/api/v1/crawlers/status')
+    def api_v1_crawler_status():
+        """V1爬虫状态API - 改造为真实数据"""
+        try:
+            # 导入爬虫管理器
+            from backend.newslook.crawlers.manager import CrawlerManager
+            
+            # 获取爬虫管理器实例
+            crawler_manager = CrawlerManager()
+            
+            # 获取真实爬虫状态
+            status_data = crawler_manager.get_status()
+            
+            # 转换为API格式
+            crawlers_list = []
+            for name, crawler in crawler_manager.crawlers.items():
+                # 获取爬虫线程状态
+                is_running = (name in crawler_manager.crawler_threads and 
+                             crawler_manager.crawler_threads[name].is_alive())
+                
+                # 确定状态
+                if is_running:
+                    status = 'running'
+                elif crawler_manager.stop_flags.get(name, False):
+                    status = 'stopping'
+                else:
+                    status = 'stopped'
+                
+                # 构建爬虫信息
+                crawler_info = {
+                    'id': name,
+                    'name': name,
+                    'status': status,
+                    'is_running': is_running,
+                    'last_run': None,  # 可以从数据库获取最后爬取时间
+                    'error_count': 0,  # 可以从日志获取错误计数
+                    'success_count': 0  # 可以从数据库获取成功计数
+                }
+                crawlers_list.append(crawler_info)
+            
+            return jsonify({
+                'success': True,
+                'data': crawlers_list,
+                'summary': {
+                    'total': len(crawlers_list),
+                    'running': sum(1 for c in crawlers_list if c['is_running']),
+                    'stopped': sum(1 for c in crawlers_list if not c['is_running'])
+                },
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"获取V1爬虫状态失败: {str(e)}")
+            return jsonify({
+                'success': False,
+                'data': [],
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }), 500
+    
+    @app.route('/api/v1/analytics/overview')
+    def api_v1_analytics_overview():
+        """V1分析概览API - 改造为真实数据"""
+        try:
+            # 导入统一数据库管理器
+            from backend.newslook.core.unified_database_manager import get_unified_database_manager
+            
+            # 获取数据库管理器实例
+            db_manager = get_unified_database_manager()
+            
+            # 获取数据库统计信息
+            db_stats = db_manager.get_database_stats()
+            
+            # 计算今日新闻数量
+            from datetime import date
+            today = date.today().strftime('%Y-%m-%d')
+            today_news = db_manager.query_news(days=1, use_all_sources=True)
+            today_count = len(today_news)
+            
+            # 获取最近新闻的更新时间
+            recent_news = db_manager.query_news(limit=1, use_all_sources=True)
+            last_update = None
+            if recent_news:
+                last_update = recent_news[0].get('crawl_time', recent_news[0].get('pub_time'))
+            
+            # 计算数据源数量
+            sources_count = len(db_stats.get('sources', []))
+            
+            # 格式化返回数据
+            overview_data = {
+                'total_news': db_stats.get('total_news', 0),
+                'today_news': today_count,
+                'sources_count': sources_count,
+                'last_update': last_update,
+                'database_size': db_stats.get('database_size', 0),
+                'growth_rate': {
+                    'daily': 0,  # 可以计算日增长率
+                    'weekly': 0  # 可以计算周增长率
+                }
+            }
+            
+            return jsonify({
+                'success': True,
+                'data': overview_data,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"获取V1分析概览失败: {str(e)}")
+            return jsonify({
+                'success': False,
+                'data': {
+                    'total_news': 0,
+                    'today_news': 0,
+                    'sources_count': 0,
+                    'last_update': None
+                },
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }), 500
+    
+    @app.route('/api/v1/analytics/echarts/data')
+    def api_v1_echarts_data():
+        """V1 ECharts数据API - 改造为真实数据"""
+        try:
+            # 导入统一数据库管理器
+            from backend.newslook.core.unified_database_manager import get_unified_database_manager
+            from collections import defaultdict
+            
+            # 获取数据库管理器实例
+            db_manager = get_unified_database_manager()
+            
+            # 获取最近30天的新闻数据
+            news_data = db_manager.query_news(days=30, limit=10000, use_all_sources=True)
+            
+            # 新闻趋势分析 (按日期分组)
+            daily_counts = defaultdict(int)
+            source_counts = defaultdict(int)
+            hourly_counts = defaultdict(int)
+            keyword_freq = defaultdict(int)
+            
+            for news in news_data:
+                # 处理发布时间
+                pub_time = news.get('pub_time', news.get('crawl_time', ''))
+                if pub_time:
+                    try:
+                        # 解析日期
+                        if isinstance(pub_time, str):
+                            if 'T' in pub_time:
+                                pub_datetime = datetime.fromisoformat(pub_time.replace('Z', '+00:00'))
+                            else:
+                                pub_datetime = datetime.strptime(pub_time[:19], '%Y-%m-%d %H:%M:%S')
+                        else:
+                            pub_datetime = pub_time
+                        
+                        # 按日期统计
+                        date_str = pub_datetime.strftime('%Y-%m-%d')
+                        daily_counts[date_str] += 1
+                        
+                        # 按小时统计
+                        hour = pub_datetime.hour
+                        hourly_counts[hour] += 1
+                    except Exception:
+                        pass
+                
+                # 按来源统计
+                source = news.get('source', '未知')
+                if source:
+                    source_counts[source] += 1
+                
+                # 关键词统计
+                keywords = news.get('keywords', [])
+                if isinstance(keywords, str):
+                    # 如果keywords是字符串，尝试解析
+                    try:
+                        import json
+                        keywords = json.loads(keywords)
+                    except:
+                        keywords = keywords.split(',') if keywords else []
+                
+                if isinstance(keywords, list):
+                    for keyword in keywords:
+                        if keyword and len(keyword.strip()) > 1:
+                            keyword_freq[keyword.strip()] += 1
+            
+            # 格式化新闻趋势数据
+            news_trend_dates = sorted(daily_counts.keys())[-30:]  # 最近30天
+            news_trend_counts = [daily_counts[date] for date in news_trend_dates]
+            
+            # 格式化来源分布数据
+            source_distribution = []
+            for source, count in sorted(source_counts.items(), key=lambda x: x[1], reverse=True):
+                source_distribution.append({
+                    'name': source,
+                    'value': count
+                })
+            
+            # 格式化小时分布数据
+            hourly_distribution = []
+            for hour in range(24):
+                hourly_distribution.append({
+                    'hour': hour,
+                    'count': hourly_counts[hour]
+                })
+            
+            # 格式化关键词云数据
+            keyword_cloud = []
+            for keyword, freq in sorted(keyword_freq.items(), key=lambda x: x[1], reverse=True)[:50]:
+                keyword_cloud.append({
+                    'name': keyword,
+                    'value': freq
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'news_trend': {
+                        'dates': news_trend_dates,
+                        'counts': news_trend_counts
+                    },
+                    'source_distribution': source_distribution,
+                    'hourly_distribution': hourly_distribution,
+                    'keyword_cloud': keyword_cloud,
+                    'summary': {
+                        'total_days': len(news_trend_dates),
+                        'max_daily_count': max(news_trend_counts) if news_trend_counts else 0,
+                        'avg_daily_count': sum(news_trend_counts) / len(news_trend_counts) if news_trend_counts else 0,
+                        'total_sources': len(source_distribution)
+                    }
+                },
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"获取V1 ECharts数据失败: {str(e)}")
+            return jsonify({
+                'success': False,
+                'data': {
+                    'news_trend': {
+                        'dates': [],
+                        'counts': []
+                    },
+                    'source_distribution': [],
+                    'hourly_distribution': [],
+                    'keyword_cloud': []
+                },
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }), 500
+    
+    # 注册第二优先级功能：增强爬虫控制API (v2)
+    print("🔄 开始注册第二优先级增强爬虫控制API...")
+    try:
+        print("🔄 导入增强爬虫控制模块...")
+        from backend.newslook.api.enhanced_crawler_control import register_enhanced_crawler_routes
+        print("✅ 增强爬虫控制模块导入成功")
+        
+        print("🔄 调用v2路由注册函数...")
+        result = register_enhanced_crawler_routes(app)
+        print(f"📊 v2路由注册结果: {result}")
+        
+        # 显示注册的v2路由
+        v2_routes = [rule.rule for rule in app.url_map.iter_rules() if 'v2' in rule.rule]
+        print(f"📋 已注册的v2路由数量: {len(v2_routes)}")
+        for route in v2_routes:
+            print(f"  - {route}")
+        
+        print("✅ 第二优先级增强爬虫控制API已注册 - v2功能已激活")
+    except ImportError as e:
+        print(f"⚠️  增强爬虫控制API模块未找到: {e}")
+        import traceback
+        print(traceback.format_exc())
+    except Exception as e:
+        print(f"❌ 增强爬虫控制API注册失败: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+    
+    print("📝 所有路由注册完成（包括第二优先级功能）")
