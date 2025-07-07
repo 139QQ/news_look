@@ -17,10 +17,10 @@ class NewsDatabase:
             source: 新闻来源，如果提供则使用对应来源的专用数据库
         """
         # 获取项目根目录
-        self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         
-        # 创建专门的数据库目录
-        self.db_dir = os.path.join(self.base_dir, 'db')
+        # 使用项目标准的数据库目录 data/db
+        self.db_dir = os.path.join(project_root, 'data', 'db')
         os.makedirs(self.db_dir, exist_ok=True)
         
         if db_path:

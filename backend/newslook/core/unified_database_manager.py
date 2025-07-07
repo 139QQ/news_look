@@ -443,23 +443,66 @@ class UnifiedDatabaseManager:
             return []
     
     def _query_all_sources(self, limit: int, days: Optional[int]) -> List[Dict[str, Any]]:
-        """查询所有数据源"""
+        """查询所有数据源（带URL去重逻辑）"""
         all_news = []
+        unique_urls = set()
         
-        # 查询主数据库
-        all_news.extend(self.query_news(None, limit, days, False))
+        # 获取所有数据库路径
+        db_paths = [str(self.config.main_db_path)]
         
-        # 查询所有源数据库
+        # 添加所有源数据库
         if self.config.sources_dir.exists():
             for db_file in self.config.sources_dir.glob('*.db'):
-                source_name = db_file.stem
-                try:
-                    source_news = self.query_news(source_name, limit, days, False)
-                    all_news.extend(source_news)
-                except Exception as e:
-                    logger.warning(f"查询源数据库 {source_name} 失败: {e}")
+                db_paths.append(str(db_file))
         
-        # 按时间排序并限制数量
+        # 查询所有数据库
+        for db_path in db_paths:
+            if not Path(db_path).exists():
+                continue
+                
+            try:
+                with self.get_connection(db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    # 检查表是否存在
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='news'")
+                    if not cursor.fetchone():
+                        continue
+                    
+                    # 构建查询
+                    query = "SELECT * FROM news WHERE url IS NOT NULL AND url != ''"
+                    params = []
+                    
+                    if days:
+                        query += " AND pub_time >= datetime('now', ?, 'localtime')"
+                        params.append(f'-{days} days')
+                    
+                    query += " ORDER BY pub_time DESC"
+                    
+                    cursor.execute(query, params)
+                    
+                    for row in cursor.fetchall():
+                        news_item = dict(row)
+                        url = news_item.get('url')
+                        
+                        # URL去重
+                        if url and url not in unique_urls:
+                            unique_urls.add(url)
+                            
+                            # 反序列化JSON字段
+                            for json_field in ['keywords', 'images', 'related_stocks']:
+                                if news_item.get(json_field):
+                                    try:
+                                        news_item[json_field] = json.loads(news_item[json_field])
+                                    except:
+                                        news_item[json_field] = []
+                                        
+                            all_news.append(news_item)
+                            
+            except Exception as e:
+                logger.error(f"查询数据库 {db_path} 失败: {e}")
+        
+        # 按发布时间排序并限制数量
         all_news.sort(key=lambda x: x.get('pub_time', ''), reverse=True)
         return all_news[:limit]
     
@@ -497,52 +540,190 @@ class UnifiedDatabaseManager:
         return report
     
     def get_database_stats(self) -> Dict[str, Any]:
-        """获取数据库统计信息"""
+        """获取数据库统计信息（带URL去重逻辑）"""
         stats = {
             'main_db': {},
             'source_dbs': {},
-            'total_news': 0
+            'total_news': 0,
+            'sources': []
         }
         
+        # 用于去重的URL集合
+        unique_urls = set()
+        all_sources = set()
+        
         # 主数据库统计
+        main_count = 0
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM news")
-                main_count = cursor.fetchone()[0]
-                
-                cursor.execute("SELECT COUNT(DISTINCT source) FROM news")
-                main_sources = cursor.fetchone()[0]
-                
-                stats['main_db'] = {
-                    'path': str(self.config.main_db_path),
-                    'count': main_count,
-                    'sources': main_sources
-                }
-                stats['total_news'] += main_count
+            if self.config.main_db_path.exists():
+                with self.get_connection() as conn:
+                    cursor = conn.cursor()
+                    
+                    # 获取所有URL和来源信息（去重）
+                    cursor.execute("SELECT url, source FROM news WHERE url IS NOT NULL AND url != ''")
+                    rows = cursor.fetchall()
+                    
+                    for row in rows:
+                        url = row[0]
+                        source = row[1] or '未知来源'
+                        
+                        if url and url not in unique_urls:
+                            unique_urls.add(url)
+                            main_count += 1
+                        
+                        if source:
+                            all_sources.add(source)
+                    
+                    stats['main_db'] = {
+                        'path': str(self.config.main_db_path),
+                        'count': main_count,
+                        'sources': len(all_sources)
+                    }
+                    logger.info(f"主数据库统计: {main_count} 条新闻")
                 
         except Exception as e:
             logger.error(f"获取主数据库统计失败: {e}")
+            stats['main_db'] = {
+                'path': str(self.config.main_db_path),
+                'count': 0,
+                'sources': 0
+            }
         
-        # 源数据库统计
-        for db_file in self.config.sources_dir.glob('*.db'):
-            source_name = db_file.stem
-            try:
-                with self.get_connection(str(db_file)) as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT COUNT(*) FROM news")
-                    count = cursor.fetchone()[0]
-                    
-                    stats['source_dbs'][source_name] = {
+        # 源数据库统计（只统计主数据库中没有的URL）
+        source_stats = {}
+        if self.config.sources_dir.exists():
+            for db_file in self.config.sources_dir.glob('*.db'):
+                source_name = db_file.stem
+                source_count = 0
+                
+                try:
+                    with self.get_connection(str(db_file)) as conn:
+                        cursor = conn.cursor()
+                        
+                        # 检查表是否存在
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='news'")
+                        if not cursor.fetchone():
+                            logger.warning(f"源数据库 {source_name} 中没有news表")
+                            continue
+                        
+                        # 获取所有URL和来源信息
+                        cursor.execute("SELECT url, source FROM news WHERE url IS NOT NULL AND url != ''")
+                        rows = cursor.fetchall()
+                        
+                        for row in rows:
+                            url = row[0]
+                            source = row[1] or source_name
+                            
+                            # 只统计尚未计入的URL（去重）
+                            if url and url not in unique_urls:
+                                unique_urls.add(url)
+                                source_count += 1
+                            
+                            if source:
+                                all_sources.add(source)
+                        
+                        source_stats[source_name] = {
+                            'path': str(db_file),
+                            'count': source_count
+                        }
+                        
+                        logger.info(f"源数据库 {source_name} 统计: {source_count} 条新闻")
+                        
+                except Exception as e:
+                    logger.error(f"获取源数据库统计失败 {source_name}: {e}")
+                    source_stats[source_name] = {
                         'path': str(db_file),
-                        'count': count
+                        'count': 0
                     }
-                    stats['total_news'] += count
-                    
-            except Exception as e:
-                logger.error(f"获取源数据库统计失败 {source_name}: {e}")
+        
+        # 计算总数（去重后）
+        total_unique_news = len(unique_urls)
+        
+        stats['source_dbs'] = source_stats
+        stats['total_news'] = total_unique_news
+        stats['sources'] = list(all_sources)
+        
+        logger.info(f"数据库统计完成: 总计 {total_unique_news} 条不重复新闻，{len(all_sources)} 个数据源")
         
         return stats
+    
+    def get_news_count(self, source: Optional[str] = None, days: Optional[int] = None) -> int:
+        """获取新闻数量（带URL去重逻辑）"""
+        unique_urls = set()
+        
+        try:
+            # 如果指定了来源，只查询对应的数据库
+            if source:
+                db_path = self.get_source_db_path(source)
+                if not Path(db_path).exists():
+                    # 如果源数据库不存在，查询主数据库
+                    db_path = str(self.config.main_db_path)
+                
+                with self.get_connection(db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    query = "SELECT url FROM news WHERE url IS NOT NULL AND url != ''"
+                    params = []
+                    
+                    if days:
+                        query += " AND pub_time >= datetime('now', ?, 'localtime')"
+                        params.append(f'-{days} days')
+                    
+                    if source:
+                        query += " AND source = ?"
+                        params.append(source)
+                    
+                    cursor.execute(query, params)
+                    rows = cursor.fetchall()
+                    
+                    for row in rows:
+                        url = row[0]
+                        if url and url not in unique_urls:
+                            unique_urls.add(url)
+            else:
+                # 查询所有数据库
+                db_paths = [str(self.config.main_db_path)]
+                
+                # 添加所有源数据库
+                if self.config.sources_dir.exists():
+                    for db_file in self.config.sources_dir.glob('*.db'):
+                        db_paths.append(str(db_file))
+                
+                for db_path in db_paths:
+                    if not Path(db_path).exists():
+                        continue
+                        
+                    try:
+                        with self.get_connection(db_path) as conn:
+                            cursor = conn.cursor()
+                            
+                            # 检查表是否存在
+                            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='news'")
+                            if not cursor.fetchone():
+                                continue
+                            
+                            query = "SELECT url FROM news WHERE url IS NOT NULL AND url != ''"
+                            params = []
+                            
+                            if days:
+                                query += " AND pub_time >= datetime('now', ?, 'localtime')"
+                                params.append(f'-{days} days')
+                            
+                            cursor.execute(query, params)
+                            rows = cursor.fetchall()
+                            
+                            for row in rows:
+                                url = row[0]
+                                if url and url not in unique_urls:
+                                    unique_urls.add(url)
+                                    
+                    except Exception as e:
+                        logger.error(f"查询数据库 {db_path} 失败: {e}")
+                        
+        except Exception as e:
+            logger.error(f"获取新闻数量失败: {e}")
+        
+        return len(unique_urls)
     
     def close_all_connections(self):
         """关闭所有连接池"""
