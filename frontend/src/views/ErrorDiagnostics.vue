@@ -289,6 +289,7 @@
 import { ref, reactive, onMounted, onUnmounted, getCurrentInstance } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { checkRouterHealth } from '@/router/index.js'
 
 // 响应式数据
 const systemStatus = reactive({
@@ -473,15 +474,31 @@ const checkRouting = async () => {
   try {
     // 1. 检查Vue Router配置
     try {
-      const currentRoute = useRoute()
-      // 如果能获取到当前路由，说明Vue Router配置正常
-      if (currentRoute && currentRoute.name) {
+      // 使用路由健康检查函数
+      const routerHealth = checkRouterHealth()
+      
+      if (routerHealth.status === 'ok') {
         routingChecks.value[0].status = 'ok'
+      } else if (routerHealth.status === 'warning') {
+        routingChecks.value[0].status = 'warning'
+      } else {
+        routingChecks.value[0].status = 'error'
+      }
+      
+      // 检查当前路由实例
+      const currentRoute = useRoute()
+      if (currentRoute && currentRoute.name) {
+        // 如果路由健康检查通过且当前路由正常，则检查通过
+        if (routerHealth.status === 'ok') {
+        routingChecks.value[0].status = 'ok'
+        }
       } else if (currentRoute) {
         routingChecks.value[0].status = 'warning'
       } else {
         routingChecks.value[0].status = 'error'
       }
+      
+      console.log('路由配置检查结果:', routerHealth)
     } catch (error) {
       console.error('Vue Router检查失败:', error)
       routingChecks.value[0].status = 'error'
@@ -601,7 +618,7 @@ const checkAPI = async () => {
   try {
     // 1. 检查后端连接
     try {
-      const healthResponse = await fetch('http://127.0.0.1:5000/api/health', {
+      const healthResponse = await fetch('http://127.0.0.1:5000/api/monitoring/health', {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -631,7 +648,7 @@ const checkAPI = async () => {
 
     // 2. 检查CORS配置
     try {
-      const corsResponse = await fetch('http://127.0.0.1:5000/api/diagnosis', {
+      const corsResponse = await fetch('http://127.0.0.1:5000/api/monitoring/metrics', {
         method: 'GET',
         headers: {
           'Origin': 'http://localhost:3000',
@@ -799,7 +816,7 @@ onMounted(() => {
     
     // 后端健康检查
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/health')
+      const response = await fetch('http://127.0.0.1:5000/api/monitoring/health')
       if (response.ok) {
         systemStatus.backend = 'ok'
         systemStatus.api = 'ok'

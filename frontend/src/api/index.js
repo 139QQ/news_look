@@ -17,6 +17,123 @@ let apiHealthStatus = {
   backendUrl: null
 }
 
+// 数据结构校验函数
+function validateSchema(data, schema) {
+  if (!data || typeof data !== 'object') return false
+  
+  for (const [key, expectedType] of Object.entries(schema)) {
+    const value = data[key]
+    if (expectedType === 'number' && (typeof value !== 'number' && !Number.isFinite(Number(value)))) {
+      return false
+    }
+    if (expectedType === 'string' && typeof value !== 'string') {
+      return false
+    }
+    if (expectedType === 'array' && !Array.isArray(value)) {
+      return false
+    }
+  }
+  return true
+}
+
+// 数据防护层 - 处理异常数据结构
+function normalizeData(response, endpoint = '') {
+  // 空数据兜底
+  if (!response || !response.data) {
+    console.warn(`[数据防护] 空响应数据，端点: ${endpoint}`)
+    return {
+      data: [],
+      total: 0,
+      _isFallback: true,
+      _fallbackReason: 'empty_response'
+    }
+  }
+
+  // 处理数组数据
+  if (Array.isArray(response.data)) {
+    if (response.data.length === 0) {
+      return {
+        data: [],
+        total: 0,
+        _isFallback: true,
+        _fallbackReason: 'empty_array'
+      }
+    }
+
+    // 数据结构校验和修复
+    const schema = {
+      id: 'number',
+      title: 'string',
+      view_count: 'number'
+    }
+
+    response.data.forEach((item, index) => {
+      // 自动修复常见问题
+      if (item.view_count !== undefined) {
+        item.view_count = Number(item.view_count) || 0
+      }
+      if (item.pub_time && typeof item.pub_time !== 'string') {
+        item.pub_time = String(item.pub_time)
+      }
+      if (!item.title) {
+        item.title = `未知标题 #${index + 1}`
+      }
+    })
+  }
+
+  return response
+}
+
+// 获取缓存数据（简单的内存缓存实现）
+const cache = new Map()
+function getCachedData(key) {
+  const cached = cache.get(key)
+  if (cached && (Date.now() - cached.timestamp < 300000)) { // 5分钟缓存
+    return cached.data
+  }
+  return null
+}
+
+function setCachedData(key, data) {
+  cache.set(key, {
+    data: data,
+    timestamp: Date.now()
+  })
+}
+
+// 增强的404处理
+async function handleNotFoundError(id, endpoint) {
+  console.warn(`[404处理] 资源不存在: ${endpoint}/${id}`)
+  
+  // 尝试从缓存获取数据
+  const cachedData = getCachedData(`${endpoint}_${id}`)
+  if (cachedData) {
+    console.log(`[404处理] 使用缓存数据: ${endpoint}/${id}`)
+    return {
+      data: cachedData,
+      status: 'cached',
+      _isFallback: true,
+      _fallbackReason: 'not_found_cached'
+    }
+  }
+
+  // 返回占位数据
+  const placeholderData = {
+    id: id,
+    title: '数据加载中...',
+    content: '该内容暂时无法获取，请稍后重试',
+    pub_time: new Date().toISOString(),
+    status: 'placeholder'
+  }
+
+  return {
+    data: placeholderData,
+    status: 'placeholder',
+    _isFallback: true,
+    _fallbackReason: 'not_found_placeholder'
+  }
+}
+
 // 检查API健康状态
 const checkApiHealth = async () => {
   try {
@@ -73,9 +190,31 @@ const checkApiHealth = async () => {
 // 获取API健康状态
 const getApiHealthStatus = () => apiHealthStatus
 
-// 请求拦截器
+// 自定义错误类
+class DataStructureError extends Error {
+  constructor(response) {
+    super('数据结构异常')
+    this.name = 'DataStructureError'
+    this.response = response
+  }
+}
+
+class DataNotFoundError extends Error {
+  constructor(endpoint, id) {
+    super(`数据不存在: ${endpoint}/${id}`)
+    this.name = 'DataNotFoundError'
+    this.endpoint = endpoint
+    this.id = id
+  }
+}
+
+// 全局请求拦截器
 api.interceptors.request.use(
   async config => {
+    // 自动附加环境标识
+    config.headers['X-Env'] = import.meta.env.MODE || 'development'
+    config.headers['X-Request-ID'] = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
     // 如果API状态未知或不健康，先进行健康检查
     if (!apiHealthStatus.isHealthy) {
       await checkApiHealth()
@@ -86,6 +225,11 @@ api.interceptors.request.use(
       console.warn('⚠️ API服务状态异常，请求可能失败')
     }
     
+    console.log(`[请求] ${config.method?.toUpperCase()} ${config.url}`, {
+      requestId: config.headers['X-Request-ID'],
+      params: config.params
+    })
+    
     return config
   },
   error => {
@@ -93,26 +237,50 @@ api.interceptors.request.use(
   }
 )
 
-// 响应拦截器
+// 全局响应拦截器
 api.interceptors.response.use(
   response => {
-    const { data } = response
+    const { data, config } = response
+    const requestId = config.headers['X-Request-ID']
     
-    // 处理成功响应
-    if (data.success !== false) {
-      return data
+    console.log(`[响应] ${config.method?.toUpperCase()} ${config.url}`, {
+      requestId,
+      status: response.status,
+      dataType: Array.isArray(data?.data) ? 'array' : typeof data
+    })
+    
+    // 结构校验
+    if (data && !data.success && data.success !== undefined) {
+      throw new DataStructureError(data)
     }
     
-    // 处理业务错误
-    ElMessage.error(data.message || '请求失败')
-    return Promise.reject(new Error(data.message || '请求失败'))
-  },
-  error => {
-    // 处理HTTP错误
-    let message = '网络错误'
+    // 数据标准化处理
+    const normalizedData = normalizeData(data, config.url)
     
-    if (error.response) {
-      const { status, data, config } = error.response
+    // 缓存成功的数据
+    if (normalizedData && normalizedData.data && !normalizedData._isFallback) {
+      setCachedData(`${config.url}_${JSON.stringify(config.params || {})}`, normalizedData.data)
+    }
+    
+    return normalizedData
+  },
+  async error => {
+    const { response, config, request } = error
+    const requestId = config?.headers?.['X-Request-ID']
+    
+    // 统一错误处理
+    let message = '网络错误'
+    let errorData = null
+    
+    if (response) {
+      const { status, data } = response
+      const url = config?.url || ''
+      
+      console.error(`[错误响应] ${config?.method?.toUpperCase()} ${url}`, {
+        requestId,
+        status,
+        error: data
+      })
       
       switch (status) {
         case 400:
@@ -125,11 +293,24 @@ api.interceptors.response.use(
           message = '禁止访问'
           break
         case 404:
-          // 区分API端点不存在和具体资源不存在
-          const url = config?.url || ''
+          // 404错误的优雅处理
           if (apiHealthStatus.isHealthy) {
             // 后端服务正常，但请求的资源不存在
             message = data?.message || '请求的数据不存在'
+            
+            // 尝试优雅降级
+            const pathMatch = url.match(/\/(\w+)\/(.+)$/)
+            if (pathMatch) {
+              const [, endpoint, id] = pathMatch
+              try {
+                errorData = await handleNotFoundError(id, endpoint)
+                console.log(`[404恢复] 使用降级数据: ${endpoint}/${id}`)
+                // 返回降级数据而不是抛出错误
+                return errorData
+              } catch (fallbackError) {
+                console.error('[404恢复失败]', fallbackError)
+              }
+            }
           } else {
             // 后端服务异常
             message = `API服务不可用 (${apiHealthStatus.backendUrl || '未知地址'})，请检查后端服务是否启动`
@@ -147,10 +328,16 @@ api.interceptors.response.use(
         default:
           message = data?.message || `HTTP错误: ${status}`
       }
-    } else if (error.request) {
+    } else if (request) {
       // 请求发出但没有收到响应，更新健康状态
       apiHealthStatus.isHealthy = false
       apiHealthStatus.lastCheck = new Date()
+      
+      console.error(`[网络错误]`, {
+        requestId,
+        code: error.code,
+        message: error.message
+      })
       
       if (error.code === 'ECONNREFUSED') {
         message = '连接被拒绝，请检查后端服务是否启动'
@@ -164,28 +351,81 @@ api.interceptors.response.use(
     } else {
       // 其他错误
       message = error.message || '请求配置错误'
+      console.error(`[配置错误]`, {
+        requestId,
+        error: error.message
+      })
     }
     
-    ElMessage.error(message)
+    // 过滤掉已处理的404错误，避免重复显示消息
+    if (!(error.response?.status === 404 && errorData)) {
+      ElMessage.error(message)
+    }
+    
+    // 错误上报（这里可以集成Sentry等）
+    if (window.Sentry) {
+      window.Sentry.captureException(error, {
+        tags: {
+          requestId,
+          endpoint: config?.url,
+          method: config?.method
+        }
+      })
+    }
+    
     return Promise.reject(error)
   }
 )
 
-// 新闻API
+// 增强的API函数
+async function fetchDataWithFallback(endpoint, params = {}) {
+  try {
+    const response = await api.get(endpoint, {
+      params,
+      // 双重验证机制
+      validateStatus: status => (status >= 200 && status < 300) || status === 404
+    })
+    
+    if (response.status === 404) {
+      return {
+        status: 'empty',
+        fallback: getCachedData(`${endpoint}_${JSON.stringify(params)}`)
+      }
+    }
+    
+    return response
+  } catch (err) {
+    // 错误上报
+    if (window.Sentry) {
+      window.Sentry.captureException(err)
+    }
+    throw err
+  }
+}
+
+// 新闻API - 增强版
 export const newsApi = {
   // 获取新闻列表
-  getNewsList(params = {}) {
-    return api.get('/news', { params })
+  async getNewsList(params = {}) {
+    return fetchDataWithFallback('/news', params)
   },
   
-  // 获取新闻详情
-  getNewsDetail(id) {
-    return api.get(`/news/${id}`)
+  // 获取新闻详情 - 带404优雅处理
+  async getNewsDetail(id) {
+    try {
+      return await fetchDataWithFallback(`/news/${id}`)
+    } catch (error) {
+      if (error.response?.status === 404) {
+        // 已在拦截器中处理，这里不需要额外处理
+        throw new DataNotFoundError('news', id)
+      }
+      throw error
+    }
   },
   
   // 获取新闻来源
-  getNewsSources() {
-    return api.get('/sources')
+  async getNewsSources() {
+    return fetchDataWithFallback('/sources')
   }
 }
 

@@ -10,7 +10,16 @@ import App from './App.vue'
 import router from './router'
 import './styles/index.scss'
 
+// 导入监控工具
+import { Monitoring } from './utils/monitoring.js'
+
 const app = createApp(App)
+
+// 全局错误处理
+app.config.errorHandler = (err, vm, info) => {
+  console.error('Vue全局错误:', err, info)
+  Monitoring.captureError(err, { componentInfo: info })
+}
 
 // 注册 Element Plus 图标
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
@@ -23,4 +32,13 @@ app.use(ElementPlus, {
   locale: zhCn,
 })
 
+// 挂载应用
 app.mount('#app') 
+
+// 将监控对象挂载到全局，方便调试和使用
+window.Monitoring = Monitoring
+
+// 启用路由监控
+if (router) {
+  window.router = router
+} 
