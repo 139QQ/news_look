@@ -21,10 +21,10 @@ import time
 from prometheus_client import Counter, Histogram
 from dataclasses import dataclass, field, asdict
 
-from backend.app.utils.logger import get_logger
-from backend.app.crawlers.base import BaseCrawler
-from backend.app.utils.database import NewsDatabase
-from backend.app.config import get_settings
+from app.utils.logger import get_logger
+from app.crawlers.base import BaseCrawler
+from app.utils.database import NewsDatabase
+from app.config import get_settings
 
 logger = get_logger('crawler_factory')
 
@@ -499,9 +499,9 @@ class CrawlerFactory:
         
         Returns:
             Dict[str, Any]: 默认配置
-        """
+                """
         # 从环境变量获取配置值
-        from backend.app.config import get_settings
+        from app.config import get_settings
         settings = get_settings()
         
         # 构建默认配置
@@ -644,16 +644,16 @@ class CrawlerFactory:
         """
         try:
             if crawler_key == 'sina':
-                from backend.app.crawlers.sina import SinaCrawler
+                from app.crawlers.sina import SinaCrawler
                 return SinaCrawler
             elif crawler_key == 'eastmoney':
-                from backend.app.crawlers.eastmoney import EastMoneyCrawler
+                from app.crawlers.eastmoney import EastMoneyCrawler
                 return EastMoneyCrawler
             elif crawler_key == 'netease':
-                from backend.app.crawlers.sites.netease import NeteaseCrawler
+                from app.crawlers.sites.netease import NeteaseCrawler
                 return NeteaseCrawler
             elif crawler_key == 'ifeng':
-                from backend.app.crawlers.ifeng import IfengCrawler
+                from app.crawlers.ifeng import IfengCrawler
                 return IfengCrawler
             else:
                 logger.error(f"不支持的爬虫: {crawler_key}")

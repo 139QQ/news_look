@@ -21,10 +21,10 @@ from datetime import datetime, timedelta
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
-from backend.app.crawlers.base import BaseCrawler
-from backend.app.utils.logger import get_crawler_logger
-from backend.app.utils.text_cleaner import clean_html, extract_keywords
-from backend.app.db.SQLiteManager import SQLiteManager
+from app.crawlers.base import BaseCrawler
+from app.utils.logger import get_crawler_logger
+from app.utils.text_cleaner import clean_html, extract_keywords
+from app.db.SQLiteManager import SQLiteManager
 
 # 使用专门的爬虫日志记录器
 logger = get_crawler_logger('东方财富')
@@ -1095,7 +1095,7 @@ class EastMoneyCrawler(BaseCrawler):
 
 def main():
     """测试爬虫功能"""
-    from backend.app.db.SQLiteManager import SQLiteManager
+    from app.db.SQLiteManager import SQLiteManager
     
     # 创建数据库管理器
     db_manager = SQLiteManager('./data/news.db')
@@ -1109,6 +1109,6 @@ def main():
     print("爬取完成")
 
 if __name__ == '__main__':
-    from backend.app.utils.logger import get_crawler_logger
+    from app.utils.logger import get_crawler_logger
     logger = get_crawler_logger('东方财富')
     main()

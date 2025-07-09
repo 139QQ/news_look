@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Float, ForeignKey, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from backend.app.config import get_settings
-from backend.app.utils.logger import get_logger
+from app.config import get_settings
+from app.utils.logger import get_logger
 import uuid
 from typing import Dict, List, Any
 

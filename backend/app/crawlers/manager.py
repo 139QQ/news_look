@@ -10,11 +10,11 @@ import time
 import threading
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Any, Union, Tuple
-from backend.app.config import get_settings
-from backend.app.utils.logger import get_logger
-from backend.app.utils.database import NewsDatabase
-from backend.app.crawlers.base import BaseCrawler
-from backend.app.crawlers.factory import CrawlerFactory
+from app.config import get_settings
+from app.utils.logger import get_logger
+from app.utils.database import NewsDatabase
+from app.crawlers.base import BaseCrawler
+from app.crawlers.factory import CrawlerFactory
 import re
 import sqlite3
 

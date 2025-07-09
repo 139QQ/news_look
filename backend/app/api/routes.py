@@ -23,6 +23,19 @@ logger = logging.getLogger(__name__)
 def register_api_routes(app):
     """注册API路由到Flask应用"""
     
+    # 注册监控API
+    try:
+        import sys
+        import os
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+        from api.monitoring_api import register_monitoring_routes
+        register_monitoring_routes(app)
+        logger.info("监控API路由注册成功")
+    except ImportError as e:
+        logger.error(f"监控API导入失败: {e}")
+    except Exception as e:
+        logger.error(f"监控API注册失败: {e}")
+    
     # 新闻相关API
     @app.route('/api/news', methods=['GET'])
     def get_news_list():

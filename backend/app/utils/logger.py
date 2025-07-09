@@ -17,7 +17,7 @@ _logger_cache = {}
 
 # 尝试导入配置文件
 try:
-    from backend.app.config import LOG_CONFIG, BASE_DIR
+    from app.config import LOG_CONFIG, BASE_DIR
 except ImportError:
     # 默认日志配置
     LOG_CONFIG = {
@@ -229,7 +229,7 @@ def get_crawler_logger(name):
     
     # 确保日志目录存在
     try:
-        from backend.app.config import get_settings
+        from app.config import get_settings
         settings = get_settings()
         log_dir = settings.LOG_DIR
     except (ImportError, AttributeError):

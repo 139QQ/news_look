@@ -16,13 +16,13 @@ import logging
 import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
-from backend.app.crawlers.base import BaseCrawler
-from backend.app.utils.logger import get_crawler_logger, configure_logger
-from backend.app.utils.text_cleaner import clean_html, extract_keywords
-from backend.app.db.SQLiteManager import SQLiteManager
-from backend.app.utils.ad_filter import AdFilter  # 导入广告过滤器模块
-from backend.app.utils.image_detector import ImageDetector  # 导入图像识别模块
-from backend.app.utils.proxy_manager import ProxyManager
+from app.crawlers.base import BaseCrawler
+from app.utils.logger import get_crawler_logger, configure_logger
+from app.utils.text_cleaner import clean_html, extract_keywords
+from app.db.SQLiteManager import SQLiteManager
+from app.utils.ad_filter import AdFilter  # 导入广告过滤器模块
+from app.utils.image_detector import ImageDetector  # 导入图像识别模块
+from app.utils.proxy_manager import ProxyManager
 
 # 初始化日志记录器
 logger = get_crawler_logger('netease')
@@ -145,7 +145,7 @@ class NeteaseCrawler(BaseCrawler):
         
         # 检查数据库管理器是否已初始化，没有的话手动初始化
         if not self.db_manager:
-            from backend.app.db.SQLiteManager import SQLiteManager
+            from app.db.SQLiteManager import SQLiteManager
             self.db_manager = SQLiteManager(db_path or './data/news.db')
             self.logger.info(f"手动初始化数据库管理器 SQLiteManager: {db_path or './data/news.db'}")
         

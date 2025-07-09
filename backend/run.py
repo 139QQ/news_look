@@ -26,8 +26,8 @@ DEBUG_MODE = True
 FORCE_SYNC_MODE = False
 
 # 移除策略和工厂导入，避免加载时间开销
-from backend.app.utils.logger import get_logger, configure_logger, fix_duplicate_logging
-from backend.app.tasks.scheduler import SchedulerManager
+from app.utils.logger import get_logger, configure_logger, fix_duplicate_logging
+from app.tasks.scheduler import SchedulerManager
 
 # 设置工作目录为脚本所在目录，确保相对路径正确
 CWD = os.path.dirname(os.path.abspath(__file__))
@@ -87,16 +87,16 @@ def import_crawler_directly(crawler_key: str, db_path: str, **kwargs):
     """
     try:
         if crawler_key == 'sina':
-            from backend.app.crawlers.sina import SinaCrawler
+            from app.crawlers.sina import SinaCrawler
             return SinaCrawler(db_path=db_path, **kwargs)
         elif crawler_key == 'eastmoney':
-            from backend.app.crawlers.eastmoney import EastMoneyCrawler
+            from app.crawlers.eastmoney import EastMoneyCrawler
             return EastMoneyCrawler(db_path=db_path, **kwargs)
         elif crawler_key == 'netease':
-            from backend.app.crawlers.sites.netease import NeteaseCrawler
+            from app.crawlers.sites.netease import NeteaseCrawler
             return NeteaseCrawler(db_path=db_path, **kwargs)
         elif crawler_key == 'ifeng':
-            from backend.app.crawlers.ifeng import IfengCrawler
+            from app.crawlers.ifeng import IfengCrawler
             return IfengCrawler(db_path=db_path, **kwargs)
         else:
             logger.error(f"不支持的爬虫: {crawler_key}")
@@ -292,7 +292,7 @@ def run_scheduler_mode(args):
                 import daemon
                 with daemon.DaemonContext():
                     # 使用start_scheduler函数替代start方法
-                    from backend.app.tasks.scheduler import start_scheduler
+                    from app.tasks.scheduler import start_scheduler
                     scheduler_obj = start_scheduler(config_path=args.config)
                     # 保持主线程运行
                     while True:
@@ -300,14 +300,14 @@ def run_scheduler_mode(args):
             except ImportError:
                 logger.error("daemon模块未安装，无法以守护进程模式运行")
                 logger.info("请使用pip install python-daemon安装所需模块")
-                from backend.app.tasks.scheduler import start_scheduler
+                from app.tasks.scheduler import start_scheduler
                 start_scheduler(config_path=args.config)
                 # 保持主线程运行
                 while True:
                     time.sleep(60)
         else:
             logger.info("启动调度器")
-            from backend.app.tasks.scheduler import start_scheduler
+            from app.tasks.scheduler import start_scheduler
             start_scheduler(config_path=args.config)
             # 保持主线程运行
             while True:
@@ -322,7 +322,7 @@ def run_scheduler_mode(args):
 def run_web_mode(args):
     """运行Web应用模式"""
     try:
-        from backend.app.web import create_app
+        from app.web import create_app
         
         # 设置默认数据库目录 - 修复路径
         db_dir = args.db_dir if hasattr(args, 'db_dir') and args.db_dir else os.path.join(CWD, 'data')
@@ -351,7 +351,7 @@ def run_web_mode(args):
         # 尝试初始化爬虫管理器
         crawler_manager = None
         try:
-            from backend.app.crawlers.manager import CrawlerManager
+            from app.crawlers.manager import CrawlerManager
             crawler_manager = CrawlerManager()
             logger.info("已成功初始化爬虫管理器")
         except Exception as e:
@@ -396,7 +396,7 @@ def run_web_mode(args):
 def run_db_mode(args):
     """运行数据库管理模式"""
     try:
-        from backend.app.db.database_manager import DatabaseManager
+        from app.db.database_manager import DatabaseManager
         
         # 初始化数据库管理器
         manager = DatabaseManager(CWD)

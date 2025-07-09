@@ -11,10 +11,10 @@ import glob
 from flask import Flask
 from flask_cors import CORS
 from datetime import datetime
-from backend.app.config import get_settings
+from app.config import get_settings
 
 try:
-    from backend.app.crawlers.manager import CrawlerManager
+    from app.crawlers.manager import CrawlerManager
 except ImportError:
     CrawlerManager = None
 
@@ -125,7 +125,7 @@ def create_app(config=None):
             app.crawler_manager = None
     
     # 注册API路由
-    from backend.app.api.routes import register_api_routes
+    from app.api.routes import register_api_routes
     register_api_routes(app)
     
     # 添加健康检查端点

@@ -11,7 +11,7 @@ import json
 import jieba
 import numpy as np
 from collections import defaultdict
-from backend.app.utils.logger import get_logger
+from app.utils.logger import get_logger
 
 # 设置日志记录器
 logger = get_logger('sentiment_analyzer')

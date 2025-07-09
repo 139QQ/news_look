@@ -27,12 +27,12 @@ import uuid
 from PIL import Image
 from io import BytesIO
 
-from backend.app.utils.logger import get_logger, get_crawler_logger
-from backend.app.utils.sentiment_analyzer import SentimentAnalyzer
-from backend.app.utils.database import DatabaseManager
-from backend.app.config import get_settings
-from backend.app.utils.text_cleaner import TextCleaner, format_for_display, clean_html, extract_keywords
-from backend.app.db.SQLiteManager import SQLiteManager
+from app.utils.logger import get_logger, get_crawler_logger
+from app.utils.sentiment_analyzer import SentimentAnalyzer
+from app.utils.database import DatabaseManager
+from app.config import get_settings
+from app.utils.text_cleaner import TextCleaner, format_for_display, clean_html, extract_keywords
+from app.db.SQLiteManager import SQLiteManager
 
 # 使用专门的爬虫日志记录器
 logger = get_crawler_logger('base')

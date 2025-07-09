@@ -1,4 +1,4 @@
-from backend.app.crawlers.factory import CrawlerFactory
+from app.crawlers.factory import CrawlerFactory
 
 def run_crawlers(sources=None, days=1, max_news=100, async_mode=True, enhanced=False, **options):
     """运行爬虫的统一入口函数"""

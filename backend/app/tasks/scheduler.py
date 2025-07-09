@@ -14,8 +14,8 @@ from datetime import datetime, timedelta
 import importlib
 from typing import Dict, List, Tuple, Union
 
-from backend.app.utils.logger import configure_logger
-from backend.app.crawlers import run_crawlers
+from app.utils.logger import configure_logger
+from app.crawlers import run_crawlers
 
 logger = configure_logger(name='scheduler')
 
@@ -29,7 +29,7 @@ def run_crawler_task():
         logger.info(f"爬虫任务完成，共获取 {len(news_data)} 条新闻")
         
         # 生成HTML报告
-        from backend.app.utils.report_generator import generate_html_report
+        from app.utils.report_generator import generate_html_report
         report_path = generate_html_report(news_data)
         logger.info(f"HTML报告已生成: {report_path}")
         

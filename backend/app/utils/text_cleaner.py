@@ -8,7 +8,7 @@
 import re
 import jieba
 import jieba.analyse
-from backend.app.utils.logger import get_logger
+from app.utils.logger import get_logger
 from bs4 import BeautifulSoup
 import html
 import urllib.parse
