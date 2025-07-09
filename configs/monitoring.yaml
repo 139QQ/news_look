@@ -1,0 +1,299 @@
+# NewsLook 错误监控配置
+# 支持Sentry、本地日志、性能监控等
+
+# Sentry错误监控配置
+sentry:
+  enabled: false  # 默认关闭，生产环境启用
+  dsn: ""  # 从环境变量 SENTRY_DSN 获取
+  environment: "development"  # development, staging, production
+  release: "newslook@3.1.0"
+  sample_rate: 1.0  # 错误采样率 (0.0-1.0)
+  traces_sample_rate: 0.1  # 性能监控采样率
+  
+  # 错误过滤配置
+  ignore_errors:
+    # 忽略的错误类型
+    - "DataNotFoundError"
+    - "EmptyResultError"
+    - "NetworkError"
+    - "TimeoutError"
+    # 忽略特定错误消息模式
+    - "Loading chunk \\d+ failed"
+    - "ResizeObserver loop limit exceeded"
+    - "Non-Error promise rejection captured"
+    
+  # 忽略的URL模式
+  ignore_urls:
+    - "/sockjs-node/"
+    - "/_nuxt/"
+    - "/hot-update/"
+    - "chrome-extension://"
+    - "moz-extension://"
+    
+  # 数据清理规则
+  before_send:
+    # 清理敏感数据
+    sanitize_keys:
+      - "password"
+      - "token"
+      - "secret"
+      - "api_key"
+      - "auth"
+    # 最大堆栈深度
+    max_stack_frames: 50
+    # 最大字符串长度
+    max_string_length: 1000
+
+# 本地错误日志配置
+local_logging:
+  enabled: true
+  
+  # 错误日志文件配置
+  error_log:
+    path: "logs/errors"
+    filename: "error-{date}.log"
+    max_size_mb: 50
+    backup_count: 30
+    rotation: "daily"
+    
+  # 性能日志配置
+  performance_log:
+    path: "logs/performance"
+    filename: "performance-{date}.log"
+    max_size_mb: 20
+    backup_count: 7
+    rotation: "daily"
+    
+  # 用户行为日志
+  user_behavior_log:
+    path: "logs/behavior"
+    filename: "behavior-{date}.log"
+    max_size_mb: 100
+    backup_count: 14
+    rotation: "daily"
+
+# 性能监控配置
+performance:
+  enabled: true
+  
+  # 关键指标阈值
+  thresholds:
+    # 页面加载时间 (毫秒)
+    page_load_time:
+      warning: 3000
+      critical: 8000
+    
+    # API响应时间 (毫秒)
+    api_response_time:
+      warning: 1000
+      critical: 5000
+    
+    # 内存使用 (MB)
+    memory_usage:
+      warning: 100
+      critical: 200
+    
+    # JS错误率 (百分比)
+    error_rate:
+      warning: 1.0
+      critical: 5.0
+  
+  # 性能指标收集
+  metrics:
+    # 核心Web指标
+    web_vitals:
+      - "LCP"  # Largest Contentful Paint
+      - "FID"  # First Input Delay  
+      - "CLS"  # Cumulative Layout Shift
+      - "FCP"  # First Contentful Paint
+      - "TTFB" # Time to First Byte
+    
+    # 自定义业务指标
+    business_metrics:
+      - "news_load_time"
+      - "search_response_time"
+      - "crawler_success_rate"
+      - "api_availability"
+
+# 实时监控配置
+realtime_monitoring:
+  enabled: true
+  
+  # WebSocket连接监控
+  websocket:
+    connection_timeout: 30000
+    heartbeat_interval: 10000
+    max_reconnect_attempts: 5
+    
+  # 健康检查配置
+  health_check:
+    interval: 30000  # 30秒
+    timeout: 5000    # 5秒
+    endpoints:
+      - url: "/api/health"
+        expected_status: 200
+      - url: "/api/v1/crawlers/status"
+        expected_status: 200
+  
+  # 自动恢复策略
+  auto_recovery:
+    enabled: true
+    max_attempts: 3
+    backoff_factor: 2
+    strategies:
+      - "restart_failed_crawler"
+      - "clear_cache"
+      - "reload_configuration"
+
+# 告警配置
+alerting:
+  enabled: false  # 默认关闭，生产环境启用
+  
+  # 告警规则
+  rules:
+    # 错误率过高
+    - name: "high_error_rate"
+      condition: "error_rate > 5%"
+      duration: "5m"
+      severity: "critical"
+      
+    # API响应时间过长
+    - name: "slow_api_response"
+      condition: "avg(api_response_time) > 5000ms"
+      duration: "2m"
+      severity: "warning"
+      
+    # 爬虫失败率过高
+    - name: "crawler_failure_rate"
+      condition: "crawler_failure_rate > 20%"
+      duration: "10m"
+      severity: "warning"
+  
+  # 通知渠道
+  notifications:
+    # 邮件通知
+    email:
+      enabled: false
+      smtp_server: ""
+      smtp_port: 587
+      username: ""
+      password: ""
+      recipients: []
+    
+    # Webhook通知
+    webhook:
+      enabled: false
+      url: ""
+      timeout: 10000
+      
+    # 钉钉机器人
+    dingtalk:
+      enabled: false
+      webhook_url: ""
+      secret: ""
+
+# 数据上报配置
+reporting:
+  # 批量上报配置
+  batch:
+    enabled: true
+    max_batch_size: 100
+    flush_interval: 10000  # 10秒
+    max_queue_size: 1000
+  
+  # 数据采样
+  sampling:
+    # 错误事件采样率
+    error_events: 1.0
+    # 性能事件采样率  
+    performance_events: 0.1
+    # 用户行为事件采样率
+    behavior_events: 0.05
+  
+  # 数据保留策略
+  retention:
+    error_logs: "30d"
+    performance_logs: "7d"
+    behavior_logs: "14d"
+
+# 调试配置
+debug:
+  # 开发环境调试
+  development:
+    log_all_requests: true
+    log_response_data: true
+    log_performance_marks: true
+    show_debug_panel: true
+  
+  # 生产环境调试
+  production:
+    log_all_requests: false
+    log_response_data: false
+    log_performance_marks: false
+    show_debug_panel: false
+    
+  # 调试工具
+  tools:
+    # React DevTools类似的调试工具
+    vue_devtools: true
+    # 网络请求调试
+    network_monitor: true
+    # 性能分析
+    performance_profiler: false
+
+# 用户隐私保护
+privacy:
+  # 数据脱敏配置
+  data_masking:
+    enabled: true
+    # 需要脱敏的字段
+    sensitive_fields:
+      - "email"
+      - "phone"
+      - "ip_address"
+      - "user_id"
+  
+  # 用户同意管理
+  consent:
+    required: false
+    # 同意类型
+    types:
+      - "error_tracking"
+      - "performance_monitoring"
+      - "behavior_analytics"
+
+# 环境特定配置
+environments:
+  development:
+    sentry:
+      enabled: false
+    local_logging:
+      enabled: true
+    performance:
+      enabled: true
+    alerting:
+      enabled: false
+      
+  staging:
+    sentry:
+      enabled: true
+      sample_rate: 0.5
+    local_logging:
+      enabled: true
+    performance:
+      enabled: true
+    alerting:
+      enabled: true
+      
+  production:
+    sentry:
+      enabled: true
+      sample_rate: 1.0
+    local_logging:
+      enabled: true
+    performance:
+      enabled: true
+    alerting:
+      enabled: true
+    realtime_monitoring:
+      enabled: true 
