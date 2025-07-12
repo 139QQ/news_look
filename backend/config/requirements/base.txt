@@ -41,6 +41,10 @@ opencv-python>=4.6.0
 # Web 框架
 Flask>=2.2.3
 Flask-CORS>=4.0.0  # 跨域资源共享支持
+Flask-SocketIO>=5.3.0  # WebSocket实时通信支持
+python-socketio>=5.8.0  # SocketIO服务器实现
+python-engineio>=4.7.0  # Engine.IO服务器实现
+eventlet>=0.33.0  # 高性能并发网络库
 Werkzeug>=2.2.3
 Jinja2>=3.1.2
 itsdangerous>=2.1.2

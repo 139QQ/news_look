@@ -45,6 +45,9 @@ except ImportError:
 from backend.newslook.utils.logger import get_logger, configure_logger
 from backend.newslook.utils.database import NewsDatabase
 
+# 导入WebSocket支持
+from backend.newslook.web.socketio_integration import init_websocket
+
 # 获取日志记录器
 logger = get_logger("web")
 
@@ -177,6 +180,18 @@ def create_app(config=None):
     app.db = NewsDatabase(use_all_dbs=True)
     app.config['DB'] = app.db
     
+    # 初始化WebSocket支持
+    try:
+        socketio = init_websocket(app)
+        if socketio:
+            logger.info("WebSocket支持已启用")
+            app.socketio = socketio
+        else:
+            logger.warning("WebSocket支持未启用")
+    except Exception as e:
+        logger.error(f"初始化WebSocket支持失败: {e}")
+        app.socketio = None
+    
     # 注册上下文处理器、路由和错误处理
     register_context_processors(app)
     register_template_filters(app)
@@ -197,7 +212,15 @@ def create_app(config=None):
 def register_routes(app):
     """注册路由"""
     from backend.newslook.web.routes import register_routes as _register_routes
+    from backend.newslook.web.enhanced_api_routes import register_enhanced_api_routes
+    
+    # 注册传统路由
     _register_routes(app)
+    
+    # 注册增强API路由
+    register_enhanced_api_routes(app)
+    
+    logger.info("所有路由已注册完成")
     
     # 注册增强路由（新的API）
     try:
@@ -213,28 +236,70 @@ def register_routes(app):
 
 def register_error_handlers(app):
     """注册错误处理"""
-    # 使用统一的错误处理器而不是重复定义
-    try:
-        from backend.newslook.core.error_handler import init_error_handler
-        error_handler = init_error_handler(app)
-        logger.info("统一错误处理器已注册")
-        return error_handler
-    except ImportError as e:
-        logger.warning(f"统一错误处理器初始化失败，使用简单错误处理: {e}")
-        # 降级为简单错误处理
-        from flask import render_template
+    # 通用错误处理
+    def handle_generic_error(e):
+        """通用错误处理"""
+        logger.error(f"发生错误: {str(e)}")
+        return {
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }, 500
+    
+    # 注册错误处理
+    for code in [400, 401, 403, 404, 405, 500, 502, 503]:
+        @app.errorhandler(code)
+        def handle_error(e):
+            """处理HTTP错误"""
+            logger.error(f"HTTP错误 {code}: {str(e)}")
+            
+            # 根据错误代码返回不同的消息
+            error_messages = {
+                400: '请求参数错误',
+                401: '未授权访问',
+                403: '禁止访问',
+                404: '请求的资源不存在',
+                405: '请求方法不被允许',
+                500: '服务器内部错误',
+                502: '网关错误',
+                503: '服务不可用'
+            }
+            
+            error_response = {
+                'error': error_messages.get(code, '未知错误'),
+                'error_code': code,
+                'timestamp': datetime.now().isoformat(),
+                'path': getattr(e, 'original_exception', {}).get('path', 'unknown')
+            }
+            
+            # 如果有WebSocket管理器，广播错误信息
+            if hasattr(app, 'websocket_manager') and app.websocket_manager:
+                app.websocket_manager.broadcast_system_alert(
+                    'http_error',
+                    f"HTTP {code} 错误: {error_messages.get(code, '未知错误')}",
+                    'error' if code >= 500 else 'warning'
+                )
+            
+            return error_response, code
+    
+    # 注册未捕获异常处理
+    @app.errorhandler(Exception)
+    def handle_uncaught_exception(e):
+        """处理未捕获的异常"""
+        logger.error(f"未捕获的异常: {str(e)}", exc_info=True)
         
-        @app.errorhandler(404)
-        def page_not_found(e):
-            logger.warning(f"404错误: {str(e)}")
-            return render_template('404.html'), 404
+        # 如果有WebSocket管理器，广播错误信息
+        if hasattr(app, 'websocket_manager') and app.websocket_manager:
+            app.websocket_manager.broadcast_system_alert(
+                'uncaught_exception',
+                f"未捕获的异常: {str(e)}",
+                'critical'
+            )
         
-        @app.errorhandler(500)
-        def server_error(e):
-            logger.error(f"服务器错误: {str(e)}")
-            return render_template('500.html'), 500
-        
-        return None
+        return {
+            'error': '服务器内部错误',
+            'error_code': 500,
+            'timestamp': datetime.now().isoformat()
+        }, 500
 
 def register_context_processors(app):
     """注册上下文处理器"""
