@@ -274,7 +274,7 @@ class WebSocketManager:
             
             # 从爬虫管理器获取状态
             if hasattr(self.app, 'crawler_manager') and self.app.crawler_manager:
-                status = self.app.crawler_manager.get_all_status()
+                status = self.app.crawler_manager.get_status()
             else:
                 status = {'error': '爬虫管理器不可用'}
             

@@ -12,7 +12,11 @@ import signal
 from datetime import datetime
 
 # 添加项目根目录到系统路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# 当前文件: backend/newslook/web/socketio_server.py
+# 需要回到项目根目录: ../../../../
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(0, project_root)
+print(f"🔧 导入治理: 添加项目根路径 {project_root}")
 
 from backend.newslook.web import create_app
 from backend.newslook.utils.logger import get_logger
