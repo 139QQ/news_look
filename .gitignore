@@ -113,15 +113,24 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Node.js dependencies
+node_modules/
+
 # Project specific
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 logs/
 data/
 backup/
 debug/
+
+# IDE and Editor files
 .idea/
 .vscode/
 *.swp
-*.swo 
-node_modules
+*.swo
+
+# SpecStory documentation
+.specstory/
