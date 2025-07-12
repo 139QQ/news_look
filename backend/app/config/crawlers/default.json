@@ -1,0 +1,7 @@
+{
+    "use_proxy": false,
+    "async_mode": true,
+    "max_workers": 5,
+    "max_concurrency": 10,
+    "timeout": 30
+} 

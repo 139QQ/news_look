@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NewsLook - 财经新闻爬虫系统</title>
+  <meta name="description" content="专业的财经新闻爬虫系统，提供实时新闻数据采集和分析">
+  <meta name="keywords" content="财经新闻,爬虫,数据采集,新闻分析">
+  
+  <!-- 图标 -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  
+  <style>
+    /* 全局重置和基础样式 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f7fa;
+    }
+    
+    /* 加载动画容器 */
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      transition: opacity 0.5s ease-out;
+    }
+    
+    /* 加载动画 */
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(255, 255, 255, 0.2);
+      border-top: 4px solid #ffffff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* 加载文本 */
+    .loading-text {
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 10px;
+      opacity: 0.9;
+    }
+    
+    .loading-subtitle {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      font-weight: 400;
+    }
+    
+    /* 应用容器 */
+    #app {
+      height: 100vh;
+      opacity: 0;
+      transition: opacity 0.5s ease-in;
+    }
+    
+    #app.loaded {
+      opacity: 1;
+    }
+    
+    /* 隐藏加载屏幕 */
+    #loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- 加载屏幕 -->
+  <div id="loading">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">NewsLook 财经新闻系统</div>
+    <div class="loading-subtitle">正在加载现代化界面...</div>
+  </div>
+  
+  <!-- Vue 应用容器 -->
+  <div id="app"></div>
+  
+  <!-- Vue 应用脚本 -->
+  <script type="module" src="/src/main.js"></script>
+  
+  <!-- 加载完成处理 -->
+  <script>
+    // 监听应用加载完成
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const loading = document.getElementById('loading');
+        const app = document.getElementById('app');
+        
+        if (loading && app) {
+          loading.classList.add('hidden');
+          app.classList.add('loaded');
+          
+          // 完全移除加载屏幕
+          setTimeout(() => {
+            if (loading.parentNode) {
+              loading.remove();
+            }
+          }, 500);
+        }
+      }, 800);
+    });
+    
+    // 资源加载错误处理
+    window.addEventListener('error', (event) => {
+      if (event.target !== window) {
+        console.warn('资源加载失败:', event.target.src || event.target.href);
+      }
+    });
+  </script>
+</body>
+</html> 

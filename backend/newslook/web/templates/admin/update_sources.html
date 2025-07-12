@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}数据源管理{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>数据源管理</h2>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="alert-container">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">数据源状态</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>数据源名称</th>
+                                    <th>总新闻数</th>
+                                    <th>今日新闻数</th>
+                                    <th>状态</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in stats %}
+                                <tr>
+                                    <td>{{ stat.name }}</td>
+                                    <td>{{ stat.total }}</td>
+                                    <td>{{ stat.today }}</td>
+                                    <td>
+                                        <span class="badge bg-success">正常</span>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">暂无数据源</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">更新操作</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-refresh"></i> 更新数据源
+                            </button>
+                        </div>
+                        <div class="mb-3">
+                            <a href="{{ url_for('index') }}" class="btn btn-secondary w-100">
+                                <i class="fas fa-arrow-left"></i> 返回首页
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="card-title">说明</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        此页面用于管理和更新新闻数据源。点击"更新数据源"按钮可以刷新数据源状态。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

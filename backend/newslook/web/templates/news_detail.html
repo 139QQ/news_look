@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ news.title }} - 财经新闻爬虫系统{% endblock %}
+
+{% block content %}
+<div class="news-detail">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">首页</a></li>
+            <li class="breadcrumb-item active">新闻详情</li>
+        </ol>
+    </nav>
+    
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h2 class="news-detail-title mb-3">{{ news.title }}</h2>
+            <div class="news-detail-meta d-flex flex-wrap align-items-center mb-3">
+                <span class="badge bg-primary me-2">{{ news.source }}</span>
+                <span class="me-3"><i class="bi bi-calendar"></i> {{ news.pub_time }}</span>
+                {% if news.author %}
+                <span class="me-3"><i class="bi bi-person"></i> {{ news.author }}</span>
+                {% endif %}
+                <span class="badge 
+                    {% if news.sentiment is defined and news.sentiment is not none %}
+                        {% set sentiment_value = news.sentiment|float if news.sentiment is string else news.sentiment %}
+                        {% if sentiment_value > 0.2 %}bg-success
+                        {% elif sentiment_value < -0.2 %}bg-danger
+                        {% else %}bg-secondary{% endif %}
+                    {% else %}bg-secondary{% endif %} me-2">
+                    情感: 
+                    {% if news.sentiment is defined and news.sentiment is not none %}
+                        {{ "%.2f"|format(news.sentiment|float if news.sentiment is string else news.sentiment) }}
+                    {% else %}
+                        未知
+                    {% endif %}
+                </span>
+                <a href="{{ news.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-link-45deg"></i> 查看原文
+                </a>
+            </div>
+            
+            {% if news.keywords %}
+            <div class="news-keywords mb-3">
+                {% if news.keywords is string %}
+                    {% for kw in news.keywords.split(',') %}
+                        <span class="badge bg-light text-dark me-1">{{ kw.strip() }}</span>
+                    {% endfor %}
+                {% else %}
+                    {% for kw in news.keywords %}
+                        <span class="badge bg-light text-dark me-1">{{ kw }}</span>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <hr>
+            
+            <div class="news-detail-content mt-4">
+                {% if news.content and "图片链接:" in news.content %}
+                    {% set parts = news.content.split("图片链接:") %}
+                    <div class="content-text mb-4">
+                        {{ parts[0]|replace("
+", "<br>")|safe }}
+                    </div>
+                    
+                    <div class="news-images">
+                        <h5 class="mb-3"><i class="bi bi-images"></i> 新闻图片</h5>
+                        <div class="row">
+                            {% for img in parts[1].strip().split("
+") %}
+                                {% if img.strip() %}
+                                <div class="col-md-4 col-sm-6 mb-3">
+                                    <div class="card">
+                                        <img src="{{ img.strip() }}" class="card-img-top" alt="新闻图片">
+                                        <div class="card-footer text-center">
+                                            <a href="{{ img.strip() }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                                <i class="bi bi-arrows-fullscreen"></i> 查看原图
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% else %}
+                    {{ news.content|replace("
+", "<br>")|safe }}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    {% if related_news %}
+    <div class="related-news">
+        <h4 class="mb-3"><i class="bi bi-link"></i> 相关新闻</h4>
+        <div class="row">
+            {% for item in related_news %}
+            <div class="col-md-6 mb-3">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <a href="{{ url_for('news_detail', news_id=item.id) }}" class="text-decoration-none">{{ item.title }}</a>
+                        </h5>
+                        <div class="news-meta">
+                            <span class="badge bg-primary">{{ item.source }}</span>
+                            <span class="text-muted"><i class="bi bi-calendar"></i> {{ item.pub_time }}</span>
+                            {% if item.sentiment is defined and item.sentiment is not none %}
+                                {% set sentiment_value = item.sentiment|float if item.sentiment is string else item.sentiment %}
+                                <span class="badge 
+                                    {% if sentiment_value > 0.2 %}bg-success
+                                    {% elif sentiment_value < -0.2 %}bg-danger
+                                    {% else %}bg-secondary{% endif %} ms-1">
+                                    情感: {{ "%.2f"|format(sentiment_value) }}
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+# 项目依赖
+-r requirements/base.txt
+
+# 注意：根据具体环境选择安装以下依赖文件之一：
+# 开发环境：pip install -r requirements/dev.txt
+# 测试环境：pip install -r requirements/test.txt
+# 生产环境：pip install -r requirements/prod.txt
+
+# TensorFlow是可选的依赖，根据系统环境选择安装方式:
+# 完整版: pip install tensorflow>=2.10.0
+# 仅CPU版: pip install tensorflow-cpu>=2.10.0
+# 兼容版: pip install tensorflow==2.9.0
+
+requests>=2.25.1
+beautifulsoup4>=4.9.3
+selenium>=4.0.0
+lxml>=4.6.3
+jieba>=0.42.1
+fake-useragent>=0.1.11
+webdriver-manager>=3.5.2
+chardet>=4.0.0

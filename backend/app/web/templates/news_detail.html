@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}{{ news.title }} - 财经新闻爬虫系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+  <div class="row">
+    <div class="col-lg-10 mx-auto">
+      <div class="card shadow-sm">
+        <!-- 标题区域 -->
+        <div class="card-header bg-white">
+          <h1 class="card-title h3">{{ news.title }}</h1>
+          <div class="text-muted small">
+            <span class="me-3"><i class="bi bi-globe"></i> {{ news.source }}</span>
+            <span class="me-3"><i class="bi bi-clock"></i> {{ news.pub_time }}</span>
+            {% if news.author %}
+            <span class="me-3"><i class="bi bi-person"></i> {{ news.author }}</span>
+            {% endif %}
+            {% if news.category %}
+            <span class="badge bg-info">{{ news.category }}</span>
+            {% endif %}
+          </div>
+        </div>
+        
+        <!-- 内容区域 -->
+        <div class="card-body">
+          <div class="news-content mb-4">
+            {{ news.content|safe }}
+          </div>
+          
+          <!-- 关键词区域 -->
+          {% if news.keywords %}
+          <div class="mt-4 pt-3 border-top">
+            <h5 class="mb-2"><i class="bi bi-tags"></i> 关键词</h5>
+            <div>
+              {% for keyword in news.keywords %}
+              <a href="{{ url_for('index', keyword=keyword) }}" class="badge bg-light text-dark me-2 mb-2 p-2">{{ keyword }}</a>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+          
+          <!-- 相关新闻区域 -->
+          {% if news.related %}
+          <div class="mt-4 pt-3 border-top">
+            <h5 class="mb-2"><i class="bi bi-link-45deg"></i> 相关新闻</h5>
+            <ul class="list-group list-group-flush">
+              {% for related in news.related %}
+              <li class="list-group-item bg-transparent border-0 ps-0">
+                <i class="bi bi-arrow-right text-primary"></i>
+                <a href="{{ url_for('news_detail', news_id=related.id) }}" class="ms-2">{{ related.title }}</a>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+        </div>
+        
+        <!-- 底部操作区 -->
+        <div class="card-footer bg-white">
+          <div class="d-flex justify-content-between">
+            <a href="{{ news.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary">
+              <i class="bi bi-box-arrow-up-right"></i> 查看原文
+            </a>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+              <i class="bi bi-arrow-left"></i> 返回列表
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} 

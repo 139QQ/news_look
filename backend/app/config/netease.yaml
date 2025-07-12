@@ -1,0 +1,49 @@
+# 网易财经爬虫配置
+
+crawler:
+  name: netease
+  display_name: 网易财经
+  enabled: true
+  
+request:
+  base_url: https://money.163.com/
+  list_urls:
+    - https://money.163.com/special/00251LR5/news_json_01.js
+    - https://money.163.com/special/00251LR5/news_json_02.js
+  headers:
+    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36
+  timeout: 10
+  retry_times: 3
+  retry_interval: 5
+
+parser:
+  list:
+    title_selector: .title
+    url_selector: .link
+    date_selector: .time
+  detail:
+    title_selector: h1.post_title
+    content_selector: .post_body
+    date_selector: .post_time_source
+    author_selector: .post_author
+    source_selector: .post_source
+
+storage:
+  database_path: app/data/netease.db
+  save_to_json: true
+  json_path: app/data/netease_news.json
+  save_full_content: true
+  save_images: true
+  
+monitoring:
+  log_level: INFO
+  notification: true
+  error_alert: true
+  performance_tracking: false
+
+scheduler:
+  interval: 1800  # 单位：秒
+  start_time: "06:00"
+  end_time: "23:00"
+  crawl_latest_first: true
+  max_pages_per_run: 5 

@@ -1,0 +1,169 @@
+# NewsLook 财经新闻爬虫系统配置文件
+# 统一配置管理 - 支持环境变量覆盖
+
+app:
+  name: "NewsLook"
+  version: "3.1"
+  description: "财经新闻爬虫系统"
+  
+# 数据库配置
+database:
+  type: "sqlite"
+  db_dir: "data/db"  # 统一数据库存储目录
+  main_db: "data/db/finance_news.db"
+  pool_size: 10
+  timeout: 30
+  backup:
+    enabled: true
+    interval_hours: 24
+    retention_days: 30
+    auto_cleanup: true  # 自动清理旧备份
+  # 各数据源的数据库文件配置
+  sources:
+    eastmoney: "eastmoney.db"
+    sina: "sina.db"
+    netease: "netease.db"
+    ifeng: "ifeng.db"
+    tencent: "tencent.db"
+  # 数据库路径管理
+  path_management:
+    use_unified_path: true  # 使用统一路径管理器
+    auto_discover: true     # 自动发现数据库文件
+    migrate_old_files: true # 自动迁移旧文件
+    cleanup_strategy:
+      remove_test_databases: true
+      remove_empty_databases: true
+      merge_duplicate_sources: true
+  # 数据库优化配置
+  optimization:
+    enable_wal_mode: true
+    enable_foreign_keys: true
+    cache_size: 10000
+    synchronous: "NORMAL"
+    journal_mode: "WAL"
+    auto_vacuum: "INCREMENTAL"
+  # 统计和监控
+  monitoring:
+    track_query_performance: true
+    log_slow_queries: true
+    slow_query_threshold_ms: 1000
+    generate_usage_statistics: true
+
+# 爬虫配置
+crawler:
+  concurrent: 5
+  delay: 1
+  timeout: 30
+  retry_attempts: 3
+  user_agents:
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  headers:
+    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+    Accept-Language: "zh-CN,zh;q=0.9,en;q=0.8"
+    Accept-Encoding: "gzip, deflate, br"
+    Connection: "keep-alive"
+    Cache-Control: "max-age=0"
+
+# Web服务配置
+web:
+  host: "127.0.0.1"
+  port: 5000
+  debug: true
+  secret_key: "newslook-dev-secret-key-change-in-production"
+  cors:
+    enabled: true
+    origins: 
+      - "http://localhost:3000"
+      - "http://127.0.0.1:3000"
+      - "http://localhost:3001"
+      - "http://127.0.0.1:3001"
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 60
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(levelname)s] [%(name)s] %(message)s"
+  handlers:
+    console:
+      enabled: true
+      level: "INFO"
+    file:
+      enabled: true
+      level: "DEBUG"
+      path: "data/logs"
+      max_size_mb: 10
+      backup_count: 5
+      rotation: "daily"
+  loggers:
+    crawler:
+      level: "DEBUG"
+      file: "crawler.log"
+    web:
+      level: "INFO"  
+      file: "web.log"
+    database:
+      level: "INFO"
+      file: "database.log"
+
+# 功能开关
+features:
+  scheduler: true
+  api: true
+  web_interface: true
+  monitoring: true
+  caching: true
+  metrics: true
+
+# 性能配置
+performance:
+  cache:
+    type: "memory"  # memory, redis
+    ttl_seconds: 300
+    max_size: 1000
+  connection_pool:
+    max_connections: 20
+    timeout: 30
+  async:
+    max_workers: 10
+    queue_size: 100
+
+# 监控配置
+monitoring:
+  health_check:
+    enabled: true
+    interval: 60
+  metrics:
+    enabled: true
+    path: "/metrics"
+  alerts:
+    enabled: false
+    email: ""
+
+# 健康监控阈值
+health_thresholds:
+  cpu:
+    warning: 80.0
+    critical: 95.0
+  memory:
+    warning: 85.0
+    critical: 95.0
+  disk:
+    warning: 85.0
+    critical: 95.0
+  response_time:
+    warning: 1000  # ms
+    critical: 5000  # ms
+
+# 错误处理配置
+error_handling:
+  log_full_traceback: true
+  include_request_id: true
+  max_error_history: 100
+  auto_retry:
+    enabled: true
+    max_attempts: 3
+    backoff_factor: 2 

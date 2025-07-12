@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+
+{% block title %}财经新闻爬虫系统 - 首页{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <!-- 搜索框 -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-search"></i> 关键词搜索
+            </div>
+            <div class="card-body">
+                <form method="get" action="{{ url_for('index') }}">
+                    <div class="mb-3">
+                        <input type="text" class="form-control" name="keyword" placeholder="搜索关键词" value="{{ keyword }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">来源：</label>
+                        <select class="form-select" name="source">
+                            <option value="">全部来源</option>
+                            {% for s in sources %}
+                            <option value="{{ s }}" {% if source == s %}selected{% endif %}>{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">时间：</label>
+                        <select class="form-select" name="days">
+                            <option value="1" {% if days == 1 %}selected{% endif %}>今天</option>
+                            <option value="3" {% if days == 3 %}selected{% endif %}>最近3天</option>
+                            <option value="7" {% if days == 7 %}selected{% endif %}>最近一周</option>
+                            <option value="30" {% if days == 30 %}selected{% endif %}>最近一个月</option>
+                            <option value="90" {% if days == 90 %}selected{% endif %}>最近三个月</option>
+                            <option value="365" {% if days == 365 %}selected{% endif %}>最近一年</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> 搜索
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 热门关键词 -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-tags"></i> 热门关键词
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap">
+                    {% for keyword in top_keywords %}
+                    <a href="{{ url_for('index', keyword=keyword.keyword) }}" class="badge bg-primary me-1 mb-1">{{ keyword.keyword }} ({{ keyword.count }})</a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-9">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4><i class="bi bi-newspaper"></i> 财经新闻列表</h4>
+            <span class="badge bg-secondary">共 {{ total_count }} 条新闻</span>
+        </div>
+        
+        {% if news_list %}
+        {% for news in news_list %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h5 class="card-title mb-1">
+                        <a href="{{ url_for('news_detail', news_id=news.id) }}" class="text-dark">{{ news.title }}</a>
+                    </h5>
+                    <span class="badge bg-primary">{{ news.source }}</span>
+                </div>
+                <div class="text-muted small mb-2">
+                    <i class="bi bi-clock"></i> {{ news.pub_time }}
+                    {% if news.author %}
+                    <span class="ms-2"><i class="bi bi-person"></i> {{ news.author }}</span>
+                    {% endif %}
+                    {% if news.sentiment is defined and news.sentiment is not none %}
+                        {% set sentiment_value = news.sentiment|float if news.sentiment is string else news.sentiment %}
+                        <span class="badge 
+                            {% if sentiment_value > 0.2 %}bg-success
+                            {% elif sentiment_value < -0.2 %}bg-danger
+                            {% else %}bg-secondary{% endif %} ms-1">
+                            情感: {{ "%.2f"|format(sentiment_value) }}
+                        </span>
+                    {% endif %}
+                </div>
+                <p class="card-text">{{ news.content|truncate(200) }}</p>
+                <div class="d-flex">
+                    {% if news.keywords %}
+                    <div class="me-auto">
+                        {% for keyword in news.keywords %}
+                        <a href="{{ url_for('index', keyword=keyword) }}" class="badge bg-light text-dark me-1">{{ keyword }}</a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <a href="{{ url_for('news_detail', news_id=news.id) }}" class="btn btn-sm btn-outline-primary">阅读全文</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <!-- 分页 -->
+        {% if total_pages > 1 %}
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('index', keyword=keyword, source=source, days=days, page=page-1) }}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p >= page - 2 and p <= page + 2 %}
+                    <li class="page-item {% if p == page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('index', keyword=keyword, source=source, days=days, page=p) }}">{{ p }}</a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('index', keyword=keyword, source=source, days=days, page=page+1) }}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> 没有找到符合条件的新闻
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 首页特定的增强功能
+    document.addEventListener('DOMContentLoaded', function() {
+        // 添加新闻项点击效果
+        document.querySelectorAll('.card').forEach(function(card) {
+            card.addEventListener('click', function(e) {
+                if (e.target.tagName !== 'A' && !e.target.closest('a')) {
+                    const titleLink = card.querySelector('.card-title a');
+                    if (titleLink) {
+                        titleLink.click();
+                    }
+                }
+            });
+            
+            // 添加点击样式
+            card.style.cursor = 'pointer';
+        });
+        
+        // 显示加载完成提示
+        setTimeout(function() {
+            const totalNews = document.querySelectorAll('.card').length;
+            if (totalNews > 0) {
+                console.log('首页加载完成，共 ' + totalNews + ' 条新闻');
+            }
+        }, 500);
+    });
+</script>
+{% endblock %}

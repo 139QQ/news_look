@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}错误 - NewsLook{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-body text-center p-5">
+                    <h1 class="display-1 text-danger mb-4">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </h1>
+                    <h2 class="mb-4">服务器错误</h2>
+                    <p class="lead text-muted">抱歉，服务器在处理您的请求时遇到了问题。</p>
+                    
+                    {% if error %}
+                    <div class="alert alert-danger mt-4">
+                        <h5>错误信息:</h5>
+                        <p>{{ error }}</p>
+                        {% if error_details %}
+                        <p class="mt-2 text-muted">{{ error_details }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if traceback %}
+                    <div class="alert alert-secondary mt-4 text-start">
+                        <h5>详细信息:</h5>
+                        <pre class="small" style="max-height: 300px; overflow-y: auto;">{{ traceback }}</pre>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-5">
+                        <a href="{{ url_for('index') }}" class="btn btn-primary me-2">
+                            <i class="bi bi-house-door"></i> 返回首页
+                        </a>
+                        {% if back_url %}
+                        <a href="{{ back_url }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> 返回上一页
+                        </a>
+                        {% else %}
+                        <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> 返回上一页
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

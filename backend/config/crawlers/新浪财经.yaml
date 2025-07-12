@@ -1,0 +1,33 @@
+source: 新浪财经
+async_mode: true
+use_proxy: false
+max_concurrency: 8
+max_workers: 4
+timeout: 30
+batch_size: 10
+retry_times: 3
+retry_delay: 1
+
+request:
+  headers:
+    User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+    Accept-Language: "zh-CN,zh;q=0.9,en;q=0.8"
+  random_delay: true
+
+list_urls:
+  "首页": "https://finance.sina.com.cn/"
+  "财经": "https://finance.sina.com.cn/china/"
+  "股票": "https://finance.sina.com.cn/stock/"
+  "基金": "https://finance.sina.com.cn/fund/"
+  "外汇": "https://finance.sina.com.cn/forex/"
+
+selectors:
+  list_items:
+    - "ul.news-list li"
+    - "div.news-item"
+    - "div.box-list li"
+  title: "h1.main-title, h1#artibodyTitle, h1.title"
+  content: "#artibody, div.article-content, div.article"
+  publish_time: "span.date, div.date-source span.date"
+  author: "div.date-source span.source, a.source" 

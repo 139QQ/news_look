@@ -10,12 +10,19 @@ import os
 import sys
 import time
 from datetime import datetime
+import unittest
+import json
 
-from app.crawlers import get_crawler, get_all_crawlers, get_crawler_sources
-from app.utils.logger import setup_logger, get_logger
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-# 设置日志记录器
-logger = get_logger('crawler_tester')
+from backend.app.crawlers import get_crawler, get_all_crawlers, get_crawler_sources
+from backend.app.utils.logger import configure_logger, get_logger
+from backend.app.crawlers.base import BaseCrawler
+from backend.app.utils.database import News
+from backend.app.utils.ad_filter import AdFilter
+
+# 配置日志
+logger = configure_logger(name='test_crawler', module='test')
 
 def test_crawler_sources():
     """测试获取爬虫来源"""
@@ -144,7 +151,7 @@ def test_mini_crawl():
 def main():
     """主函数"""
     # 设置日志
-    setup_logger()
+    configure_logger()
     
     print("===== 开始测试爬虫模块 =====")
     print(f"当前时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

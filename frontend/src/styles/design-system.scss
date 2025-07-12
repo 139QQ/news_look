@@ -1,0 +1,695 @@
+@use 'sass:color';
+@use './variables.scss' as *;
+
+// 🎨 UI/UX 设计系统 - 核心样式库
+// =======================================
+
+// 🎯 Mixins - 可复用样式模块
+// ===========================
+
+// 卡片悬停效果 - 增强版
+@mixin card-hover {
+  transition: $transition-hover;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s;
+    z-index: 1;
+    pointer-events: none;
+  }
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: $box-shadow-hover;
+    
+    &::before {
+      left: 100%;
+    }
+  }
+}
+
+// 按钮悬停效果 - 增强版
+@mixin button-hover {
+  transition: $transition-button;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s;
+    z-index: 0;
+  }
+  
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    
+    &::before {
+      width: 300px;
+      height: 300px;
+    }
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+  
+  // 确保文本在最上层
+  span, .el-icon {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+// 输入框焦点效果 - 增强版
+@mixin input-focus {
+  transition: all 0.3s ease;
+  
+  &:focus {
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+    outline: none;
+    transform: scale(1.02);
+  }
+}
+
+// 状态标签样式 - 增强版
+@mixin status-badge($bg-color, $text-color) {
+  background: $bg-color;
+  color: $text-color;
+  border-radius: $border-radius-base;
+  padding: 4px 12px;
+  font-size: $font-size-auxiliary;
+  font-weight: $font-weight-normal;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.8s;
+  }
+  
+  &:hover::before {
+    left: 100%;
+  }
+}
+
+// 脉冲动画 - 增强版
+@mixin pulse-animation {
+  animation: pulse 2s infinite;
+  
+  @keyframes pulse {
+    0% { 
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% { 
+      opacity: 0.8;
+      transform: scale(1.05);
+    }
+    100% { 
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+// 渐入动画
+@mixin fade-in-up($delay: 0s) {
+  animation: fadeInUp 0.6s ease forwards;
+  animation-delay: $delay;
+  opacity: 0;
+  transform: translateY(20px);
+  
+  @keyframes fadeInUp {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+// 数字滚动动画
+@mixin number-counter {
+  @keyframes numberCounter {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  animation: numberCounter 0.8s ease-out;
+}
+
+// 自定义滚动条 - 增强版
+@mixin custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: $scrollbar-track;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: $scrollbar-thumb;
+    border-radius: 4px;
+    transition: background 0.3s;
+    
+    &:hover {
+      background: $scrollbar-thumb-hover;
+    }
+  }
+  
+  &::-webkit-scrollbar-corner {
+    background: $scrollbar-track;
+  }
+}
+
+// 玻璃态效果
+@mixin glass-effect {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+// 🎪 全局组件样式覆盖
+// ===================
+
+// Element Plus 主题定制 - 增强版
+:root {
+  --el-color-primary: #{$primary-color};
+  --el-color-success: #{$success-color};
+  --el-color-warning: #{$warning-color};
+  --el-color-danger: #{$danger-color};
+  --el-color-info: #{$info-color};
+  
+  --el-font-size-base: #{$font-size-base};
+  --el-font-size-small: #{$font-size-auxiliary};
+  --el-font-size-large: #{$font-size-title};
+  
+  --el-border-radius-base: #{$border-radius-base};
+  --el-border-radius-small: #{$border-radius-small};
+  
+  --el-box-shadow-base: #{$box-shadow-base};
+  --el-transition-duration: 0.3s;
+  --el-transition-function-ease-in-out-bez: cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+
+// 🚀 组件级优化 - 增强版
+// ======================
+
+// 卡片组件 - 增强版
+.el-card {
+  border-radius: $border-radius-card;
+  box-shadow: $box-shadow-card;
+  border: none;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  position: relative;
+  
+  &.hoverable {
+    @include card-hover;
+  }
+  
+  // 卡片头部优化
+  .el-card__header {
+    background: linear-gradient(135deg, $bg-color-card 0%, rgba($primary-color, 0.02) 100%);
+    border-bottom: 1px solid $border-color-lighter;
+    padding: $spacing-md $spacing-lg;
+    position: relative;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, $primary-color, $success-color, $warning-color);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: $font-weight-title;
+      color: $text-color-primary;
+      
+      // 标题图标动画
+      .header-icon {
+        transition: transform 0.3s ease;
+      }
+    }
+  }
+  
+  &:hover .el-card__header::after {
+    opacity: 1;
+  }
+  
+  &:hover .header-icon {
+    transform: rotate(360deg);
+  }
+  
+  .el-card__body {
+    padding: $spacing-lg;
+    position: relative;
+  }
+}
+
+// 按钮组件 - 增强版
+.el-button {
+  border-radius: $border-radius-medium;
+  padding: 10px 20px;
+  font-weight: $font-weight-normal;
+  border: none;
+  @include button-hover;
+  
+  &.el-button--primary {
+    background: linear-gradient(135deg, $primary-color 0%, $primary-light 100%);
+    
+    &:hover {
+      background: linear-gradient(135deg, $primary-light 0%, $primary-color 100%);
+    }
+  }
+  
+  &.el-button--success {
+    background: linear-gradient(135deg, $success-color 0%, $success-light 100%);
+    
+    &:hover {
+      background: linear-gradient(135deg, $success-light 0%, $success-color 100%);
+    }
+  }
+  
+  &.el-button--warning {
+    background: linear-gradient(135deg, $warning-color 0%, $warning-light 100%);
+    
+    &:hover {
+      background: linear-gradient(135deg, $warning-light 0%, $warning-color 100%);
+    }
+  }
+  
+  &.el-button--danger {
+    background: linear-gradient(135deg, $danger-color 0%, $danger-light 100%);
+    
+    &:hover {
+      background: linear-gradient(135deg, $danger-light 0%, $danger-color 100%);
+    }
+  }
+}
+
+// 表格组件 - 增强版
+.el-table {
+  .el-table__header {
+    th {
+      background: linear-gradient(135deg, $bg-color-base 0%, rgba($primary-color, 0.05) 100%);
+      color: $text-color-primary;
+      font-weight: $font-weight-title;
+      font-size: $font-size-content;
+      position: relative;
+      
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: $primary-color;
+        transition: width 0.3s ease;
+      }
+      
+      &:hover::after {
+        width: 100%;
+      }
+    }
+  }
+  
+  .el-table__body {
+    tr {
+      transition: all 0.3s ease;
+      
+      &:hover {
+        background: $bg-color-hover;
+        transform: scale(1.01);
+      }
+    }
+    
+    td {
+      position: relative;
+      
+      &::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 0;
+        height: 100%;
+        background: linear-gradient(135deg, transparent, rgba($primary-color, 0.1), transparent);
+        transition: width 0.3s ease;
+      }
+    }
+    
+    tr:hover td::before {
+      width: 100%;
+    }
+  }
+}
+
+// 标签组件 - 增强版
+.el-tag {
+  border-radius: $border-radius-base;
+  padding: 4px 12px;
+  font-size: $font-size-auxiliary;
+  position: relative;
+  overflow: hidden;
+  
+  &.el-tag--success {
+    background: linear-gradient(135deg, $success-color 0%, $success-light 100%);
+    color: white;
+  }
+  
+  &.el-tag--warning {
+    background: linear-gradient(135deg, $warning-color 0%, $warning-light 100%);
+    color: white;
+  }
+  
+  &.el-tag--danger {
+    background: linear-gradient(135deg, $danger-color 0%, $danger-light 100%);
+    color: white;
+  }
+  
+  &.el-tag--info {
+    background: linear-gradient(135deg, $info-color 0%, color.adjust($info-color, $lightness: 10%) 100%);
+    color: white;
+  }
+}
+
+// 输入框组件 - 增强版
+.el-input {
+  .el-input__inner {
+    border-radius: $border-radius-medium;
+    transition: all 0.3s ease;
+    
+    @include input-focus;
+  }
+}
+
+// 进度条组件 - 增强版
+.el-progress {
+  .el-progress-bar__outer {
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      animation: progressShine 2s infinite;
+    }
+  }
+  
+  .el-progress-bar__inner {
+    border-radius: 10px;
+    background: linear-gradient(90deg, $success-color, $primary-color);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  @keyframes progressShine {
+    0% { left: -100%; }
+    100% { left: 100%; }
+  }
+}
+
+// 消息提示 - 增强版
+.el-message {
+  border-radius: $border-radius-medium;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+// 对话框 - 增强版
+.el-dialog {
+  border-radius: $border-radius-large;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  
+  .el-dialog__header {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: $border-radius-large $border-radius-large 0 0;
+  }
+}
+
+// 🎭 动画效果类
+// =============
+
+// 运行状态脉冲动画
+.status-running {
+  @include status-badge($success-color, white);
+  @include pulse-animation;
+}
+
+.status-stopped {
+  @include status-badge($info-color, white);
+}
+
+.status-error {
+  @include status-badge($danger-color, white);
+}
+
+.status-warning {
+  @include status-badge($warning-color, white);
+}
+
+// 通用动画类
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+.scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from { 
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to { 
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// 🎨 特殊组件样式
+// ===============
+
+// 统计卡片
+.stat-card {
+  @include card-hover;
+  
+  .stat-content {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    
+    .stat-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: rgba($primary-color, 0.1);
+      color: $primary-color;
+    }
+    
+    .stat-info {
+      flex: 1;
+      
+      .stat-value {
+        font-size: 24px;
+        font-weight: $font-weight-title;
+        color: $text-color-primary;
+        margin-bottom: 4px;
+      }
+      
+      .stat-label {
+        font-size: $font-size-auxiliary;
+        color: $text-color-secondary;
+      }
+    }
+  }
+  
+  .stat-trend {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: $font-size-auxiliary;
+    margin-top: $spacing-sm;
+    
+    .trend-up {
+      color: $success-color;
+    }
+    
+    .trend-down {
+      color: $danger-color;
+    }
+  }
+}
+
+// 工具栏样式
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-md;
+  background: $bg-color-card;
+  border-radius: $border-radius-medium;
+  box-shadow: $box-shadow-base;
+  margin-bottom: $spacing-lg;
+}
+
+// 空状态样式
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xl;
+  background: $bg-color-empty;
+  border: 1px dashed $border-color-dashed;
+  border-radius: $border-radius-base;
+  color: $text-color-secondary;
+  
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: $spacing-md;
+    opacity: 0.6;
+  }
+  
+  .empty-text {
+    font-size: $font-size-content;
+    margin-bottom: $spacing-sm;
+  }
+  
+  .empty-description {
+    font-size: $font-size-auxiliary;
+    color: $text-color-placeholder;
+  }
+}
+
+// 🔧 工具类
+// =========
+
+// 间距工具类
+.p-xs { padding: $spacing-xs !important; }
+.p-sm { padding: $spacing-sm !important; }
+.p-md { padding: $spacing-md !important; }
+.p-lg { padding: $spacing-lg !important; }
+.p-xl { padding: $spacing-xl !important; }
+
+.m-xs { margin: $spacing-xs !important; }
+.m-sm { margin: $spacing-sm !important; }
+.m-md { margin: $spacing-md !important; }
+.m-lg { margin: $spacing-lg !important; }
+.m-xl { margin: $spacing-xl !important; }
+
+// 文本工具类
+.text-primary { color: $text-color-primary !important; }
+.text-secondary { color: $text-color-secondary !important; }
+.text-success { color: $success-color !important; }
+.text-warning { color: $warning-color !important; }
+.text-danger { color: $danger-color !important; }
+
+.font-title { 
+  font-size: $font-size-title !important; 
+  font-weight: $font-weight-title !important; 
+}
+.font-content { font-size: $font-size-content !important; }
+.font-auxiliary { 
+  font-size: $font-size-auxiliary !important; 
+  color: $text-color-secondary !important; 
+}
+
+// 显示工具类
+.d-flex { display: flex !important; }
+.align-center { align-items: center !important; }
+.justify-center { justify-content: center !important; }
+.justify-between { justify-content: space-between !important; }
+.flex-1 { flex: 1 !important; }
+
+// 响应式工具类
+@media (max-width: $breakpoint-sm) {
+  .hidden-xs { display: none !important; }
+}
+
+@media (max-width: $breakpoint-md) {
+  .hidden-sm { display: none !important; }
+} 

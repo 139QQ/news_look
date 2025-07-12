@@ -1,0 +1,4 @@
+# 开发环境依赖
+-r base.txt
+pylint>=2.6.0
+pytest>=6.0.0

@@ -1,12 +1,12 @@
-# Byte-compiled / optimized / DLL files
+# ==========================================
+# NewsLook 财经新闻爬虫系统 .gitignore
+# ==========================================
+
+# Python 相关
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
-
-# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -25,112 +25,229 @@ wheels/
 *.egg
 MANIFEST
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
+# 虚拟环境
+.venv/
+venv/
+ENV/
+env/
+.env
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+# IDE 和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
+# ==========================================
+# 数据库文件 (重要：不提交数据库文件)
+# ==========================================
+# SQLite 数据库文件
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# 数据库目录
+data/db/
+data/databases/
+db/
+*.db-journal
+temp_*.db
+
+# 特定数据库文件
+finance_news.db
+腾讯财经.db
+新浪财经.db
+东方财富.db
+网易财经.db
+凤凰财经.db
+
+# ==========================================
+# 日志和缓存文件
+# ==========================================
+# 日志文件
+*.log
+logs/
+data/logs/
+app/logs/
+crawler.log
+web.log
+scheduler.log
+
+# 缓存文件
+data/cache/
+cache/
+*.cache
+.cache/
+
+# ==========================================
+# 爬虫相关临时文件
+# ==========================================
+# 下载的图片和媒体文件
+downloads/
+images/
+media/
+temp/
+tmp/
+
+# 爬虫会话文件
+cookies.txt
+session.dat
+*.session
+
+# 浏览器驱动文件
+chromedriver*
+geckodriver*
+webdriver/
+
+# ==========================================
+# 配置和敏感信息
+# ==========================================
+# 环境变量文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 配置文件 (包含敏感信息的)
+config.ini
+settings.ini
+secrets.json
+credentials.json
+
+# API 密钥和令牌
+api_keys.txt
+tokens.txt
+*.key
+*.pem
+
+# ==========================================
+# 前端相关
+# ==========================================
+# Node.js
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.DS_Store
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# NPM
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ==========================================
+# 测试和覆盖率
+# ==========================================
+# 测试覆盖率
 .coverage
 .coverage.*
-.cache
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
 nosetests.xml
 coverage.xml
 *.cover
+*.py,cover
 .hypothesis/
-.pytest_cache/
 
-# Translations
-*.mo
-*.pot
+# ==========================================
+# 系统文件
+# ==========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Flask stuff:
-instance/
-.webassets-cache
+# Linux
+*~
 
-# Scrapy stuff:
-.scrapy
+# ==========================================
+# 备份和归档
+# ==========================================
+# 备份文件
+backup/
+backups/
+*.bak
+*.backup
+*.old
+*.orig
 
-# Sphinx documentation
-docs/_build/
+# 归档文件
+*.tar
+*.tar.gz
+*.zip
+*.rar
 
-# PyBuilder
-target/
+# 重复文件
+backup/duplicate_files/
+backup/legacy_files/
 
+# ==========================================
+# 开发工具
+# ==========================================
 # Jupyter Notebook
 .ipynb_checkpoints
+
+# Sphinx 文档
+docs/_build/
 
 # IPython
 profile_default/
 ipython_config.py
 
-# pyenv
-.python-version
+# ==========================================
+# 部署相关
+# ==========================================
+# Docker
+.dockerignore
 
-# celery beat schedule file
-celerybeat-schedule
+# 生产环境特定文件
+production.ini
+production.json
 
-# SageMath parsed files
-*.sage.py
+# ==========================================
+# 项目特定
+# ==========================================
+# 废弃目录
+today3/
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+# 临时数据文件
+temp_data/
+temporary/
+scratch/
 
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
+# 统计文件
+stats.json
+analytics.json
 
 # Pyre type checker
 .pyre/
 
-# Node.js dependencies
-node_modules/
-
 # Project specific
 *.db
 *.db-journal
-*.db-shm
-*.db-wal
 logs/
 data/
 backup/
 debug/
-
-# IDE and Editor files
 .idea/
 .vscode/
 *.swp
-*.swo
-
-# SpecStory documentation
-.specstory/
+*.swo 

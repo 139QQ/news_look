@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}服务器错误 - 财经新闻爬虫系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="alert alert-danger" role="alert">
+        <h4 class="alert-heading">500 - 服务器错误</h4>
+        <p>抱歉，服务器在处理您的请求时遇到了问题。请稍后再试。</p>
+        <hr>
+        <p class="mb-0">
+            <a href="{{ url_for('index') }}" class="btn btn-primary">返回首页</a>
+        </p>
+    </div>
+</div>
+{% endblock %} 

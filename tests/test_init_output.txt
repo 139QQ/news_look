@@ -1,0 +1,79 @@
+2025-05-10 20:47:20,303 [INFO] [crawlers.strategies] 成功加载策略: 新浪财经 -> SinaStrategy
+2025-05-10 20:47:20,304 [INFO] [crawlers.strategies] 成功加载策略: 东方财富 -> EastMoneyStrategy
+2025-05-10 20:47:20,305 [INFO] [crawlers.strategies] 成功加载策略: 网易财经 -> NeteaseStrategy
+2025-05-10 20:47:20,305 [INFO] [crawlers.strategies] 成功加载策略: 凤凰财经 -> IfengStrategy
+2025-05-10 20:47:20,305 [INFO] [crawlers.strategies] 已加载 4 个爬虫策略: 新浪财经, 东方财富, 网易财经, 凤凰财经
+WARNING:root:TensorFlow 未安装，深度学习图像识别功能将不可用。如需使用深度学习功能，请尝试以下命令安装:
+1. pip install tensorflow>=2.10.0
+2. pip install tensorflow-cpu>=2.10.0 (仅CPU版本)
+3. pip install tensorflow==2.9.0 (较低版本)
+INFO:crawler.凤凰财经:爬虫日志记录器 '凤凰财经' 已初始化，日志文件: D:\Git\Github\NewsLook\logs\凤凰财经\凤凰财经_20250510.log
+INFO:crawler.凤凰财经:爬虫 凤凰财经 初始化完成，db_manager 指向: :memory:
+INFO:crawler.凤凰财经:初始化爬虫: 凤凰财经, 数据库路径: :memory:
+.INFO:crawler.凤凰财经:爬虫 凤凰财经 初始化完成，db_manager 指向: :memory:
+INFO:crawler.凤凰财经:初始化爬虫: 凤凰财经, 数据库路径: :memory:
+FINFO:crawler.凤凰财经:爬虫 凤凰财经 初始化完成，db_manager 指向: :memory:
+INFO:crawler.凤凰财经:初始化爬虫: 凤凰财经, 数据库路径: :memory:
+FINFO:crawler.凤凰财经:爬虫 凤凰财经 初始化完成，db_manager 指向: :memory:
+INFO:crawler.凤凰财经:初始化爬虫: 凤凰财经, 数据库路径: :memory:
+FINFO:crawler.凤凰财经:爬虫 凤凰财经 初始化完成，db_manager 指向: :memory:
+INFO:crawler.凤凰财经:初始化爬虫: 凤凰财经, 数据库路径: :memory:
+.INFO:crawler.凤凰财经:爬虫 凤凰财经 初始化完成，db_manager 指向: :memory:
+INFO:crawler.凤凰财经:初始化爬虫: 凤凰财经, 数据库路径: :memory:
+FINFO:crawler.凤凰财经:爬虫 凤凰财经 初始化完成，db_manager 指向: :memory:
+INFO:crawler.凤凰财经:初始化爬虫: 凤凰财经, 数据库路径: :memory:
+.INFO:crawler.凤凰财经:爬虫 凤凰财经 初始化完成，db_manager 指向: :memory:
+INFO:crawler.凤凰财经:初始化爬虫: 凤凰财经, 数据库路径: :memory:
+.
+======================================================================
+FAIL: test_get_news_detail_failure_no_content (__main__.TestIfengCrawler.test_get_news_detail_failure_no_content)
+测试内容缺失时的新闻详情获取失败
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\Github\NewsLook\tests\test_ifeng_crawler.py", line 236, in test_get_news_detail_failure_no_content
+    self.assertIsNone(news_data)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+AssertionError: {'url': 'http://finance.ifeng.com/c/nocontent', 'title': 'Title No Content', 'content': None, 'pub_time': '2025-05-10 20:47:24', 'author': '凤凰财经', 'category': '财经', 'sentiment': None} is not None
+
+======================================================================
+FAIL: test_get_news_detail_failure_no_title (__main__.TestIfengCrawler.test_get_news_detail_failure_no_title)
+测试标题缺失时的新闻详情获取失败
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\Github\NewsLook\tests\test_ifeng_crawler.py", line 210, in test_get_news_detail_failure_no_title
+    self.assertIsNone(news_data)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+AssertionError: {'url': 'http://finance.ifeng.com/c/notitle', 'title': '', 'content': '<p>Content no title</p>', 'pub_time': '2025-05-10 20:47:24', 'author': '凤凰财经', 'category': '财经', 'sentiment': None} is not None
+
+======================================================================
+FAIL: test_get_news_detail_success (__main__.TestIfengCrawler.test_get_news_detail_success)
+测试成功获取新闻详情
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\Github\NewsLook\tests\test_ifeng_crawler.py", line 181, in test_get_news_detail_success
+    self.assertEqual(news_data['title'], "Test Article Title")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'Test Article Title _凤凰财经' != 'Test Article Title'
+- Test Article Title _凤凰财经
+?                   ------
++ Test Article Title
+
+
+======================================================================
+FAIL: test_initialization (__main__.TestIfengCrawler.test_initialization)
+Test crawler initialization.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\Github\NewsLook\tests\test_ifeng_crawler.py", line 52, in test_initialization
+    self.mock_logger.info.assert_any_call(f"爬虫 凤凰财经 初始化完成，db_manager 指向: {self.mock_db_manager.db_path if self.mock_db_manager else '未指定'}")
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\python\Lib\unittest\mock.py", line 1048, in assert_any_call
+    raise AssertionError(
+        '%s call not found' % expected_string
+    ) from cause
+AssertionError: info('爬虫 凤凰财经 初始化完成，db_manager 指向: :memory:') call not found
+
+----------------------------------------------------------------------
+Ran 8 tests in 3.794s
+
+FAILED (failures=4)

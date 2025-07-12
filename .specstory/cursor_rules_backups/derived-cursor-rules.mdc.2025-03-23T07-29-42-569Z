@@ -1,0 +1,249 @@
+
+## PROJECT OVERVIEW
+
+This is the NewsLook project, a financial news crawler system designed to collect news from various financial websites, including Eastmoney, Sina Finance, Tencent Finance, Netease Finance, and Ifeng Finance.  The project uses a modular design with clear interfaces and functional separation for easy expansion and maintenance. It supports three main operating modes: crawler mode, scheduler mode, and web application mode, all accessible through the unified entry script `run.py`.  Recent updates include significant database optimizations and enhanced encoding handling to improve stability and performance.  The project now intelligently handles multiple database files for each news source, allowing for the storage and retrieval of historical data.  The system now uses a single database file per news source, simplifying data access and management.
+
+
+## CODE STYLE
+
+*   Follow PEP 8 guidelines.
+*   Use type annotations for all functions.
+*   Maintain consistent coding style throughout the project.
+
+
+## FOLDER ORGANIZATION
+
+```
+NewsLook
+├── api/              # API 接口
+├── app/              # 应用逻辑
+│   ├── crawlers/     # 爬虫模块
+│   ├── tasks/        # 任务调度模块
+│   ├── utils/        # 工具函数
+│   └── web/          # Web 应用
+├── data/             # 数据存储
+│   └── db/           # 数据库文件
+├── docs/             # 文档
+├── requirements/    # 权限包
+├── scripts/          # 运行脚本
+├── tests/            # 测试
+├── static/           # 静态文件
+└── templates/        # 模板文件
+
+```
+
+## TECH STACK
+
+*   Python 3.13.0
+*   Flask
+*   SQLAlchemy (or sqlite3)
+*   Requests
+*   BeautifulSoup
+*   Selenium
+*   jieba
+*   fake-useragent
+*   webdriver-manager
+
+
+## PROJECT-SPECIFIC STANDARDS
+
+*   All news data must be stored in a consistent format.
+*   Use UTF-8 encoding for all files.
+*   All functions must have docstrings.
+*   All database interactions must be handled within try-except blocks.
+
+## WORKFLOW & RELEASE RULES
+
+*   Use Git for version control.
+*   Create new branches for each feature.
+*   Write clear and concise commit messages.
+*   Conduct thorough testing before releasing new versions.
+*   Implement a robust logging system to track errors and debug issues.
+
+## REFERENCE EXAMPLES
+
+*   [Example of a function with type annotations](#example-a-function-with-type-annotations)
+
+## PROJECT DOCUMENTATION & CONTEXT SYSTEM
+
+*   All documentation should be written in Markdown format.
+*   Use consistent formatting throughout the documentation.
+*   Maintain a README.md file in the root directory.
+*   Document all functions and classes.
+*   Use diagrams to illustrate complex systems.
+*   Regularly update the project documentation to reflect changes in the codebase.
+*   [Database Connection Details](docs/数据库连接说明.md)
+
+
+## DEBUGGING
+
+*   Use a logging system to track program execution.
+*   Use a debugger to step through code.
+*   Test frequently to catch errors early.
+
+
+## FINAL DOs AND DON'Ts
+
+*   **Do:** Use type hints, write clear and concise code, and test thoroughly.
+*   **Don't:** Commit broken code, use hardcoded values unless necessary, or ignore warnings.
+
+
+
+# Example: A function with type annotations
+
+```python
+from typing import List, Dict
+
+def get_news(source: str, days: int) -> List[Dict]:
+    """Retrieves news articles from a specified source for the given number of days."""
+    #Implementation goes here.
+    pass
+```
+
+## Database Connection Details
+
+This document describes the database connection mechanism in the financial news crawler system, including how each crawler connects to the database and stores news data.
+
+### Database Architecture
+
+The system uses SQLite databases to store the crawled news data.  The `SQLiteManager` class provides a unified database operation interface. Each news source now uses a single database file for improved efficiency and data management.  The system now uses a single database file per news source, simplifying data access and management.
+
+### Database File Location
+
+Database files are stored in the `data/db/` directory. Each source has its own database file (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`).  The filename is derived from the source name; for example, `tencent_finance.db` stores data from Tencent Finance.  A unified database (`finance_news.db`) is also used to gather aggregated data.  The system now uses a fixed filename for each news source's database (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`), instead of the previous timestamp-based naming convention (`[source_name]_YYYYMMDD_HHMMSS.db`). This simplifies data access and management.
+
+### Database Table Structure
+
+The main data tables include:
+
+1.  **news** - Stores basic news information.  Fields include: `id` (primary key), `title`, `content`, `content_html`, `pub_time`, `author`, `source`, `url` (unique), `keywords`, `images`, `related_stocks`, `sentiment`, `classification`, `category`, `crawl_time`.
+
+2.  **keywords** - Stores keywords.  Fields include: `id` (primary key), `keyword` (unique), `count`, `last_updated`.
+
+3.  **news_keywords** - A join table between news and keywords.  Fields include: `news_id`, `keyword_id` (primary key).
+
+4.  **stocks** - Stores stock information.  Fields include: `code` (primary key), `name`, `count`, `last_updated`.
+
+5.  **news_stocks** - A join table between news and stocks.  Fields include: `news_id`, `stock_code` (primary key).
+
+### Database Connection Mechanism
+
+The `SQLiteManager` class (located in `app/db/sqlite_manager.py`) is the core database management class, providing functions for initializing database connections and table structures, saving and querying news data, and extracting and associating keyword and stock information. All crawlers interact with the database via the `save_news_to_db` method.  The system now uses a single database file per news source, improving efficiency and simplifying data access. Crawler classes directly use `sqlite3` connections, reducing overhead and improving reliability. The system automatically checks for and creates necessary database tables upon startup, ensuring data consistency.
+
+### Best Practices
+
+1.  Use the unified database interface (`SQLiteManager`) for all database operations.
+2.  Use appropriate error handling for all database operations.
+3.  Log all database operation results.
+4.  Validate news data integrity before saving.
+5.  Regularly back up database files.
+6.  Use transactions for batch operations to ensure data consistency.
+
+### Database File Storage Optimization
+
+The system has been updated to use a single database file per news source (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`), instead of creating a new file for each crawl.  This simplifies data access, reduces file clutter, and improves overall system efficiency.  The system automatically creates the necessary tables upon initialization, ensuring data consistency.  The `NewsDatabase` class intelligently handles both relative and absolute database paths, providing flexible deployment options.  The system now uses a fixed filename for each news source's database, simplifying data access and management.  Crawler classes directly use `sqlite3` connections, reducing overhead and improving reliability.
+
+
+## Database File Storage Optimization
+
+To optimize database storage and access, the system has been updated as follows:
+
+**Fixed Database Filenames:** The system now uses a fixed filename for each news source's database (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`), instead of the previous timestamp-based naming convention (`[source_name]_YYYYMMDD_HHMMSS.db`). This simplifies data access and management.
+
+**Direct Database Access:** Crawler classes now directly use `sqlite3` connections to save news data to the database. This reduces overhead and improves reliability.
+
+**Automatic Table Initialization:** The system automatically checks for and creates necessary database tables upon startup, ensuring data consistency.
+
+**Intelligent Path Handling:** The `NewsDatabase` class in the web application intelligently handles both relative and absolute database paths, allowing for flexible deployment.
+
+These optimizations significantly improve data storage efficiency, reduce data fragmentation, and simplify system maintenance.
+
+## PROJECT STRUCTURE
+
+This section details the project's file and folder structure.  The structure has been recently optimized for improved maintainability and modularity.  Specific changes include the consolidation of database files and a more logical grouping of crawler modules.  The `today3` directory, while containing a mirrored structure, is now considered deprecated in favor of the optimized structure in the root directory. The project now uses a single database per source.  The structure is now more streamlined, with a clear separation of concerns between the API, the application logic, the data storage, and the web interface.
+
+```
+NewsLook
+├── api/              # API 接口
+├── app/              # 应用逻辑
+│   ├── crawlers/     # 爬虫模块
+│   ├── tasks/        # 任务调度模块
+│   ├── utils/        # 工具函数
+│   └── web/          # Web 应用
+├── data/             # 数据存储
+│   └── db/           # 数据库文件
+├── docs/             # 文档
+├── requirements/    # 权限包
+├── scripts/          # 运行脚本
+├── tests/            # 测试
+├── static/           # 静态文件
+└── templates/        # 模板文件
+```
+
+## README.md UPDATES
+
+The README.md file has been updated to include the following sections:
+
+### Database Optimization
+
+The system intelligently identifies and uses multiple database files, ensuring that you can view all historically crawled news data.
+
+#### Multi-Database Support Features
+
+- **Automatic Database Discovery:** The system automatically searches for possible database directories, finds, and uses all available database files.
+- **Flexible Database Locations:** Supports multiple possible database locations, searching in order of priority:
+    - `./data/db/` (the data/db directory under the project root)
+    - `./db/` (the db directory under the project root)
+    - The corresponding directories under the current working directory
+- **Command-line Arguments:** Explicitly specify the database directory using the `--db-dir` argument.
+- **Merged Query Results:** Queries and merges results from multiple database files to provide a complete data view.
+
+#### How to Use the Multi-Database Feature
+
+The system enables multi-database functionality by default. When starting the web application, it automatically searches for and uses all available database files:
+
+```bash
+# Use automatically detected database directory
+python run.py web
+
+# Specify database directory
+python run.py web --db-dir path/to/your/db
+```
+
+In the console output, you can see which database files the system found:
+
+```
+Found main database: /path/to/your/db/finance_news.db
+Found X database files
+```
+
+#### Database Search Logic
+
+1. First, check if the command-line argument `--db-dir` specifies the database directory.
+2. If not specified, check the environment variable `DB_DIR`.
+3. If the environment variable is not set, search for the first valid directory containing `.db` files in the possible directories in order of priority.
+4. If all directories do not exist or do not contain database files, create and use the default directory.
+
+### Encoding Optimization and Garbled Character Handling
+
+To address encoding and garbled character issues encountered when crawling financial websites, we have made the following key optimizations:
+
+- **Multiple Encoding Handling:** Enhanced intelligent identification and conversion capabilities for multiple encodings such as UTF-8, GBK, and GB18030.
+- **Unicode Escape Sequence Decoding:** Added the `decode_unicode_escape` function to handle Unicode escape sequences such as `\u4e2d\u56fd` -> 中国.
+- **URL-Encoded Character Decoding:** Added the `decode_url_encoded` function to handle URL-encoded characters such as `%E4%B8%AD%E5%9B%BD` -> 中国.
+- **Enhanced HTML Entity Decoding:** Expanded the capabilities of the `decode_html_entities` function, adding more common HTML entity handling.
+- **Encoding Process Optimization:** Implemented multi-stage encoding detection and conversion during the crawling, parsing, and storage processes.
+- **Automatic Garbled Character Repair:** Implemented customized garbled character repair mechanisms for specific websites (such as Sina Finance and Tencent Finance).
+
+These optimizations significantly improve the system's ability to handle Chinese content and resolve Chinese garbled character issues, especially when dealing with mixed encodings on financial websites.  Refer to `app/utils/text_cleaner.py` and `app/crawlers/sina.py` files for implementation details.
+
+## DEBUGGING
+
+*   Use a logging system to track program execution.
+*   Use a debugger to step through code.
+*   Test frequently to catch errors early.
+*   The system now uses a single database file per news source, simplifying data access and management.
+
+## DATABASE CONNECTION DETAILS
+
+The system uses a single database file per news source.  The system intelligently handles multiple database files for each news source, allowing for the storage and retrieval of historical data.  The system now uses a single database file per news source, simplifying data access and management.  The system now uses a fixed filename for each news source's database (e.g., `tencent_finance.db`, `sina_finance.db`, `eastmoney.db`), instead of the previous timestamp-based naming convention (`[source_name]_YYYYMMDD_HHMMSS.db`). This simplifies data access and management.

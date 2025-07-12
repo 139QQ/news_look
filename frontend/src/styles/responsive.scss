@@ -1,0 +1,157 @@
+// 响应式断点和优化样式
+// 断点定义
+$breakpoint-xs: 375px;   // 小屏手机
+$breakpoint-sm: 768px;   // 平板
+$breakpoint-md: 1024px;  // 小桌面
+$breakpoint-lg: 1200px;  // 大桌面
+$breakpoint-xl: 1440px;  // 超大屏
+
+// 容器最大宽度限制
+.container-responsive {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  
+  @media (max-width: $breakpoint-sm) {
+    padding: 0 10px;
+  }
+}
+
+// 数据表格响应式优化
+.responsive-table {
+  // 移动端优化
+  @media (max-width: $breakpoint-xs) {
+    .el-table {
+      font-size: 12px;
+      
+      .el-table__header th {
+        padding: 8px 4px;
+        font-size: 11px;
+      }
+      
+      .el-table__body td {
+        padding: 12px 4px;
+        min-height: 48px; // 确保触摸友好
+      }
+      
+      // 隐藏次要列
+      .mobile-hidden {
+        display: none;
+      }
+      
+      // 关键列优化
+      .col-title {
+        min-width: 200px;
+        max-width: 250px;
+      }
+      
+      .col-source {
+        min-width: 80px;
+      }
+    }
+  }
+  
+  // 平板端优化
+  @media (min-width: $breakpoint-xs) and (max-width: $breakpoint-sm) {
+    .el-table {
+      .el-table__body td {
+        padding: 14px 8px;
+        min-height: 52px;
+      }
+      
+      // 分类列在平板上可见但简化
+      .col-category {
+        .el-tag {
+          font-size: 10px;
+          padding: 2px 6px;
+        }
+      }
+    }
+  }
+  
+  // 大屏优化
+  @media (min-width: $breakpoint-lg) {
+    .el-table {
+      .el-table__body td {
+        padding: 16px 12px;
+        min-height: 56px; // 1.5倍行高标准
+      }
+    }
+  }
+}
+
+// 数据卡片响应式
+.stats-cards-responsive {
+  @media (max-width: $breakpoint-xs) {
+    .el-col {
+      margin-bottom: 12px;
+    }
+    
+    .stat-card {
+      height: 100px; // 移动端紧凑布局
+      
+      .stat-content {
+        height: 70px;
+        
+        .stat-icon {
+          margin-right: 8px;
+          
+          .el-icon {
+            font-size: 20px;
+          }
+        }
+        
+        .stat-value {
+          font-size: 18px;
+        }
+        
+        .stat-label {
+          font-size: 12px;
+        }
+      }
+    }
+  }
+  
+  // 超大屏限制拉伸
+  @media (min-width: $breakpoint-xl) {
+    .el-row {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+  }
+}
+
+// 搜索表单响应式
+.search-form-responsive {
+  @media (max-width: $breakpoint-sm) {
+    .el-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      
+      .el-form-item {
+        margin-bottom: 0;
+        
+        .el-form-item__label {
+          width: 80px;
+          text-align: left;
+        }
+        
+        .el-form-item__content {
+          flex: 1;
+          margin-left: 0;
+        }
+      }
+      
+      // 按钮组在移动端堆叠
+      .search-buttons {
+        display: flex;
+        gap: 8px;
+        
+        .el-button {
+          flex: 1;
+        }
+      }
+    }
+  }
+} 

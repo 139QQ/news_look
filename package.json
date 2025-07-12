@@ -1,0 +1,40 @@
+{
+  "name": "newslook",
+  "version": "3.0.0",
+  "description": "NewsLook 财经新闻爬虫系统 - 全栈项目启动器",
+  "type": "module",
+  "author": "NewsLook Team",
+  "license": "MIT",
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "start": "cd frontend && npm run start",
+    "build": "cd frontend && npm run build",
+    "build:prod": "cd frontend && npm run build:prod",
+    "serve": "cd frontend && npm run serve",
+    "frontend:install": "cd frontend && npm install",
+    "frontend:clean": "cd frontend && npm run clean",
+    "backend:start": "python app.py",
+    "backend:dev": "python app.py --debug",
+    "fullstack:dev": "concurrently \"npm run backend:dev\" \"npm run dev\"",
+    "setup": "npm run frontend:install && pip install -r requirements.txt",
+    "postinstall": "npm run frontend:install"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "财经新闻",
+    "爬虫系统",
+    "Vue3",
+    "Flask",
+    "全栈开发"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/newsLook/newsLook"
+  }
+} 
