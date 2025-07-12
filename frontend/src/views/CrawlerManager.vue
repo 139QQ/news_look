@@ -3,12 +3,26 @@
     <el-card class="mb-20">
       <template #header>
         <div class="flex-between">
-          <span>爬虫管理</span>
-          <div>
+          <div class="header-left">
+            <span class="header-title">爬虫管理</span>
+            <el-tag 
+              :type="wsConnected ? 'success' : 'warning'"
+              size="small"
+              class="ml-10"
+            >
+              <el-icon class="mr-5">
+                <Connection v-if="wsConnected" />
+                <Warning v-else />
+              </el-icon>
+              {{ wsConnected ? '实时连接' : '轮询模式' }}
+            </el-tag>
+          </div>
+          <div class="header-actions">
             <el-button 
               type="success" 
               :loading="isStartingAll"
               @click="startAllCrawlers"
+              :disabled="crawlerStore.activeCrawlers === crawlerStore.totalCrawlers"
             >
               <el-icon><CaretRight /></el-icon>
               启动全部
@@ -17,6 +31,7 @@
               type="danger" 
               :loading="isStoppingAll"
               @click="stopAllCrawlers"
+              :disabled="crawlerStore.activeCrawlers === 0"
             >
               <el-icon><VideoPause /></el-icon>
               停止全部
@@ -64,13 +79,20 @@
           </template>
         </el-table-column>
         
-        <el-table-column prop="success_rate" label="成功率" width="100">
+        <el-table-column prop="success_rate" label="成功率" width="120">
           <template #default="{ row }">
-            <el-progress 
-              :percentage="row.success_rate" 
-              :status="getProgressStatus(row.success_rate)"
-              :stroke-width="8"
-            />
+            <div class="progress-container">
+              <el-progress 
+                :percentage="row.success_rate" 
+                :status="getProgressStatus(row.success_rate)"
+                :stroke-width="12"
+                :show-text="false"
+                class="enhanced-progress"
+              />
+              <span class="progress-text" :style="getSuccessRateStyle(row.success_rate)">
+                {{ row.success_rate }}%
+              </span>
+            </div>
           </template>
         </el-table-column>
         
@@ -212,10 +234,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useCrawlerStore } from '@/store'
 import { crawlerApi } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import message from '@/utils/message'
+import wsManager from '@/utils/websocket'
 import dayjs from 'dayjs'
 
 // Store
@@ -299,57 +323,86 @@ const formatTime = (time) => {
 
 // 启动单个爬虫
 const startCrawler = async (name) => {
-  if (!loadingStates.value[name]) {
-    loadingStates.value[name] = {}
-  }
-  loadingStates.value[name].starting = true
+  const crawler = crawlerStore.crawlers.find(c => c.name === name)
+  const displayName = crawler?.display_name || name
   
   try {
-    const success = await crawlerStore.startCrawler(name)
-    if (success) {
-      ElMessage.success(`爬虫 ${name} 启动成功`)
-    }
+    await message.withFeedback(
+      () => crawlerStore.startCrawler(name),
+      {
+        loadingText: `正在启动 ${displayName}...`,
+        successTitle: '启动成功',
+        successMessage: `${displayName} 已成功启动`,
+        errorTitle: '启动失败'
+      }
+    )
   } catch (error) {
-    ElMessage.error(`爬虫 ${name} 启动失败`)
-  } finally {
-    loadingStates.value[name].starting = false
+    console.error(`启动爬虫 ${name} 失败:`, error)
   }
 }
 
 // 停止单个爬虫
 const stopCrawler = async (name) => {
-  if (!loadingStates.value[name]) {
-    loadingStates.value[name] = {}
-  }
-  loadingStates.value[name].stopping = true
+  const crawler = crawlerStore.crawlers.find(c => c.name === name)
+  const displayName = crawler?.display_name || name
+  
+  // 确认对话框
+  const confirmed = await message.confirm(
+    '停止爬虫',
+    `确定要停止 ${displayName} 吗？`,
+    {
+      confirmButtonText: '停止',
+      confirmButtonClass: 'el-button--warning'
+    }
+  )
+  
+  if (!confirmed) return
   
   try {
-    const success = await crawlerStore.stopCrawler(name)
-    if (success) {
-      ElMessage.success(`爬虫 ${name} 停止成功`)
-    }
+    await message.withFeedback(
+      () => crawlerStore.stopCrawler(name),
+      {
+        loadingText: `正在停止 ${displayName}...`,
+        successTitle: '停止成功',
+        successMessage: `${displayName} 已成功停止`,
+        errorTitle: '停止失败'
+      }
+    )
   } catch (error) {
-    ElMessage.error(`爬虫 ${name} 停止失败`)
-  } finally {
-    loadingStates.value[name].stopping = false
+    console.error(`停止爬虫 ${name} 失败:`, error)
   }
 }
 
 // 启动所有爬虫
 const startAllCrawlers = async () => {
-  try {
-    await ElMessageBox.confirm('确定要启动所有爬虫吗？', '确认操作', {
-      type: 'warning'
-    })
-    
-    isStartingAll.value = true
-    await crawlerApi.startAllCrawlers()
-    await crawlerStore.fetchCrawlerStatus()
-    ElMessage.success('所有爬虫启动成功')
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('启动失败')
+  const confirmed = await message.confirm(
+    '批量启动确认',
+    `确定要启动所有 ${crawlerStore.totalCrawlers} 个爬虫吗？`,
+    {
+      confirmButtonText: '启动全部',
+      confirmButtonClass: 'el-button--success'
     }
+  )
+  
+  if (!confirmed) return
+  
+  try {
+    isStartingAll.value = true
+    await message.withFeedback(
+      async () => {
+        await crawlerApi.startAllCrawlers()
+        await crawlerStore.fetchCrawlerStatus()
+      },
+      {
+        loadingText: '正在启动所有爬虫...',
+        successTitle: '批量启动成功',
+        successMessage: `已成功启动 ${crawlerStore.totalCrawlers} 个爬虫`,
+        errorTitle: '批量启动失败',
+        showLoading: false // 使用自定义加载状态
+      }
+    )
+  } catch (error) {
+    console.error('批量启动失败:', error)
   } finally {
     isStartingAll.value = false
   }
@@ -357,27 +410,106 @@ const startAllCrawlers = async () => {
 
 // 停止所有爬虫
 const stopAllCrawlers = async () => {
+  const runningCount = crawlerStore.activeCrawlers
+  
+  if (runningCount === 0) {
+    message.warning('没有正在运行的爬虫')
+    return
+  }
+  
+  const confirmed = await message.confirmWithCountdown(
+    '批量停止确认',
+    `确定要停止所有 ${runningCount} 个正在运行的爬虫吗？`,
+    '停止全部',
+    3
+  )
+  
+  if (!confirmed) return
+  
   try {
-    await ElMessageBox.confirm('确定要停止所有爬虫吗？', '确认操作', {
-      type: 'warning'
-    })
-    
     isStoppingAll.value = true
-    await crawlerApi.stopAllCrawlers()
-    await crawlerStore.fetchCrawlerStatus()
-    ElMessage.success('所有爬虫停止成功')
+    await message.withFeedback(
+      async () => {
+        await crawlerApi.stopAllCrawlers()
+        await crawlerStore.fetchCrawlerStatus()
+      },
+      {
+        loadingText: '正在停止所有爬虫...',
+        successTitle: '批量停止成功',
+        successMessage: `已成功停止 ${runningCount} 个爬虫`,
+        errorTitle: '批量停止失败',
+        showLoading: false // 使用自定义加载状态
+      }
+    )
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('停止失败')
-    }
+    console.error('批量停止失败:', error)
   } finally {
     isStoppingAll.value = false
   }
 }
 
-// 刷新状态
-const refreshStatus = () => {
-  crawlerStore.fetchCrawlerStatus()
+// WebSocket连接状态
+const wsConnected = ref(false)
+
+// WebSocket事件处理
+const handleWebSocketMessage = (data) => {
+  switch (data.type) {
+    case 'crawler_status_changed':
+      // 爬虫状态变化时自动更新
+      crawlerStore.fetchCrawlerStatus()
+      break
+    case 'crawler_started':
+      message.success(`${data.crawler_name} 已启动`)
+      crawlerStore.fetchCrawlerStatus()
+      break
+    case 'crawler_stopped':
+      message.info(`${data.crawler_name} 已停止`)
+      crawlerStore.fetchCrawlerStatus()
+      break
+    case 'crawler_error':
+      message.error(`${data.crawler_name} 发生错误: ${data.error}`)
+      crawlerStore.fetchCrawlerStatus()
+      break
+  }
+}
+
+// 刷新状态（增强版）
+const refreshStatus = async () => {
+  try {
+    await message.withFeedback(
+      () => crawlerStore.fetchCrawlerStatus(),
+      {
+        loadingText: '正在刷新状态...',
+        successTitle: '状态已更新',
+        errorTitle: '刷新失败',
+        showSuccess: false // 静默成功
+      }
+    )
+  } catch (error) {
+    console.error('刷新状态失败:', error)
+  }
+}
+
+// 自动刷新
+const autoRefreshTimer = ref(null)
+const autoRefreshInterval = ref(10000) // 10秒
+
+const startAutoRefresh = () => {
+  if (autoRefreshTimer.value) return
+  
+  autoRefreshTimer.value = setInterval(() => {
+    // 如果WebSocket未连接才进行轮询
+    if (!wsConnected.value) {
+      crawlerStore.fetchCrawlerStatus()
+    }
+  }, autoRefreshInterval.value)
+}
+
+const stopAutoRefresh = () => {
+  if (autoRefreshTimer.value) {
+    clearInterval(autoRefreshTimer.value)
+    autoRefreshTimer.value = null
+  }
 }
 
 // 显示配置
@@ -393,21 +525,149 @@ const showConfig = (crawler) => {
 }
 
 // 保存配置
-const saveConfig = () => {
-  ElMessage.success('配置保存成功')
-  configDialogVisible.value = false
+const saveConfig = async () => {
+  try {
+    await message.withFeedback(
+      () => {
+        // 这里应该调用实际的配置保存API
+        return new Promise(resolve => setTimeout(resolve, 1000))
+      },
+      {
+        loadingText: '正在保存配置...',
+        successTitle: '配置保存成功',
+        errorTitle: '配置保存失败'
+      }
+    )
+    configDialogVisible.value = false
+  } catch (error) {
+    console.error('保存配置失败:', error)
+  }
 }
+
+// 生命周期钩子
+onMounted(async () => {
+  // 初始化数据
+  await crawlerStore.fetchCrawlerStatus()
+  
+  // 启动WebSocket连接
+  wsManager.connect()
+  wsManager.on('connected', () => {
+    wsConnected.value = true
+    console.log('爬虫管理页面: WebSocket已连接')
+    stopAutoRefresh() // 停止轮询，使用WebSocket
+  })
+  
+  wsManager.on('disconnected', () => {
+    wsConnected.value = false
+    console.log('爬虫管理页面: WebSocket已断开，启动轮询')
+    startAutoRefresh() // 启动轮询作为备用
+  })
+  
+  wsManager.on('crawler_update', handleWebSocketMessage)
+  
+  // 如果WebSocket未连接，启动轮询
+  if (!wsConnected.value) {
+    startAutoRefresh()
+  }
+})
+
+onUnmounted(() => {
+  // 清理资源
+  stopAutoRefresh()
+  wsManager.off('crawler_update', handleWebSocketMessage)
+  wsManager.disconnect()
+})
 </script>
 
 <style scoped lang="scss">
 .crawler-manager {
   .stat-card {
     margin-bottom: 20px;
+    transition: all 0.3s ease;
+    border-radius: 8px;
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
   }
   
   .flex {
     display: flex;
     align-items: center;
+  }
+  
+  .flex-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .header-left {
+    display: flex;
+    align-items: center;
+    
+    .header-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--el-text-color-primary);
+    }
+  }
+  
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    
+    .el-button {
+      transition: all 0.2s ease;
+      
+      &:hover {
+        transform: translateY(-1px);
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+    }
+  }
+  
+  .progress-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    .enhanced-progress {
+      flex: 1;
+      
+      :deep(.el-progress-bar__outer) {
+        border-radius: 6px;
+        background: var(--el-fill-color-light);
+      }
+      
+      :deep(.el-progress-bar__inner) {
+        border-radius: 6px;
+        transition: all 0.3s ease;
+        
+        &.is-success {
+          background: linear-gradient(90deg, #67c23a, #85ce61);
+        }
+        
+        &.is-warning {
+          background: linear-gradient(90deg, #e6a23c, #f0c061);
+        }
+        
+        &.is-exception {
+          background: linear-gradient(90deg, #f56c6c, #f89898);
+        }
+      }
+    }
+    
+    .progress-text {
+      font-size: 12px;
+      font-weight: 600;
+      min-width: 35px;
+      text-align: right;
+    }
   }
   
   .mr-5 {
@@ -417,5 +677,134 @@ const saveConfig = () => {
   .mr-10 {
     margin-right: 10px;
   }
+  
+  .ml-10 {
+    margin-left: 10px;
+  }
+  
+  .mb-20 {
+    margin-bottom: 20px;
+  }
+  
+  // 表格行悬停效果
+  :deep(.el-table tbody tr) {
+    transition: background-color 0.2s ease;
+    
+    &:hover {
+      background-color: var(--el-fill-color-lighter) !important;
+    }
+  }
+  
+  // 状态标签动画
+  :deep(.el-tag) {
+    transition: all 0.2s ease;
+    
+    &:hover {
+      transform: scale(1.05);
+    }
+  }
+  
+  // 按钮组增强
+  :deep(.el-button-group) {
+    .el-button {
+      border-radius: 4px;
+      
+      &:first-child {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+      
+      &:last-child {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+      }
+      
+      &:not(:first-child):not(:last-child) {
+        border-radius: 0;
+      }
+    }
+  }
+  
+  // 加载状态动画
+  .loading-row {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  
+  // 响应式设计
+  @media (max-width: 768px) {
+    .header-left,
+    .header-actions {
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .flex-between {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+    
+    .progress-container {
+      .progress-text {
+        min-width: 30px;
+      }
+    }
+    
+    :deep(.el-table) {
+      font-size: 12px;
+    }
+    
+    :deep(.el-button) {
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .header-actions {
+      .el-button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+    
+    :deep(.el-table__body-wrapper) {
+      overflow-x: auto;
+    }
+  }
+}
+
+// 动画关键帧
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 运行状态指示器动画
+:deep(.el-tag.el-tag--success) {
+  .el-icon {
+    animation: pulse 2s infinite;
+  }
+}
+
+// 页面进入动画
+.crawler-manager {
+  animation: slideIn 0.4s ease-out;
 }
 </style> 

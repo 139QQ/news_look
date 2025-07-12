@@ -237,7 +237,17 @@ scratch/
 stats.json
 analytics.json
 
-# 错误报告
-error_reports/
-crash_dumps/
-node_modules/
+# Pyre type checker
+.pyre/
+
+# Project specific
+*.db
+*.db-journal
+logs/
+data/
+backup/
+debug/
+.idea/
+.vscode/
+*.swp
+*.swo 

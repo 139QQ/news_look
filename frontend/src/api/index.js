@@ -1,5 +1,6 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElLoading } from 'element-plus'
+import message from '@/utils/message'
 
 // 创建axios实例
 const api = axios.create({
@@ -9,6 +10,91 @@ const api = axios.create({
     'Content-Type': 'application/json'
   }
 })
+
+// 全局加载计数器
+let loadingCount = 0
+let loadingInstance = null
+
+// 显示全局加载
+function showGlobalLoading() {
+  loadingCount++
+  if (loadingCount === 1) {
+    loadingInstance = ElLoading.service({
+      lock: true,
+      text: '加载中...',
+      background: 'rgba(0, 0, 0, 0.7)'
+    })
+  }
+}
+
+// 隐藏全局加载
+function hideGlobalLoading() {
+  loadingCount = Math.max(0, loadingCount - 1)
+  if (loadingCount === 0 && loadingInstance) {
+    loadingInstance.close()
+    loadingInstance = null
+  }
+}
+
+// 请求拦截器
+api.interceptors.request.use(
+  (config) => {
+    // 对于非静默请求显示加载状态
+    if (!config.silent) {
+      showGlobalLoading()
+    }
+    
+    // 添加时间戳防止缓存
+    if (config.method === 'get') {
+      config.params = {
+        ...config.params,
+        _t: Date.now()
+      }
+    }
+    
+    return config
+  },
+  (error) => {
+    hideGlobalLoading()
+    return Promise.reject(error)
+  }
+)
+
+// 响应拦截器
+api.interceptors.response.use(
+  (response) => {
+    hideGlobalLoading()
+    
+    // 对于成功的操作显示成功消息
+    if (response.config.showSuccess) {
+      const successMsg = response.data?.message || '操作成功'
+      message.success(successMsg)
+    }
+    
+    return response
+  },
+  (error) => {
+    hideGlobalLoading()
+    
+    // 统一错误处理
+    if (!error.config?.silent) {
+      const errorMessage = message.getErrorMessage(error)
+      
+      // 根据错误类型显示不同的提示
+      if (error.response?.status >= 500) {
+        message.notifyError('服务器错误', errorMessage)
+      } else if (error.response?.status >= 400) {
+        message.error(errorMessage)
+      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+        message.notifyWarning('网络连接问题', '请检查网络连接或后端服务状态')
+      } else {
+        message.error(errorMessage)
+      }
+    }
+    
+    return Promise.reject(error)
+  }
+)
 
 // API健康状态
 let apiHealthStatus = {
