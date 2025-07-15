@@ -4,6 +4,7 @@
 // 导入样式变量和设计系统 - 必须在其他规则之前
 @use './variables.scss' as *;
 @use './design-system.scss';
+@use './element-plus.scss';
 @use 'sass:color';
 
 // 🌟 全局重置和基础样式
@@ -19,6 +20,7 @@
 html {
   font-size: 14px;
   line-height: 1.6;
+  height: 100%;
 }
 
 body {
@@ -28,6 +30,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  height: 100%;
 }
 
 // 🎯 应用根容器
@@ -36,6 +39,7 @@ body {
   width: 100%;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 // 🔗 链接样式
@@ -47,36 +51,300 @@ a {
   &:hover {
     color: $primary-light;
   }
+  
+  &:active {
+    color: $primary-dark;
+  }
 }
 
-// 📝 基础排版
-h1, h2, h3, h4, h5, h6 {
-  color: $text-color-primary;
-  font-weight: $font-weight-title;
-  line-height: 1.4;
+// 🎨 全局布局样式
+// ==============
+
+// 主容器
+.main-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
-h1 {
-  font-size: $font-size-extra-large;
-  margin-bottom: $spacing-lg;
+// 内容区域
+.content-area {
+  flex: 1;
+  padding: $content-padding;
+  overflow-y: auto;
+  
+  @media (max-width: $breakpoint-sm) {
+    padding: $spacing-md;
+  }
 }
 
-h2 {
+// 页面标题
+.page-title {
   font-size: $font-size-large;
-  margin-bottom: $spacing-md;
+  font-weight: $font-weight-title;
+  color: $text-color-primary;
+  margin-bottom: $spacing-lg;
+  
+  @media (max-width: $breakpoint-sm) {
+    font-size: $font-size-title;
+    margin-bottom: $spacing-md;
+  }
 }
 
-h3 {
-  font-size: $font-size-medium;
-  margin-bottom: $spacing-md;
+// 🔲 卡片布局
+// ==========
+
+// 卡片网格
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: $spacing-lg;
+  margin-bottom: $spacing-lg;
+  
+  @media (max-width: $breakpoint-sm) {
+    grid-template-columns: 1fr;
+    gap: $spacing-md;
+  }
 }
 
-p {
-  margin-bottom: $spacing-md;
+// 卡片标题样式
+.card-title {
+  font-size: $font-size-title;
+  font-weight: $font-weight-title;
+  color: $text-color-primary;
+  margin-bottom: $spacing-sm;
+  display: flex;
+  align-items: center;
+  
+  .title-icon {
+    margin-right: $spacing-sm;
+    color: $primary-color;
+  }
+}
+
+// 卡片内容
+.card-content {
+  color: $text-color-regular;
   line-height: 1.6;
+  
+  p {
+    margin-bottom: $spacing-sm;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
 }
 
-// 🎨 滚动条美化
+// 🎯 状态样式
+// ==========
+
+// 状态标签
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $border-radius-base;
+  font-size: $font-size-small;
+  font-weight: $font-weight-medium;
+  
+  .status-icon {
+    margin-right: $spacing-xs;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  
+  &.status-success {
+    background-color: $success-lighter;
+    color: $success-dark;
+    
+    .status-icon {
+      background-color: $success-color;
+    }
+  }
+  
+  &.status-warning {
+    background-color: $warning-lighter;
+    color: $warning-dark;
+    
+    .status-icon {
+      background-color: $warning-color;
+    }
+  }
+  
+  &.status-error {
+    background-color: $danger-lighter;
+    color: $danger-dark;
+    
+    .status-icon {
+      background-color: $danger-color;
+    }
+  }
+  
+  &.status-info {
+    background-color: $info-lighter;
+    color: $info-dark;
+    
+    .status-icon {
+      background-color: $info-color;
+    }
+  }
+}
+
+// 🔢 数字展示
+.number-display {
+  font-size: $font-size-extra-large;
+  font-weight: $font-weight-title;
+  color: $primary-color;
+  margin-bottom: $spacing-xs;
+  
+  .number-unit {
+    font-size: $font-size-small;
+    color: $text-color-secondary;
+    margin-left: $spacing-xs;
+  }
+}
+
+// 📊 图表容器
+.chart-container {
+  width: 100%;
+  height: 400px;
+  position: relative;
+  
+  @media (max-width: $breakpoint-sm) {
+    height: 300px;
+  }
+}
+
+// 📝 表单样式增强
+// ==============
+
+// 表单容器
+.form-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: $spacing-lg;
+  
+  @media (max-width: $breakpoint-sm) {
+    padding: $spacing-md;
+  }
+}
+
+// 表单组
+.form-group {
+  margin-bottom: $spacing-lg;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+// 表单标签
+.form-label {
+  display: block;
+  font-weight: $font-weight-medium;
+  color: $text-color-regular;
+  margin-bottom: $spacing-xs;
+  
+  &.required {
+    &::after {
+      content: '*';
+      color: $danger-color;
+      margin-left: $spacing-xs;
+    }
+  }
+}
+
+// 表单帮助文本
+.form-help {
+  font-size: $font-size-small;
+  color: $text-color-secondary;
+  margin-top: $spacing-xs;
+}
+
+// 表单错误
+.form-error {
+  font-size: $font-size-small;
+  color: $danger-color;
+  margin-top: $spacing-xs;
+  
+  &::before {
+    content: '⚠ ';
+    margin-right: $spacing-xs;
+  }
+}
+
+// 🎨 工具类样式
+// ============
+
+// 文本样式
+.text-primary { color: $text-color-primary; }
+.text-regular { color: $text-color-regular; }
+.text-secondary { color: $text-color-secondary; }
+.text-placeholder { color: $text-color-placeholder; }
+
+// 主题色文本
+.text-brand { color: $primary-color; }
+.text-success { color: $success-color; }
+.text-warning { color: $warning-color; }
+.text-danger { color: $danger-color; }
+.text-info { color: $info-color; }
+
+// 字体大小
+.text-xs { font-size: $font-size-extra-small; }
+.text-sm { font-size: $font-size-small; }
+.text-base { font-size: $font-size-base; }
+.text-lg { font-size: $font-size-large; }
+.text-xl { font-size: $font-size-extra-large; }
+
+// 字体权重
+.font-light { font-weight: $font-weight-light; }
+.font-normal { font-weight: $font-weight-normal; }
+.font-medium { font-weight: $font-weight-medium; }
+.font-bold { font-weight: $font-weight-title; }
+
+// 边距工具类
+.m-0 { margin: 0; }
+.m-xs { margin: $spacing-xs; }
+.m-sm { margin: $spacing-sm; }
+.m-md { margin: $spacing-md; }
+.m-lg { margin: $spacing-lg; }
+.m-xl { margin: $spacing-xl; }
+
+.p-0 { padding: 0; }
+.p-xs { padding: $spacing-xs; }
+.p-sm { padding: $spacing-sm; }
+.p-md { padding: $spacing-md; }
+.p-lg { padding: $spacing-lg; }
+.p-xl { padding: $spacing-xl; }
+
+// 显示控制
+.d-none { display: none; }
+.d-block { display: block; }
+.d-inline { display: inline; }
+.d-inline-block { display: inline-block; }
+.d-flex { display: flex; }
+.d-grid { display: grid; }
+
+// Flexbox 工具类
+.flex-row { flex-direction: row; }
+.flex-column { flex-direction: column; }
+.justify-start { justify-content: flex-start; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.justify-between { justify-content: space-between; }
+.justify-around { justify-content: space-around; }
+.align-start { align-items: flex-start; }
+.align-center { align-items: center; }
+.align-end { align-items: flex-end; }
+.align-stretch { align-items: stretch; }
+
+// 🎭 滚动条样式
+// ============
+
+// 自定义滚动条
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -90,475 +358,75 @@ p {
 ::-webkit-scrollbar-thumb {
   background: $scrollbar-thumb;
   border-radius: 4px;
+  transition: $transition-base;
   
   &:hover {
     background: $scrollbar-thumb-hover;
   }
 }
 
-// 🎪 Element Plus 全局样式覆盖
-// ============================
-
-// 消息提示层级
-.el-message {
-  z-index: $z-index-tooltip !important;
-  border-radius: $border-radius-medium;
-  box-shadow: $box-shadow-base;
+// Firefox 滚动条
+html {
+  scrollbar-width: thin;
+  scrollbar-color: $scrollbar-thumb $scrollbar-track;
 }
 
-// 加载遮罩
-.el-loading-mask {
-  z-index: $z-index-modal !important;
-  background-color: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(2px);
-}
+// 🎨 暗色主题适配
+// ==============
 
-// 对话框
-.el-dialog {
-  border-radius: $border-radius-large;
-  box-shadow: $box-shadow-hover;
+.dark {
+  // 暗色主题变量覆盖
+  --el-bg-color: #1a1a1a;
+  --el-bg-color-page: #0f0f0f;
+  --el-text-color-primary: #e5e5e5;
+  --el-text-color-regular: #c0c0c0;
+  --el-text-color-secondary: #8a8a8a;
+  --el-border-color: #414141;
+  --el-border-color-light: #363636;
+  --el-border-color-lighter: #2a2a2a;
   
-  .el-dialog__header {
-    padding: $spacing-lg;
-    border-bottom: 1px solid $border-color-lighter;
+  // 暗色主题特定样式
+  body {
+    background-color: var(--el-bg-color-page);
+    color: var(--el-text-color-primary);
   }
   
-  .el-dialog__body {
-    padding: $spacing-lg;
+  .card-title {
+    color: var(--el-text-color-primary);
   }
   
-  .el-dialog__footer {
-    padding: $spacing-md $spacing-lg;
-    border-top: 1px solid $border-color-lighter;
+  .card-content {
+    color: var(--el-text-color-regular);
   }
-}
-
-// 弹出层
-.el-popper {
-  border-radius: $border-radius-medium;
-  box-shadow: $box-shadow-base;
-}
-
-// 下拉菜单
-.el-dropdown-menu {
-  border-radius: $border-radius-medium;
-  box-shadow: $box-shadow-base;
-  padding: $spacing-xs;
   
-  .el-dropdown-menu__item {
-    border-radius: $border-radius-small;
-    padding: $spacing-sm $spacing-md;
-    transition: $transition-base;
+  .status-tag {
+    &.status-success {
+      background-color: rgba(103, 194, 58, 0.2);
+      color: #85ce61;
+    }
     
-    &:hover {
-      background-color: $bg-color-hover;
+    &.status-warning {
+      background-color: rgba(230, 162, 60, 0.2);
+      color: #ebb563;
+    }
+    
+    &.status-error {
+      background-color: rgba(245, 108, 108, 0.2);
+      color: #f78989;
+    }
+    
+    &.status-info {
+      background-color: rgba(144, 147, 153, 0.2);
+      color: #a6a9ad;
     }
   }
 }
 
-// 分页器
-.el-pagination {
-  .el-pagination__jump {
-    color: $text-color-secondary;
-  }
-  
-  .btn-prev,
-  .btn-next {
-    border-radius: $border-radius-base;
-    
-    &:hover {
-      color: $primary-color;
-    }
-  }
-  
-  .el-pager li {
-    border-radius: $border-radius-base;
-    
-    &:hover {
-      color: $primary-color;
-    }
-    
-    &.active {
-      background-color: $primary-color;
-      color: white;
-    }
-  }
-}
+// 🎯 动画样式
+// ==========
 
-// 🎨 页面级样式
-// =============
-
-// 页面头部 - 增强版
-.page-header {
-  margin-bottom: $spacing-xl;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: $spacing-lg;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
-  backdrop-filter: blur(10px);
-  border-radius: $border-radius-large;
-  box-shadow: $box-shadow-base;
-  position: relative;
-  overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    animation: headerShine 3s infinite;
-  }
-  
-  .header-content {
-    flex: 1;
-    
-    h1 {
-      color: $text-color-primary;
-      margin-bottom: $spacing-sm;
-      display: flex;
-      align-items: center;
-      gap: $spacing-sm;
-      
-      .header-icon {
-        &.spinning {
-          animation: spin 2s linear infinite;
-        }
-      }
-      
-      .header-badge {
-        background: linear-gradient(45deg, $primary-color, $success-color);
-        color: white;
-        padding: 2px 8px;
-        border-radius: $border-radius-base;
-        font-size: $font-size-auxiliary;
-        font-weight: normal;
-        animation: pulse 2s infinite;
-      }
-    }
-  }
-  
-  .connection-status {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: $spacing-xs;
-    
-    .status-hint {
-      opacity: 0.7;
-    }
-  }
-}
-
-// 内容区域
-.content-section {
-  margin-bottom: $spacing-xl;
-}
-
-// 空状态样式 - 增强版
-.empty-state {
-  text-align: center;
-  padding: $spacing-xxl $spacing-lg;
-  color: $text-color-secondary;
-  
-  .empty-icon {
-    font-size: 64px;
-    margin-bottom: $spacing-lg;
-    opacity: 0.5;
-    animation: float 3s ease-in-out infinite;
-    
-    .el-icon {
-      font-size: 64px;
-    }
-  }
-  
-  .empty-text {
-    font-size: $font-size-large;
-    font-weight: $font-weight-title;
-    color: $text-color-regular;
-    margin-bottom: $spacing-sm;
-  }
-  
-  .empty-description {
-    margin-bottom: $spacing-lg;
-    color: $text-color-secondary;
-  }
-  
-  .empty-action {
-    margin-top: $spacing-md;
-  }
-}
-
-// 统计卡片样式增强
-.stat-card {
-  .stat-content {
-    display: flex;
-    align-items: center;
-    gap: $spacing-md;
-    
-    .stat-icon {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      
-      .icon-bg {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-        opacity: 0.8;
-        transition: $transition-base;
-      }
-      
-      .el-icon {
-        position: relative;
-        z-index: 1;
-        color: white;
-      }
-      
-      &--primary .icon-bg { background: linear-gradient(135deg, $primary-color, $primary-light); }
-      &--success .icon-bg { background: linear-gradient(135deg, $success-color, $success-light); }
-      &--warning .icon-bg { background: linear-gradient(135deg, $warning-color, $warning-light); }
-      &--info .icon-bg { background: linear-gradient(135deg, $info-color, $info-light); }
-      &--danger .icon-bg { background: linear-gradient(135deg, $danger-color, $danger-light); }
-    }
-    
-    .stat-info {
-      flex: 1;
-      
-      .stat-value {
-        font-size: 32px;
-        font-weight: bold;
-        color: $text-color-primary;
-        margin-bottom: 4px;
-        
-        &.number-counter {
-          animation: numberGrow 0.8s ease-out;
-        }
-      }
-      
-      .stat-label {
-        font-size: $font-size-content;
-        color: $text-color-secondary;
-        font-weight: normal;
-      }
-      
-      .stat-description {
-        font-size: $font-size-auxiliary;
-        color: $text-color-placeholder;
-        margin-top: 4px;
-      }
-    }
-  }
-  
-  .stat-trend {
-    position: absolute;
-    top: $spacing-md;
-    right: $spacing-md;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: $font-size-auxiliary;
-    
-    .trend-up { color: $success-color; }
-    .trend-down { color: $danger-color; }
-  }
-  
-  // 卡片类型边框指示器
-  &.primary::before { 
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 4px;
-    height: 100%;
-    background: linear-gradient(180deg, $primary-color, $primary-light);
-    z-index: 1;
-  }
-  
-  &.success::before { 
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 4px;
-    height: 100%;
-    background: linear-gradient(180deg, $success-color, $success-light);
-    z-index: 1;
-  }
-  
-  &.warning::before { 
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 4px;
-    height: 100%;
-    background: linear-gradient(180deg, $warning-color, $warning-light);
-    z-index: 1;
-  }
-  
-  &.info::before { 
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 4px;
-    height: 100%;
-    background: linear-gradient(180deg, $info-color, $info-light);
-    z-index: 1;
-  }
-}
-
-// 表格增强样式
-.status-table {
-  .crawler-name {
-    display: flex;
-    align-items: center;
-    gap: $spacing-sm;
-    
-    .crawler-avatar {
-      background: linear-gradient(135deg, $primary-color, $primary-light);
-      
-      .el-icon {
-        color: white;
-      }
-    }
-    
-    .name-text {
-      font-weight: $font-weight-normal;
-      color: $text-color-primary;
-    }
-  }
-  
-  .update-time {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    
-    .time-icon {
-      font-size: 14px;
-      opacity: 0.6;
-    }
-  }
-  
-  .action-buttons {
-    display: flex;
-    gap: $spacing-xs;
-    justify-content: flex-start;
-  }
-  
-  .count-tag, .error-tag {
-    font-weight: bold;
-  }
-}
-
-// 实时数据流样式
-.real-time-content {
-  .data-flow {
-    max-height: 300px;
-    overflow-y: auto;
-    
-    .activity-item {
-      display: flex;
-      align-items: center;
-      gap: $spacing-md;
-      padding: $spacing-sm;
-      border-bottom: 1px solid $border-color-lighter;
-      transition: $transition-base;
-      
-      &:hover {
-        background: $bg-color-hover;
-      }
-      
-      .activity-time {
-        min-width: 80px;
-        font-size: $font-size-auxiliary;
-        color: $text-color-secondary;
-      }
-      
-      .activity-content {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        gap: $spacing-sm;
-        
-        .activity-text {
-          font-size: $font-size-content;
-        }
-      }
-    }
-  }
-}
-
-// 性能指标样式
-.performance-metrics {
-  .metric-item {
-    margin-bottom: $spacing-md;
-    
-    .metric-label {
-      font-size: $font-size-content;
-      color: $text-color-secondary;
-      margin-bottom: $spacing-xs;
-    }
-    
-    .metric-value {
-      display: flex;
-      align-items: center;
-      gap: $spacing-sm;
-      
-      .el-progress {
-        flex: 1;
-      }
-      
-      .metric-text {
-        min-width: 40px;
-        font-weight: bold;
-        font-size: $font-size-content;
-      }
-    }
-  }
-}
-
-// 🎭 动画定义
-// ===========
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes headerShine {
-  0% { left: -100%; }
-  100% { left: 100%; }
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-
-@keyframes numberGrow {
-  from {
-    transform: scale(0.8);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-@keyframes fadeInUp {
+// 淡入动画
+@keyframes fadeIn {
   from {
     opacity: 0;
     transform: translateY(20px);
@@ -569,351 +437,71 @@ p {
   }
 }
 
-@keyframes pulse {
-  0%, 100% { 
-    opacity: 1;
-    transform: scale(1);
+// 滑入动画
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
   }
-  50% { 
-    opacity: 0.8;
-    transform: scale(1.05);
+  to {
+    transform: translateX(0);
   }
 }
 
-// 状态运行脉冲动画
-.status-running {
+// 脉冲动画
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+// 动画工具类
+.fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.pulse {
   animation: pulse 2s infinite;
 }
 
-// 渐入动画类
-.fade-in-up {
-  animation: fadeInUp 0.6s ease-out forwards;
-  opacity: 0;
-}
-
-// 🎪 特殊效果类
-// =============
-
-// 数字计数器效果
-.number-counter {
-  animation: numberGrow 0.8s ease-out;
-}
-
-// 图标旋转
-.spinning {
-  animation: spin 2s linear infinite;
-}
-
-// 🎮 响应式设计增强
+// 🎨 响应式隐藏/显示
 // =================
 
-@media (max-width: $breakpoint-md) {
-  .page-header {
-    flex-direction: column;
-    gap: $spacing-md;
-    text-align: center;
-    
-    .connection-status {
-      align-items: center;
-    }
-  }
-  
-  .stat-card .stat-content {
-    flex-direction: column;
-    text-align: center;
-    
-    .stat-icon {
-      margin-bottom: $spacing-sm;
-    }
-  }
-  
-  .real-time-monitor {
-    .el-col:first-child {
-      margin-bottom: $spacing-lg;
-    }
-  }
+@media (max-width: $breakpoint-xs) {
+  .hide-xs { display: none !important; }
 }
 
 @media (max-width: $breakpoint-sm) {
-  .page-header {
-    padding: $spacing-md;
-    
-    h1 {
-      font-size: $font-size-large;
-    }
-  }
-  
-  .status-table {
-    .action-buttons {
-      flex-direction: column;
-      gap: $spacing-xs;
-    }
-  }
+  .hide-sm { display: none !important; }
 }
 
-// 🎨 主题切换支持
-// ===============
-
-// 深色主题变量（预留）
-[data-theme="dark"] {
-  --bg-color: #1a1a1a;
-  --text-color: #e0e0e0;
-  --card-bg: #2d2d2d;
-  --border-color: #404040;
+@media (max-width: $breakpoint-md) {
+  .hide-md { display: none !important; }
 }
 
-// 🔧 调试样式（开发环境）
-// ======================
-
-.debug-border {
-  * {
-    border: 1px solid red !important;
-  }
+@media (max-width: $breakpoint-lg) {
+  .hide-lg { display: none !important; }
 }
 
-.debug-bg {
-  * {
-    background-color: rgba(255, 0, 0, 0.1) !important;
-  }
+@media (min-width: $breakpoint-sm) {
+  .show-sm { display: block !important; }
 }
 
-// 🎯 可见性辅助类
-// ===============
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+@media (min-width: $breakpoint-md) {
+  .show-md { display: block !important; }
 }
 
-.show-on-hover {
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  
-  &:hover,
-  *:hover & {
-    opacity: 1;
-  }
-}
-
-// 🎨 打印样式
-// ===========
-
-@media print {
-  * {
-    color: black !important;
-    background: white !important;
-    box-shadow: none !important;
-  }
-  
-  .no-print {
-    display: none !important;
-  }
-}
-
-// 全局样式 - 其他可选样式导入
-// @use './responsive.scss';
-// @use './data-hierarchy.scss';
-// @use './interaction-feedback.scss';
-
-// 重置样式
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html, body {
-  height: 100%;
-  font-family: $font-family;
-  line-height: 1.6;
-  color: $text-color;
-  background-color: $bg-color;
-}
-
-// 滚动条样式
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
-  
-  &:hover {
-    background: #a8a8a8;
-  }
-}
-
-// 暗色主题滚动条
-.dark {
-  ::-webkit-scrollbar-track {
-    background: #2a2a2a;
-  }
-  
-  ::-webkit-scrollbar-thumb {
-    background: #555;
-    
-    &:hover {
-      background: #666;
-    }
-  }
-}
-
-// 工具类
-.flex {
-  display: flex;
-}
-
-.flex-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.flex-between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.text-center {
-  text-align: center;
-}
-
-.text-right {
-  text-align: right;
-}
-
-.mb-20 {
-  margin-bottom: 20px;
-}
-
-.mt-20 {
-  margin-top: 20px;
-}
-
-.ml-10 {
-  margin-left: 10px;
-}
-
-.mr-10 {
-  margin-right: 10px;
-}
-
-// 卡片样式
-.card {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-  margin-bottom: 20px;
-  
-  .dark & {
-    background: #1a1a1a;
-    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
-  }
-}
-
-// 状态颜色
-.status-running {
-  color: #67c23a;
-}
-
-.status-stopped {
-  color: #909399;
-}
-
-.status-error {
-  color: #f56c6c;
-}
-
-// 响应式布局
-@media (max-width: 768px) {
-  .mobile-hidden {
-    display: none !important;
-  }
-}
-
-// Element Plus 自定义样式
-.el-main {
-  padding: 20px;
-}
-
-.el-aside {
-  .el-menu {
-    border-right: none;
-  }
-}
-
-// 图表容器
-.chart-container {
-  width: 100%;
-  height: 300px;
-  
-  &.small {
-    height: 200px;
-  }
-  
-  &.large {
-    height: 400px;
-  }
-}
-
-// 数据卡片
-.data-card {
-  text-align: center;
-  padding: 24px;
-  
-  .number {
-    font-size: 32px;
-    font-weight: bold;
-    color: $primary-color;
-    display: block;
-    margin-bottom: 8px;
-  }
-  
-  .label {
-    font-size: 14px;
-    color: $text-color-secondary;
-  }
-}
-
-// 加载状态
-.loading-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 200px;
-}
-
-// 空状态
-.empty-wrapper {
-  text-align: center;
-  padding: 40px 20px;
-  color: $text-color-secondary;
-  
-  .empty-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-    opacity: 0.5;
-  }
-  
-  .empty-text {
-    font-size: 14px;
-  }
+@media (min-width: $breakpoint-lg) {
+  .show-lg { display: block !important; }
 }
 
  

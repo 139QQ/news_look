@@ -1,72 +1,92 @@
 // 🎨 UI/UX 设计规范 - 全局样式变量
 // ===================================
 
-// 🌈 主题色系 - 符合设计规范
-$primary-color: #409EFF;
-$success-color: #67C23A;
-$warning-color: #E6A23C;
-$danger-color: #F56C6C;
-$info-color: #909399;
+// 🌈 主题色系 - 与Element Plus保持一致
+$primary-color: #409EFF;    // Element Plus 默认蓝色
+$success-color: #67C23A;    // Element Plus 成功色
+$warning-color: #E6A23C;    // Element Plus 警告色
+$danger-color: #F56C6C;     // Element Plus 错误色
+$info-color: #909399;       // Element Plus 信息色
 
 // 🎯 扩展色彩体系 - 手动计算避免Sass兼容性问题
-$primary-light: #66b3ff;
-$primary-dark: #337ecc;
-$success-light: #85ce61;
-$warning-light: #ebb563;
-$danger-light: #f78989;
-$info-light: #a6a9ad;
+$primary-light: #66b3ff;    // 主色调 - 浅色
+$primary-lighter: #b3d4ff;  // 主色调 - 更浅
+$primary-dark: #337ecc;     // 主色调 - 深色
+$primary-darker: #2b6cb0;   // 主色调 - 更深
 
-// 📝 文本颜色层级
-$text-color: #303133;
-$text-color-primary: #303133;
-$text-color-regular: #606266;
-$text-color-secondary: #909399;
-$text-color-placeholder: #c0c4cc;
+$success-light: #85ce61;    // 成功色 - 浅色
+$success-lighter: #b3e19d;  // 成功色 - 更浅
+$success-dark: #529b2e;     // 成功色 - 深色
 
-// 🎨 背景颜色系统
-$bg-color: #ffffff;
-$bg-color-page: #f2f3f5;
-$bg-color-base: #f5f7fa;
-$bg-color-card: #ffffff;
-$bg-color-hover: #F2F2F2;
-$bg-color-sidebar: #001529;
-$bg-color-empty: #FAFAFA;
+$warning-light: #ebb563;    // 警告色 - 浅色
+$warning-lighter: #f3d19e;  // 警告色 - 更浅
+$warning-dark: #b88230;     // 警告色 - 深色
 
-// 🔲 边框颜色
-$border-color: #dcdfe6;
-$border-color-light: #e4e7ed;
-$border-color-lighter: #ebeef5;
-$border-color-extra-light: #f2f6fc;
-$border-color-dashed: #d9d9d9;
+$danger-light: #f78989;     // 错误色 - 浅色
+$danger-lighter: #fbc4c4;   // 错误色 - 更浅
+$danger-dark: #c45656;      // 错误色 - 深色
+
+$info-light: #a6a9ad;      // 信息色 - 浅色
+$info-lighter: #c8c9cc;     // 信息色 - 更浅
+$info-dark: #73767a;       // 信息色 - 深色
+
+// 📝 文本颜色层级 - 与Element Plus保持一致
+$text-color: #303133;           // 主要文本色
+$text-color-primary: #303133;   // 主要文本色
+$text-color-regular: #606266;   // 常规文本色
+$text-color-secondary: #909399; // 次要文本色
+$text-color-placeholder: #c0c4cc; // 占位文本色
+$text-color-disabled: #c0c4cc;  // 禁用文本色
+
+// 🎨 背景颜色系统 - 优化后的背景色
+$bg-color: #ffffff;           // 主背景色
+$bg-color-page: #f2f3f5;      // 页面背景色
+$bg-color-base: #f5f7fa;      // 基础背景色
+$bg-color-card: #ffffff;      // 卡片背景色
+$bg-color-hover: #f5f7fa;     // 悬停背景色
+$bg-color-sidebar: #001529;   // 侧边栏背景色
+$bg-color-empty: #fafafa;     // 空状态背景色
+$bg-color-overlay: rgba(0, 0, 0, 0.5); // 遮罩背景色
+
+// 🔲 边框颜色系统 - 与Element Plus保持一致
+$border-color: #dcdfe6;         // 基础边框色
+$border-color-light: #e4e7ed;   // 浅色边框
+$border-color-lighter: #ebeef5; // 更浅边框
+$border-color-extra-light: #f2f6fc; // 极浅边框
+$border-color-dashed: #d9d9d9;  // 虚线边框
+$border-color-hover: #c6e2ff;   // 悬停边框色
 
 // 📖 字体系统 - 符合设计规范
 $font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
 
-// 字体大小层级
-$font-size-title: 16px;        // 标题
-$font-size-content: 14px;      // 内容
-$font-size-auxiliary: 12px;    // 辅助文本
-$font-size-extra-large: 20px;
-$font-size-large: 18px;
-$font-size-medium: 16px;
-$font-size-base: 14px;
-$font-size-small: 13px;
-$font-size-extra-small: 12px;
+// 字体大小层级 - 统一规范
+$font-size-title: 16px;        // 标题字体大小
+$font-size-content: 14px;      // 内容字体大小
+$font-size-auxiliary: 12px;    // 辅助文本字体大小
+$font-size-extra-large: 20px;  // 超大字体
+$font-size-large: 18px;        // 大字体
+$font-size-medium: 16px;       // 中等字体
+$font-size-base: 14px;         // 基础字体
+$font-size-small: 13px;        // 小字体
+$font-size-extra-small: 12px;  // 超小字体
 
-// 字体权重
-$font-weight-title: bold;
-$font-weight-normal: normal;
-$font-weight-light: 300;
+// 字体权重 - 标准化定义
+$font-weight-title: 600;       // 标题字重 (使用数字更精确)
+$font-weight-medium: 500;      // 中等字重
+$font-weight-normal: 400;      // 正常字重
+$font-weight-light: 300;       // 细字重
 
-// 📏 间距系统 - 8px基准倍数
-$spacing-xs: 4px;    // 0.5倍
-$spacing-sm: 8px;    // 1倍 - 基准
-$spacing-md: 16px;   // 2倍
-$spacing-lg: 24px;   // 3倍
-$spacing-xl: 32px;   // 4倍
-$spacing-xxl: 40px;  // 5倍
+// 📏 间距系统 - 严格遵循8px基准倍数
+$base-spacing: 8px;            // 基准间距
+$spacing-xs: 4px;              // 0.5倍 (4px)
+$spacing-sm: 8px;              // 1倍 (8px) - 基准
+$spacing-md: 16px;             // 2倍 (16px)
+$spacing-lg: 24px;             // 3倍 (24px)
+$spacing-xl: 32px;             // 4倍 (32px)
+$spacing-xxl: 40px;            // 5倍 (40px)
+$spacing-xxxl: 48px;           // 6倍 (48px)
 
-// 兼容性padding/margin
+// 兼容性padding/margin - 基于新的间距系统
 $padding-large: $spacing-lg;
 $padding-medium: $spacing-md;
 $padding-base: $spacing-md;
@@ -79,12 +99,13 @@ $margin-base: $spacing-md;
 $margin-small: $spacing-sm;
 $margin-extra-small: $spacing-xs;
 
-// 🔘 圆角系统
-$border-radius-large: 8px;
-$border-radius-medium: 6px;
-$border-radius-base: 4px;
-$border-radius-small: 2px;
-$border-radius-card: 6px;
+// 🔘 圆角系统 - 统一圆角规范
+$border-radius-large: 8px;     // 大圆角
+$border-radius-medium: 6px;    // 中圆角
+$border-radius-base: 4px;      // 基础圆角
+$border-radius-small: 2px;     // 小圆角
+$border-radius-card: 6px;      // 卡片圆角
+$border-radius-round: 50%;     // 完全圆角
 
 // 🌟 阴影系统 - 符合设计规范
 $box-shadow-light: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
@@ -92,8 +113,9 @@ $box-shadow-base: 0 2px 8px rgba(0, 0, 0, 0.05);
 $box-shadow-dark: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.18);
 $box-shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.08);
 $box-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.05);
+$box-shadow-focus: 0 0 0 2px rgba(64, 158, 255, 0.2);
 
-// 🎭 Z-index层级
+// 🎭 Z-index层级 - 统一层级管理
 $z-index-normal: 1;
 $z-index-dropdown: 10;
 $z-index-sticky: 100;
@@ -106,32 +128,69 @@ $z-index-top: 1000;
 $z-index-popper: 2000;
 
 // ⚡ 动画过渡 - 符合设计规范
-$transition-base: all 0.3s ease;
-$transition-fade: opacity 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-$transition-md-fade: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-$transition-hover: transform 0.3s, box-shadow 0.3s;
-$transition-button: all 0.3s ease;
+$transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-fade: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-md-fade: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-hover: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-button: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
-// 🏗️ 布局系统
-$header-height: 60px;
-$sidebar-width: 240px;           // 符合设计规范
-$sidebar-width-collapsed: 64px;
-$container-max-width: 1200px;
+// 🏗️ 布局系统 - 统一布局规范
+$header-height: 60px;          // 头部高度
+$sidebar-width: 240px;         // 侧边栏宽度
+$sidebar-width-collapsed: 64px; // 折叠侧边栏宽度
+$container-max-width: 1200px;  // 容器最大宽度
+$content-padding: $spacing-lg;  // 内容区域内边距
 
-// 📱 响应式断点
+// 📱 响应式断点 - 标准断点
 $breakpoint-xs: 480px;
 $breakpoint-sm: 768px;
 $breakpoint-md: 992px;
 $breakpoint-lg: 1200px;
 $breakpoint-xl: 1920px;
 
-// 🎪 状态颜色
+// 🎪 状态颜色 - 语义化状态
 $status-running: $success-color;
 $status-stopped: $info-color;
 $status-error: $danger-color;
 $status-warning: $warning-color;
+$status-pending: $warning-color;
+$status-success: $success-color;
 
-// 🎨 特殊效果颜色
-$scrollbar-track: #F5F5F5;
-$scrollbar-thumb: #D9D9D9;
-$scrollbar-thumb-hover: #C0C0C0; 
+// 🎨 特殊效果颜色 - 滚动条等
+$scrollbar-track: #f5f5f5;
+$scrollbar-thumb: #d9d9d9;
+$scrollbar-thumb-hover: #c0c0c0;
+
+// 🔧 Element Plus 组件定制变量
+:root {
+  // 主题色
+  --el-color-primary: #{$primary-color};
+  --el-color-success: #{$success-color};
+  --el-color-warning: #{$warning-color};
+  --el-color-danger: #{$danger-color};
+  --el-color-info: #{$info-color};
+  
+  // 文本色
+  --el-text-color-primary: #{$text-color-primary};
+  --el-text-color-regular: #{$text-color-regular};
+  --el-text-color-secondary: #{$text-color-secondary};
+  --el-text-color-placeholder: #{$text-color-placeholder};
+  
+  // 背景色
+  --el-bg-color: #{$bg-color};
+  --el-bg-color-page: #{$bg-color-page};
+  
+  // 边框
+  --el-border-color: #{$border-color};
+  --el-border-color-light: #{$border-color-light};
+  --el-border-color-lighter: #{$border-color-lighter};
+  
+  // 字体
+  --el-font-family: #{$font-family};
+  --el-font-size-base: #{$font-size-base};
+  
+  // 间距
+  --el-border-radius-base: #{$border-radius-base};
+  --el-box-shadow-base: #{$box-shadow-base};
+} 
