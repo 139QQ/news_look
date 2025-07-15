@@ -5,6 +5,8 @@
 @use './variables.scss' as *;
 @use './design-system.scss';
 @use './element-plus.scss';
+@use './responsive.scss';
+@use './animation.scss';
 @use 'sass:color';
 
 // 🌟 全局重置和基础样式

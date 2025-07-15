@@ -8,60 +8,64 @@
 
 // 🔲 卡片组件统一样式
 .el-card {
-  padding: $spacing-md;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
+  border: none;
+  transition: all 0.3s ease;
   margin-bottom: $spacing-md;
-  border-radius: $border-radius-card;
-  box-shadow: $box-shadow-card;
-  transition: $transition-hover;
   
   &:hover {
-    box-shadow: $box-shadow-hover;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.12);
   }
   
   .el-card__header {
-    padding: $spacing-md;
+    padding: $spacing-lg;
     border-bottom: 1px solid $border-color-lighter;
     
     .card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      
-      .card-title {
-        font-size: $font-size-title;
-        font-weight: $font-weight-title;
-        color: $text-color-primary;
-        margin: 0;
-      }
+      font-size: 16px;
+      font-weight: 600;
+      color: $text-color-primary;
+      margin: 0;
     }
   }
   
   .el-card__body {
-    padding: $spacing-md;
+    padding: $spacing-lg;
   }
 }
 
 // 🔘 按钮组件统一样式
 .el-button {
-  padding: $spacing-sm $spacing-md;
-  border-radius: $border-radius-base;
+  border-radius: 4px;
+  font-size: 14px;
   transition: $transition-button;
   font-weight: $font-weight-normal;
   
   // 主要按钮
   &.el-button--primary {
-    background-color: $primary-color;
-    border-color: $primary-color;
+    padding: 10px 20px;
+    background-color: #409EFF;
+    border-color: #409EFF;
     
     &:hover {
-      background-color: $primary-light;
-      border-color: $primary-light;
+      background-color: #3A8EE6;
+      border-color: #3A8EE6;
     }
     
     &:active {
       background-color: $primary-dark;
       border-color: $primary-dark;
     }
+  }
+  
+  // 默认按钮
+  &.el-button--default {
+    padding: 8px 16px;
   }
   
   // 成功按钮
@@ -88,12 +92,12 @@
   
   // 危险按钮
   &.el-button--danger {
-    background-color: $danger-color;
-    border-color: $danger-color;
+    background-color: #F56C6C;
+    border-color: #F56C6C;
     
     &:hover {
-      background-color: $danger-light;
-      border-color: $danger-light;
+      background-color: #F78989;
+      border-color: #F78989;
     }
   }
   
@@ -117,28 +121,35 @@
     }
   }
   
+  // 小尺寸按钮 (mini)
+  &.el-button--mini {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
   // 小尺寸按钮
   &.el-button--small {
-    padding: $spacing-xs $spacing-sm;
-    font-size: $font-size-small;
+    padding: 6px 12px;
+    font-size: 12px;
   }
   
   // 大尺寸按钮
   &.el-button--large {
-    padding: $spacing-md $spacing-lg;
-    font-size: $font-size-medium;
+    padding: 12px 24px;
+    font-size: 16px;
   }
 }
 
 // 📝 表单组件统一样式
 .el-form {
   .el-form-item {
-    margin-bottom: $spacing-lg;
+    margin-bottom: 20px;
     
     .el-form-item__label {
       font-weight: $font-weight-medium;
       color: $text-color-regular;
       padding-bottom: $spacing-xs;
+      width: 120px;
     }
     
     .el-form-item__content {
@@ -148,13 +159,14 @@
         .el-input__inner,
         .el-textarea__inner,
         .el-select__inner {
-          border-radius: $border-radius-base;
+          border-radius: 4px;
+          height: 36px;
           border: 1px solid $border-color;
           transition: $transition-base;
           
           &:focus {
-            border-color: $primary-color;
-            box-shadow: $box-shadow-focus;
+            border-color: #409EFF;
+            box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
           }
           
           &:hover {
@@ -173,23 +185,31 @@
   
   .el-table__header {
     th {
-      background-color: $bg-color-base;
+      background-color: #F5F7FA;
       color: $text-color-regular;
-      font-weight: $font-weight-medium;
+      font-weight: 600;
       padding: $spacing-md;
-      border-bottom: 1px solid $border-color-light;
+      border-bottom: 1px solid #EBEEF5;
+      height: 48px;
     }
   }
   
   .el-table__body {
     tr {
+      height: 48px;
+      
       &:hover {
         background-color: $bg-color-hover;
+      }
+      
+      &:nth-child(even) {
+        background-color: #FAFAFA;
       }
       
       td {
         padding: $spacing-md;
         border-bottom: 1px solid $border-color-lighter;
+        height: 48px;
       }
     }
   }
@@ -203,18 +223,22 @@
 // 🍞 分页组件统一样式
 .el-pagination {
   padding: $spacing-md 0;
+  background: white;
+  border-radius: 4px;
+  font-size: 14px;
   
   .el-pagination__total,
   .el-pagination__jump {
     color: $text-color-regular;
-    font-size: $font-size-base;
+    font-size: 14px;
   }
   
   .el-pager {
     li {
       margin: 0 $spacing-xs;
-      border-radius: $border-radius-base;
+      border-radius: 4px;
       transition: $transition-base;
+      background: white;
       
       &:hover {
         background-color: $bg-color-hover;
@@ -224,6 +248,16 @@
         background-color: $primary-color;
         color: white;
       }
+    }
+  }
+  
+  .btn-prev,
+  .btn-next {
+    border-radius: 4px;
+    background: white;
+    
+    &:hover {
+      background-color: $bg-color-hover;
     }
   }
 }
@@ -413,6 +447,31 @@
   
   &:hover .el-icon {
     color: $primary-color;
+  }
+}
+
+// 🗂️ 空状态组件统一样式
+.el-empty {
+  text-align: center;
+  padding: $spacing-xxl;
+  
+  .el-empty__image {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto $spacing-md;
+  }
+  
+  .el-empty__description {
+    font-size: $font-size-base;
+    color: $text-color-secondary;
+    margin-bottom: $spacing-md;
+  }
+  
+  .el-empty__bottom {
+    display: flex;
+    justify-content: center;
+    gap: $spacing-md;
+    margin-top: $spacing-md;
   }
 }
 

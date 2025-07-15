@@ -1,157 +1,318 @@
-// 响应式断点和优化样式
-// 断点定义
-$breakpoint-xs: 375px;   // 小屏手机
-$breakpoint-sm: 768px;   // 平板
-$breakpoint-md: 1024px;  // 小桌面
-$breakpoint-lg: 1200px;  // 大桌面
-$breakpoint-xl: 1440px;  // 超大屏
+// 🎨 响应式布局样式
+// =======================
 
-// 容器最大宽度限制
-.container-responsive {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
-  
-  @media (max-width: $breakpoint-sm) {
-    padding: 0 10px;
-  }
-}
+@use './variables.scss' as *;
 
-// 数据表格响应式优化
-.responsive-table {
-  // 移动端优化
-  @media (max-width: $breakpoint-xs) {
-    .el-table {
-      font-size: 12px;
-      
-      .el-table__header th {
-        padding: 8px 4px;
-        font-size: 11px;
-      }
-      
-      .el-table__body td {
-        padding: 12px 4px;
-        min-height: 48px; // 确保触摸友好
-      }
-      
-      // 隐藏次要列
-      .mobile-hidden {
-        display: none;
-      }
-      
-      // 关键列优化
-      .col-title {
-        min-width: 200px;
-        max-width: 250px;
-      }
-      
-      .col-source {
-        min-width: 80px;
-      }
-    }
+// 🔧 响应式工具类
+// ==============
+
+// 移动端优化 (max-width: 768px)
+@media (max-width: 768px) {
+  // 栅格系统调整
+  .el-col {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
   }
   
-  // 平板端优化
-  @media (min-width: $breakpoint-xs) and (max-width: $breakpoint-sm) {
-    .el-table {
-      .el-table__body td {
-        padding: 14px 8px;
-        min-height: 52px;
-      }
-      
-      // 分类列在平板上可见但简化
-      .col-category {
-        .el-tag {
-          font-size: 10px;
-          padding: 2px 6px;
-        }
-      }
-    }
+  // 隐藏水平菜单
+  .el-menu--horizontal {
+    display: none !important;
   }
   
-  // 大屏优化
-  @media (min-width: $breakpoint-lg) {
-    .el-table {
-      .el-table__body td {
-        padding: 16px 12px;
-        min-height: 56px; // 1.5倍行高标准
-      }
-    }
-  }
-}
-
-// 数据卡片响应式
-.stats-cards-responsive {
-  @media (max-width: $breakpoint-xs) {
-    .el-col {
-      margin-bottom: 12px;
+  // 调整头部布局
+  .el-header {
+    padding: 0 16px !important;
+    
+    .header-left {
+      gap: $spacing-sm !important;
     }
     
-    .stat-card {
-      height: 100px; // 移动端紧凑布局
+    .header-right {
+      gap: $spacing-xs !important;
       
-      .stat-content {
-        height: 70px;
-        
-        .stat-icon {
-          margin-right: 8px;
-          
-          .el-icon {
-            font-size: 20px;
-          }
-        }
-        
-        .stat-value {
-          font-size: 18px;
-        }
-        
-        .stat-label {
-          font-size: 12px;
-        }
+      .search-input {
+        display: none !important;
       }
     }
   }
   
-  // 超大屏限制拉伸
-  @media (min-width: $breakpoint-xl) {
-    .el-row {
-      max-width: 1000px;
-      margin: 0 auto;
+  // 调整卡片布局
+  .el-card {
+    margin-bottom: $spacing-md !important;
+    
+    .el-card__header {
+      padding: $spacing-md !important;
+    }
+    
+    .el-card__body {
+      padding: $spacing-md !important;
+    }
+  }
+  
+  // 调整按钮组布局
+  .el-button-group {
+    flex-direction: column !important;
+    gap: $spacing-xs !important;
+  }
+  
+  // 调整表格布局
+  .el-table {
+    .el-table__header th,
+    .el-table__body td {
+      padding: $spacing-sm !important;
+      font-size: $font-size-small !important;
+    }
+  }
+  
+  // 调整分页器
+  .el-pagination {
+    .el-pagination__sizes,
+    .el-pagination__jump {
+      display: none !important;
+    }
+  }
+  
+  // 调整对话框
+  .el-dialog {
+    width: 90% !important;
+    margin: 5vh auto !important;
+    
+    .el-dialog__header {
+      padding: $spacing-md !important;
+    }
+    
+    .el-dialog__body {
+      padding: $spacing-md !important;
     }
   }
 }
 
-// 搜索表单响应式
-.search-form-responsive {
-  @media (max-width: $breakpoint-sm) {
-    .el-form {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      
+// 平板端优化 (769px - 1024px)
+@media (min-width: 769px) and (max-width: 1024px) {
+  // 栅格系统调整为双列布局
+  .el-col {
+    &[class*="span-"] {
+      flex: 0 0 50% !important;
+      max-width: 50% !important;
+    }
+  }
+  
+  // 调整侧边栏宽度
+  .el-aside {
+    width: 200px !important;
+    
+    .el-menu {
+      .el-menu-item {
+        padding: $spacing-sm $spacing-md !important;
+      }
+    }
+  }
+  
+  // 调整主内容区
+  .el-main {
+    padding: $spacing-md !important;
+  }
+  
+  // 调整卡片网格
+  .card-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: $spacing-md !important;
+  }
+}
+
+// 桌面端优化 (min-width: 1025px)
+@media (min-width: 1025px) {
+  // 卡片网格优化
+  .card-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+    gap: $spacing-lg !important;
+  }
+  
+  // 表格优化
+  .el-table {
+    .el-table__header th,
+    .el-table__body td {
+      padding: $spacing-md !important;
+    }
+  }
+  
+  // 表单布局优化
+  .el-form {
+    &.form-horizontal {
       .el-form-item {
-        margin-bottom: 0;
+        display: flex !important;
+        align-items: center !important;
+        margin-bottom: $spacing-lg !important;
         
         .el-form-item__label {
-          width: 80px;
-          text-align: left;
+          flex: 0 0 150px !important;
+          text-align: right !important;
+          margin-right: $spacing-md !important;
         }
         
         .el-form-item__content {
-          flex: 1;
-          margin-left: 0;
-        }
-      }
-      
-      // 按钮组在移动端堆叠
-      .search-buttons {
-        display: flex;
-        gap: 8px;
-        
-        .el-button {
-          flex: 1;
+          flex: 1 !important;
         }
       }
     }
+  }
+}
+
+// 🎯 特定组件响应式优化
+// ====================
+
+// 导航栏响应式
+.layout-header {
+  @media (max-width: 768px) {
+    .breadcrumb {
+      display: none !important;
+    }
+    
+    .header-title {
+      font-size: $font-size-base !important;
+    }
+  }
+}
+
+// 统计卡片响应式
+.stat-card {
+  @media (max-width: 768px) {
+    .stat-content {
+      flex-direction: column !important;
+      text-align: center !important;
+      
+      .stat-icon {
+        margin-bottom: $spacing-sm !important;
+      }
+    }
+  }
+}
+
+// 数据表格响应式
+.data-table {
+  @media (max-width: 768px) {
+    .el-table__header {
+      display: none !important;
+    }
+    
+    .el-table__body {
+      tr {
+        display: block !important;
+        border: 1px solid $border-color-light !important;
+        margin-bottom: $spacing-sm !important;
+        border-radius: $border-radius-base !important;
+        
+        td {
+          display: block !important;
+          text-align: left !important;
+          border-bottom: none !important;
+          padding: $spacing-sm !important;
+          
+          &:before {
+            content: attr(data-label) ": " !important;
+            font-weight: bold !important;
+            color: $text-color-primary !important;
+          }
+        }
+      }
+    }
+  }
+}
+
+// 工具栏响应式
+.toolbar {
+  @media (max-width: 768px) {
+    flex-direction: column !important;
+    gap: $spacing-sm !important;
+    
+    .toolbar-left,
+    .toolbar-right {
+      width: 100% !important;
+      justify-content: center !important;
+    }
+    
+    .el-button {
+      width: 100% !important;
+    }
+  }
+}
+
+// 🔧 响应式工具类
+// ==============
+
+// 显示/隐藏工具类
+.mobile-only {
+  @media (min-width: 769px) {
+    display: none !important;
+  }
+}
+
+.tablet-only {
+  @media (max-width: 768px), (min-width: 1025px) {
+    display: none !important;
+  }
+}
+
+.desktop-only {
+  @media (max-width: 1024px) {
+    display: none !important;
+  }
+}
+
+// 文本对齐响应式
+.text-responsive {
+  @media (max-width: 768px) {
+    text-align: center !important;
+  }
+}
+
+// 边距响应式
+.margin-responsive {
+  @media (max-width: 768px) {
+    margin: $spacing-sm !important;
+  }
+  
+  @media (min-width: 769px) {
+    margin: $spacing-lg !important;
+  }
+}
+
+// 内边距响应式
+.padding-responsive {
+  @media (max-width: 768px) {
+    padding: $spacing-sm !important;
+  }
+  
+  @media (min-width: 769px) {
+    padding: $spacing-lg !important;
+  }
+}
+
+// 字体大小响应式
+.font-responsive {
+  @media (max-width: 768px) {
+    font-size: $font-size-small !important;
+  }
+  
+  @media (min-width: 769px) {
+    font-size: $font-size-base !important;
+  }
+}
+
+// 🎨 高分辨率屏幕优化
+// ==================
+
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 2dppx) {
+  // 高分辨率屏幕下的图标和图片优化
+  .el-icon {
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+  }
+  
+  // 高分辨率下的边框优化
+  .el-card,
+  .el-table,
+  .el-dialog {
+    border-width: 0.5px !important;
   }
 } 
