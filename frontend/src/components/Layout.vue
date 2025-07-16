@@ -242,7 +242,9 @@ onMounted(() => {
     background: linear-gradient(135deg, $bg-color-sidebar 0%, rgba(0, 21, 41, 0.95) 100%);
     
     .logo-icon {
-      font-size: 28px;
+      width: 40px;
+      height: 40px;
+      font-size: 40px;
       color: $primary-color;
       margin-right: $spacing-sm;
       transition: $transition-base;
@@ -254,6 +256,8 @@ onMounted(() => {
     }
     
     .logo-text {
+      font-size: 18px;
+      font-weight: 600;
       transition: opacity $transition-base, transform $transition-base;
       letter-spacing: 1px;
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -296,9 +300,10 @@ onMounted(() => {
       position: relative;
       overflow: hidden;
       font-weight: $font-weight-normal;
+      background-color: $primary-color;
       
       &:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: #66B1FF;
         color: white;
         transform: translateX(4px);
       }

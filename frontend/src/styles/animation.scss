@@ -1,0 +1,547 @@
+// 🎭 动画和交互样式
+// ===================
+
+@use './variables.scss' as *;
+
+// 🎨 基础动画定义
+// ==============
+
+// 淡入淡出动画
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+// 滑动动画
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 缩放动画
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scaleOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+// 脉冲动画
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+// 摇摆动画
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+// 弹跳动画
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
+  }
+}
+
+// 旋转动画
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// 🎯 动画工具类
+// ============
+
+// 基础动画类
+.fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.fade-out {
+  animation: fadeOut 0.5s ease-out;
+}
+
+.slide-in-left {
+  animation: slideInLeft 0.5s ease-out;
+}
+
+.slide-in-right {
+  animation: slideInRight 0.5s ease-out;
+}
+
+.slide-in-up {
+  animation: slideInUp 0.5s ease-out;
+}
+
+.slide-in-down {
+  animation: slideInDown 0.5s ease-out;
+}
+
+.scale-in {
+  animation: scaleIn 0.3s ease-out;
+}
+
+.scale-out {
+  animation: scaleOut 0.3s ease-out;
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+.shake {
+  animation: shake 0.5s;
+}
+
+.bounce {
+  animation: bounce 2s infinite;
+}
+
+.rotate {
+  animation: rotate 2s linear infinite;
+}
+
+// 快速动画
+.fast {
+  animation-duration: 0.3s !important;
+}
+
+// 慢速动画
+.slow {
+  animation-duration: 1s !important;
+}
+
+// 延迟动画
+.delay-1 {
+  animation-delay: 0.1s;
+}
+
+.delay-2 {
+  animation-delay: 0.2s;
+}
+
+.delay-3 {
+  animation-delay: 0.3s;
+}
+
+.delay-4 {
+  animation-delay: 0.4s;
+}
+
+.delay-5 {
+  animation-delay: 0.5s;
+}
+
+// 🎨 悬停效果
+// ==========
+
+// 悬停缩放
+.hover-scale {
+  transition: transform 0.3s ease;
+  
+  &:hover {
+    transform: scale(1.02);
+  }
+}
+
+.hover-scale-large {
+  transition: transform 0.3s ease;
+  
+  &:hover {
+    transform: scale(1.05);
+  }
+}
+
+// 悬停阴影
+.hover-shadow {
+  transition: box-shadow 0.3s ease;
+  
+  &:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.hover-shadow-large {
+  transition: box-shadow 0.3s ease;
+  
+  &:hover {
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+  }
+}
+
+// 悬停上升
+.hover-lift {
+  transition: transform 0.3s ease;
+  
+  &:hover {
+    transform: translateY(-3px);
+  }
+}
+
+.hover-lift-large {
+  transition: transform 0.3s ease;
+  
+  &:hover {
+    transform: translateY(-5px);
+  }
+}
+
+// 悬停发光
+.hover-glow {
+  transition: box-shadow 0.3s ease;
+  
+  &:hover {
+    box-shadow: 0 0 20px rgba(64, 158, 255, 0.3);
+  }
+}
+
+// 悬停倾斜
+.hover-tilt {
+  transition: transform 0.3s ease;
+  
+  &:hover {
+    transform: rotate(1deg);
+  }
+}
+
+// 🎪 页面过渡动画
+// ==============
+
+// 路由过渡
+.page-transition-enter-active,
+.page-transition-leave-active {
+  transition: all 0.3s ease;
+}
+
+.page-transition-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.page-transition-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+// 模态框过渡
+.modal-transition-enter-active,
+.modal-transition-leave-active {
+  transition: all 0.3s ease;
+}
+
+.modal-transition-enter-from,
+.modal-transition-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+// 抽屉过渡
+.drawer-transition-enter-active,
+.drawer-transition-leave-active {
+  transition: all 0.3s ease;
+}
+
+.drawer-transition-enter-from {
+  transform: translateX(-100%);
+}
+
+.drawer-transition-leave-to {
+  transform: translateX(-100%);
+}
+
+// 🎯 特定组件动画
+// ==============
+
+// 卡片进入动画
+.card-enter {
+  animation: slideInUp 0.5s ease-out;
+}
+
+// 按钮点击动画
+.button-click {
+  animation: scaleIn 0.2s ease-out;
+}
+
+// 表格行动画
+.table-row-enter {
+  animation: fadeIn 0.3s ease-out;
+}
+
+// 菜单项动画
+.menu-item-enter {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+// 通知动画
+.notification-enter {
+  animation: slideInRight 0.4s ease-out;
+}
+
+// 标签动画
+.tag-enter {
+  animation: scaleIn 0.3s ease-out;
+}
+
+// 🔄 加载动画
+// ==========
+
+// 旋转加载
+.loading-spin {
+  animation: rotate 1s linear infinite;
+}
+
+// 脉冲加载
+.loading-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+// 弹跳加载
+.loading-bounce {
+  animation: bounce 1.4s infinite;
+}
+
+// 点点加载
+.loading-dots {
+  &::after {
+    content: '';
+    animation: dots 1.5s infinite;
+  }
+}
+
+@keyframes dots {
+  0%, 20% {
+    content: '';
+  }
+  40% {
+    content: '.';
+  }
+  60% {
+    content: '..';
+  }
+  80%, 100% {
+    content: '...';
+  }
+}
+
+// 🎨 状态指示动画
+// ==============
+
+// 成功状态
+.success-indicator {
+  animation: scaleIn 0.5s ease-out, pulse 2s infinite 0.5s;
+  color: $success-color;
+}
+
+// 错误状态
+.error-indicator {
+  animation: shake 0.5s ease-out;
+  color: $danger-color;
+}
+
+// 警告状态
+.warning-indicator {
+  animation: pulse 2s infinite;
+  color: $warning-color;
+}
+
+// 信息状态
+.info-indicator {
+  animation: fadeIn 0.5s ease-out;
+  color: $info-color;
+}
+
+// 🎯 特效增强
+// ==========
+
+// 渐变背景动画
+.gradient-bg {
+  background: linear-gradient(45deg, $primary-color, $primary-light, $success-color);
+  background-size: 300% 300%;
+  animation: gradientShift 3s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+// 闪烁效果
+.blink {
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
+// 打字机效果
+.typewriter {
+  overflow: hidden;
+  border-right: 2px solid $primary-color;
+  white-space: nowrap;
+  margin: 0 auto;
+  animation: typing 2s steps(20, end), blink-caret 0.5s step-end infinite;
+}
+
+@keyframes typing {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blink-caret {
+  from, to {
+    border-color: transparent;
+  }
+  50% {
+    border-color: $primary-color;
+  }
+}
+
+// 🎨 响应式动画
+// ============
+
+// 移动端减少动画
+@media (max-width: 768px) {
+  .hover-scale,
+  .hover-scale-large,
+  .hover-lift,
+  .hover-lift-large,
+  .hover-tilt {
+    transform: none !important;
+  }
+  
+  .hover-shadow,
+  .hover-shadow-large {
+    box-shadow: none !important;
+  }
+  
+  // 减少动画时长
+  .fade-in,
+  .slide-in-left,
+  .slide-in-right,
+  .slide-in-up,
+  .slide-in-down {
+    animation-duration: 0.3s !important;
+  }
+}
+
+// 用户偏好：减少动画
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+} 
