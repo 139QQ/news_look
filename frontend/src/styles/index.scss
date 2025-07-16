@@ -135,7 +135,7 @@ a {
     
     &:last-child {
       margin-bottom: 0;
-    }
+}
   }
 }
 
@@ -405,7 +405,7 @@ html {
     &.status-success {
       background-color: rgba(103, 194, 58, 0.2);
       color: #85ce61;
-    }
+  }
     
     &.status-warning {
       background-color: rgba(230, 162, 60, 0.2);
@@ -415,8 +415,8 @@ html {
     &.status-error {
       background-color: rgba(245, 108, 108, 0.2);
       color: #f78989;
-    }
-    
+      }
+      
     &.status-info {
       background-color: rgba(144, 147, 153, 0.2);
       color: #a6a9ad;
@@ -454,7 +454,7 @@ html {
   0% {
     transform: scale(1);
   }
-  50% {
+  50% { 
     transform: scale(1.05);
   }
   100% {
