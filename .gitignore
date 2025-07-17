@@ -114,6 +114,7 @@ tokens.txt
 # 前端相关
 # ==========================================
 # Node.js
+node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/build/
